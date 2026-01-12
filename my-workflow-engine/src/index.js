@@ -1,0 +1,152 @@
+import { WorkflowEntrypoint } from "cloudflare:workers";
+
+export class JobWorkflow extends WorkflowEntrypoint {
+  async run(event, step) {
+    console.log("WORKFLOW STARTED");
+
+    while (true) {
+      const job = await step.do("fetch-next-job", async () => {
+        return await this.env.DB.prepare(`
+          SELECT id, worker, input FROM PROC_01_Job_queue
+          WHERE status = 'pending' ORDER BY id DESC LIMIT 1
+        `).first();
+      });
+
+      if (!job) {
+        console.log("QUEUE EMPTY - FINISHING");
+        break; 
+      }
+
+      await step.do(`execute-${job.worker}-${job.id}`, async () => {
+        console.log(`PROCESSING: ${job.worker} (ID: ${job.id})`);
+
+        // 1. Lock Job
+        await this.env.DB.prepare("UPDATE PROC_01_Job_queue SET status='running', last_update=datetime('now') WHERE id=?")
+          .bind(job.id)
+          .run();
+
+        try {
+          let res;
+          const body = job.input || "{}";
+
+          // 2. Hardcoded Routing Logic
+          switch (job.worker) {
+            // --- BETA PROCESSORS ---
+            case "beta-macro-processor":
+              res = await this.env.beta_macro_processor.fetch("https://internal/process-macro", { method: "POST", body });
+              break;
+            case "beta-sentiment-processor":
+              res = await this.env.beta_sentiment_processor.fetch("https://internal/process-sentiment", { method: "POST", body });
+              break;
+            case "beta-news-processor":
+              res = await this.env.beta_news_processor.fetch("https://internal/process-news", { method: "POST", body });
+              break;
+            case "beta-gen-processor":
+              res = await this.env.beta_gen_processor.fetch("https://internal/process-gen", { method: "POST", body });
+              break;
+            case "beta-trend-processor":
+              res = await this.env.beta_trend_processor.fetch("https://internal/process-trend", { method: "POST", body });
+              break;
+
+            // --- BETA ORCHESTRATORS ---
+            case "beta-gen-orchestrator":
+              res = await this.env.BETA_GEN_ORCHESTRATOR.fetch("https://internal/process-gen-orchestrator", { method: "POST", body });
+              break;
+            case "beta-trend-orchestrator":
+              res = await this.env.BETA_TREND_ORCHESTRATOR.fetch("https://internal/process-trend-orchestrator", { method: "POST", body });
+              break;
+
+            // --- ALPHA ORCHESTRATORS ---
+            case "report-orchestrator":
+              res = await this.env.REPORT_ORCHESTRATOR.fetch("https://internal/process-report", { method: "POST", body });
+              break;
+            case "news-orchestrator":
+              res = await this.env.NEWS_ORCHESTRATOR.fetch("https://internal/process-daily-news", { method: "POST", body });
+              break;
+            case "trend-orchestrator":
+              res = await this.env.TREND_ORCHESTRATOR.fetch("https://internal/process-trend", { method: "POST", body });
+              break;
+
+            // --- SUMMARIZERS & BUILDERS ---
+            case "form4-summarizer":
+              res = await this.env.form4_summarizer.fetch("https://internal/summarize-form4", { method: "POST", body });
+              break;
+            case "8k-summarizer":
+              res = await this.env.eightk_summarizer.fetch("https://internal/summarize-8k", { method: "POST", body });
+              break;
+            case "qk-cluster-summarizer":
+              res = await this.env.qk_cluster_summarizer.fetch("https://internal/summarize-cluster", { method: "POST", body });
+              break;
+            case "qk-structure-builder":
+              res = await this.env.qk_structure_builder.fetch("https://internal/build-structure", { method: "POST", body });
+              break;
+            case "qk-report-summarizer":
+              res = await this.env.qk_report_summarizer.fetch("https://internal/summarize-report", { method: "POST", body });
+              break;
+            case "news-summarizer":
+              res = await this.env.news_summarizer.fetch("https://internal/daily-news", { method: "POST", body });
+              break;
+            case "trend-builder":
+              res = await this.env.trend_builder.fetch("https://internal/build-trend", { method: "POST", body });
+              break;
+
+            default:
+              throw new Error(`Unknown worker: ${job.worker}`);
+          }
+
+          if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`Worker ${job.worker} failed (${res.status}): ${errText}`);
+          }
+
+          // 3. Mark Done
+          await this.env.DB.prepare("UPDATE PROC_01_Job_queue SET status='done', last_update=datetime('now') WHERE id=?")
+            .bind(job.id)
+            .run();
+
+          console.log(`DONE: ${job.worker}`);
+
+        } catch (err) {
+          console.error(`FAILED: ${job.worker}`, err.message);
+          await this.env.DB.prepare("UPDATE PROC_01_Job_queue SET status='failed', last_update=datetime('now') WHERE id=?")
+            .bind(job.id)
+            .run();
+          throw err; // Rethrow to let Workflow handle retries
+        }
+      });
+    }
+  }
+}
+
+export default {
+  async fetch(req, this_env) {
+    const url = new URL(req.url);
+    if (url.pathname !== "/run") return new Response("Not found", { status: 404 });
+
+    let body = {};
+    try { body = await req.json(); } catch {}
+    const { action } = body;
+
+    // --- EXTERNAL TRIGGER LOGIC ---
+    if (action === "report") {
+      await this_env.REPORT_ORCHESTRATOR.fetch("https://internal/process-report", { method: "POST", body: JSON.stringify(body) });
+    }
+    if (action === "daily_news") {
+      await this_env.NEWS_ORCHESTRATOR.fetch("https://internal/process-daily-news", { method: "POST", body: JSON.stringify(body) });
+    }
+    if (action === "trend") {
+      await this_env.TREND_ORCHESTRATOR.fetch("https://internal/process-trend", { method: "POST", body: JSON.stringify(body) });
+    }
+    if (action === "gen") {
+      await this_env.BETA_GEN_ORCHESTRATOR.fetch("https://internal/process-gen-orchestrator", { method: "POST", body: "{}" });
+    }
+    if (action === "trend_beta") {
+      await this_env.BETA_TREND_ORCHESTRATOR.fetch("https://internal/process-trend-orchestrator", { method: "POST", body: "{}" });
+    }
+
+    const instanceId = `run-${Date.now()}`;
+    await this_env.WORKFLOW.create({ id: instanceId });
+
+    return Response.json({ ok: true, workflowId: instanceId });
+  }
+};

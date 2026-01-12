@@ -1,0 +1,19 @@
+{
+  "Sentiment": [
+    {
+      "heading": "Put/Call Ratios (CBOE)",
+      "date": "2025-11-28",
+      "summary": "On November 28, 2025, the total put/call ratio stood at 0.7, suggesting a generally risk-on sentiment. However, index-related ratios such as the index put/call ratio (1.06) and SPX/SPXW (1.01) were near or above 1.0, indicating cautiousness or increased hedging in broader market indices. Elevated ratios in some regional indices, notably MXEF (11.78) and MXEA (2.4), reflect heightened caution or fear in those markets. The high put/call ratio on the VIX (1.47) also signals increased demand for options protection amid volatility concerns. Overall, the sentiment is mixed, with a dominance of risk-on behavior tempered by pockets of increased caution."
+    },
+    {
+      "heading": "AAII Sentiment Survey",
+      "date": "2025-11-19",
+      "summary": "As of November 19, 2025, the AAII Sentiment Survey shows a bearish sentiment of 43.6%, with bullish sentiment at 32.6% and neutral at 23.9%. Compared to previous weeks, bearish sentiment has decreased from 49.1% on November 12 to 43.6%, while bullish sentiment has increased slightly from 31.6% to 32.6%. This shift indicates a modest reduction in investor fear and a slight move toward optimism, suggesting a cautiously less risk-off sentiment."
+    },
+    {
+      "heading": "COT Futures (ES/NQ)",
+      "date": "2025-11-29",
+      "summary": "As of November 29, 2025, COT futures data for ES and NQ show significant net short positions among both asset managers and leveraged funds, with asset managers holding -19,472 contracts in ES and -108,762 in NQ, while leveraged funds hold -4,684 in ES and -49,812 in NQ. These large net short positions indicate a predominantly risk-off sentiment and heightened caution among major market participants."
+    }
+  ]
+}

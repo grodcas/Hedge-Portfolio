@@ -1,0 +1,31 @@
+Almost every corner of the power sector has rallied this year. Can that winning streak continue?
+
+The list of power-sector winners is long. It ranges from the greenest to the dirtiest, from established technologies to speculative ones, and even includes companies that play tangential roles in the sector.
+
+The underlying theme is scarcity: In a sector used to moving slowly to match flat demand, supply isn’t able to keep up with the growing and urgent power needs of artificial intelligence. In the earlier days of the AI rally, investors piled into the stocks of nuclear and natural-gas power plant owners such as Constellation Energy CEG -0.09%decrease; red down pointing triangle and Vistra VST 0.13%increase; green up pointing triangle. Since then, the rally has spread to almost every corner of the electricity universe.
+
+Take renewable-energy stocks, which started the year weak as the sector’s subsidies landed on the chopping block as part of the One Big Beautiful Bill Act. Once the extent of cuts to renewable tax credits and the rules around qualifying for them became clear this summer, the sector started recovering. Then there was a “catch-up trade” from investors focused on AI’s growing power demands, according to Mark Strouse, equity analyst at JPMorgan.
+
+The Invesco WilderHill Clean Energy ETF and the Invesco Solar ETF are up around 60% and 50% year to date, respectively. It isn’t just solar and wind. The geothermal-energy company Ormat Technologies ORA -1.28%decrease; red down pointing triangle is up around 65% this year. The company has said it is in talks with data-center customers to sign power-purchase agreements at some of its existing geothermal facilities at higher prices once contracts expire.
+
+A range of nuclear-energy stocks have gained, too, buoyed in part by the Trump administration’s executive orders aimed at speeding up nuclear-energy adoption. The Canadian uranium miner Cameco CCO -0.35%decrease; red down pointing triangle is up around 80%, while Constellation Energy, a nuclear power plant owner, has gained about 60%. Even some speculative small modular-reactor stocks have been caught in the wave, with Oklo more than tripling in value this year.
+
+Equipment manufacturers have also done well. Shares of the natural gas turbine manufacturer GE Vernova GEV -0.02%decrease; red down pointing triangle have doubled. The long backlog on those turbines has helped lift demand for smaller, pricier types of power equipment that are more readily available. The construction-equipment maker Caterpillar CAT -0.64%decrease; red down pointing triangle and the car-engine manufacturer Cummins CMI -0.62%decrease; red down pointing triangle, both of which produce smaller turbines, are up around 60% and 50%, respectively. Shares of the fuel-cell company Bloom Energy BE -1.67%decrease; red down pointing triangle have quadrupled.
+
+Even coal has had a good year, with Peabody Energy BTU 0.30%increase; green up pointing triangle up around 50%. The Energy Information Administration estimates that U.S. coal consumption this year will be up 9% compared with 2024 on higher electricity demand.
+
+Can all of these companies keep rallying? Most pockets of energy are already pricing in a hefty dose of optimism, which means it might take a lot of good AI news to take those stocks up further, and not much bad news to knock them down.
+
+If investors’ focus this year was on simply getting exposure to AI, next year they will start looking more closely at each company’s execution, Strouse said. “2025 being still early in the cycle,” exposure to AI was enough, he said. “In 2026, we’ll need to see” actual deal announcements and backlogs being built, he said.
+
+Companies with the most tangible ties to AI energy demand are already trading at loftier multiples than tech giants. Shares of Constellation Energy, GE Vernova, and Cameco are all trading at over 30 times forward earnings. The fuel-cell maker Bloom Energy is among the priciest energy stocks, at 90 times forward earnings. Turbine manufacturers riding the electricity wave look rich too. Caterpillar and Cummins are trading at 50% and 44% above historical multiples.
+
+Most vulnerable to a correction are companies with zero or minimal revenue. These include small modular-reactor startups such as Oklo and NuScale Power. It also includes Fermi FRMI -0.52%decrease; red down pointing triangle, which has plans to build a gigantic nuclear-plus-natural-gas power complex for data centers. The company had a significant drop this month after it said a potential tenant has backed out of an agreement to provide $150 million in construction funding.
+
+The one pocket that isn’t pricing in a lot of growth is renewable energy. Even though some clean-energy stocks rallied this year, multiples haven’t expanded, implying that earnings expectations aren’t moving up. As a multiple of forward earnings, shares of NextEra Energy NEE 0.21%increase; green up pointing triangle, a top renewable-energy player, have stayed roughly flat compared with the beginning of the year at around 20 times. The U.S. solar manufacturer First Solar’s multiple has expanded this year to 12 times but remains cheap relative to its historical average.
+
+While scarcity has been a tailwind to energy stocks this year, it also has the potential to become a headwind. Engineering, procurement and construction contractors, for example, are in short supply because they are taking up data-center and natural-gas-fired power projects, pulling away skilled labor from solar projects, said Joseph Shangraw, research analyst at Wood Mackenzie. Physical constraints like this could lead to winners and losers.
+
+With much of the sector already pricing in much upside, it looks as though it will become harder for energy-exposed stocks to keep collecting participation trophies next year.
+
+Write to Jinjoo Lee at jinjoo.lee@wsj.com

@@ -1,0 +1,37 @@
+Andersen Group ANDG -2.21%decrease; red down pointing triangle is a publicly held company now, two decades after the criminal conviction of its namesake accounting firm, Arthur Andersen, was overturned on appeal. Anyone thinking of buying the stock should be sure to read the fine print.
+
+Longtime investors are familiar with the adage that they shouldn’t own anything they don’t understand. That is especially apropos for Andersen, which priced its initial public offering on Dec. 16.
+
+The professional-services firm, which specializes in tax and accounting services, has a complex corporate structure that gives priority to pre-IPO insiders over public shareholders. It has disclosed having weak internal accounting controls, which is no small irony. And the business model, which relies primarily on hourly billing, could be vulnerable to disruption by artificial intelligence.
+
+Investors aren’t bothered for now. The stock is trading at about $25, up from its $16 IPO price, giving the company a $2.8 billion market value, or about 3.5 times revenue for the previous four quarters.
+
+The IPO marks a triumph for the former Arthur Andersen partners who founded Andersen Group in 2002 after the longtime auditor for Enron and WorldCom collapsed. The Supreme Court in 2005 overturned Arthur Andersen’s obstruction-of-justice conviction related to its work for Enron, the failed energy trader. Nine years later, the new firm acquired the rights to the Andersen trademarks and rebranded itself; the firm doesn’t provide audit services.
+
+Andersen Group is a holding company with just one significant asset: an 11% stake in a partnership called AT Umbrella, which owns Andersen Tax and other operating subsidiaries. Insiders own the other 89% through a holding company called Andersen Aggregator and have 99% of the voting rights in Andersen Group, the public company.
+
+The IPO, which raised about $188 million in net proceeds, was conducted through what is called an Up-C structure, short for “umbrella partnership C corporation.” While such structures have become increasingly common at public companies, they are far from the norm. The structure is designed to steer tax benefits and associated cash flow mainly to the existing insiders.
+
+When insiders exchange their partnership units for shares in the public company, it creates large tax deductions for Andersen Group, or a “step up” in basis. But instead of keeping them all, Andersen Group will pay 85% of the related cash savings to insiders, under a “tax receivable agreement” with Andersen Aggregator. The insiders’ claim on future cash flows under that agreement could be as much as $486 million. In addition, AT Umbrella, which owns the operating subsidiaries, issued $350 million of promissory notes to the same insiders concurrent with the IPO, effectively another payout to them.
+
+In short, Andersen Group’s public shareholders are paying for a business where a large portion of future cash flow is earmarked to pay founders, including helping them pay their tax bills, instead of going to things like dividends or reinvestment. That transfer of wealth is good for the insiders exchanging their partnership units but less so for public shareholders, who have virtually no say in the company’s governance.
+
+There also is a confusing mismatch in Andersen Group’s financial statements. Andersen Group consolidates the operating business, meaning all the assets and liabilities are on its balance sheet, even though Andersen Group owns only 11% of it. Andersen Group does so because it is deemed the “managing member” that controls AT Umbrella.
+
+As a result, Andersen Group’s income statement shows all the revenue and income for the operating business. Someone glancing at it would see $811 million of revenue over the last four quarters.
+
+But only 11% of that amount belongs to the public company. The rest belongs to insiders. Consequently, while the revenue stays on the books, the earnings attributable to insiders are deducted at the bottom of the income statement through a line for “non-controlling interests.”
+
+On a pro forma basis, as if its IPO and reorganization had already been completed, Andersen Group said it had a $267 million net loss for 2024, with $29 million of that attributable to the public company. Without the restructuring and other one-time charges stemming from the IPO and reorganization, Andersen said its operating business had $135 million of net income for the year, with no deductions for non-controlling interests.
+
+The complexity underscores the need for effective internal controls to prevent accounting errors. Andersen Group in its prospectus disclosed material weaknesses in its controls, and said they arose because, as a private company, it lacked “the necessary business processes, systems, personnel, and related internal controls necessary to satisfy the accounting and financial reporting requirements of a public company.” The company said it is working to correct the control weaknesses.
+
+Keep in mind: Andersen’s business includes advising clients on how to design and implement their internal-control systems. The weak controls aren’t a good look, evoking the old proverb about the shoemaker whose children go barefoot.
+
+For investors who can get comfortable with the corporate structure and the numbers, there still is the wild card of AI. Professional-services firms, especially in tax and accounting, are uniquely vulnerable to AI disruption.
+
+Andersen Group says it is investing in AI and using it across its service offerings. But a substantial majority of its revenue is billed hourly. If an AI tool can do a research task in three minutes that previously took an Andersen accountant four hours, it isn’t hard to see how billable hours could fall.
+
+The original Arthur Andersen, who co-founded the accounting firm in 1913, was famous for his advice, “Think straight, talk straight.” That became the firm’s motto. The new Andersen Group features an Up-C structure, a tax receivable agreement and large non-controlling interests. It will be a challenge for investors just to see straight.
+
+Write to Jonathan Weil at jonathan.weil@wsj.com

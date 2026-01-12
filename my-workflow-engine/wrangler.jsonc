@@ -1,0 +1,47 @@
+{
+  "name": "job-engine-workflow",
+  "main": "src/index.js",
+  "compatibility_date": "2025-01-10",
+  "workflows": [
+    {
+      "name": "job-engine-workflow",
+      "binding": "WORKFLOW",
+      "class_name": "JobWorkflow"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "portfolio-db",
+      "database_id": "e306b0a8-7d5e-4032-b46e-9b50fc6c4f99" 
+    }
+  ],
+  "services": [
+    // BETA ORCHESTRATORS
+    { "binding": "BETA_GEN_ORCHESTRATOR", "service": "gen-orchestrator" },
+    { "binding": "BETA_TREND_ORCHESTRATOR", "service": "beta-trend-orchestrator" },
+    
+    // PROCESSORS
+    { "binding": "beta_gen_processor", "service": "gen-builder" },
+    { "binding": "beta_macro_processor", "service": "macro-summarizer" },
+    { "binding": "beta_news_processor", "service": "macro-news-summarizer" },
+    { "binding": "beta_sentiment_processor", "service": "sentiment-summarizer" },
+    { "binding": "beta_trend_processor", "service": "beta-trend-builder" },
+    
+    // SUMMARIZERS
+    { "binding": "eightk_summarizer", "service": "8k-summarizer" },
+    { "binding": "form4_summarizer", "service": "form4-summarizer" },
+    { "binding": "news_summarizer", "service": "news-summarizer" },
+    
+    // QK MODULES
+    { "binding": "qk_cluster_summarizer", "service": "qk-summarizer" },
+    { "binding": "qk_report_summarizer", "service": "qk-report-summarizer" },
+    { "binding": "qk_structure_builder", "service": "qk-structure-builder" },
+    
+    // MAIN ORCHESTRATORS
+    { "binding": "NEWS_ORCHESTRATOR", "service": "news-orchestrator" },
+    { "binding": "REPORT_ORCHESTRATOR", "service": "report-orchestrator" },
+    { "binding": "TREND_ORCHESTRATOR", "service": "trend-orchestrator" },
+    { "binding": "trend_builder", "service": "trend-builder" }
+  ]
+}

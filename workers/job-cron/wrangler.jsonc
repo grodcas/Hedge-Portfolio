@@ -1,0 +1,133 @@
+{
+  "name": "job-cron",
+  "main": "src/worker.js",
+  "workers_dev": true,
+  "preview_urls": false,
+  "compatibility_date": "2026-01-08",
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": false,
+      "persist": true,
+      "head_sampling_rate": 1
+    }
+  },
+  "services": [
+    {
+      "binding": "beta-gen-orchestrator",
+      "service": "gen-orchestrator",
+      "environment": "production"
+    },
+    {
+      "binding": "BETA_GEN_ORCHESTRATOR",
+      "service": "gen-orchestrator",
+      "environment": "production"
+    },
+    {
+      "binding": "beta_gen_processor",
+      "service": "gen-builder",
+      "environment": "production"
+    },
+    {
+      "binding": "beta_macro_processor",
+      "service": "macro-summarizer",
+      "environment": "production"
+    },
+    {
+      "binding": "beta_news_processor",
+      "service": "macro-news-summarizer",
+      "environment": "production"
+    },
+    {
+      "binding": "beta_sentiment_processor",
+      "service": "sentiment-summarizer",
+      "environment": "production"
+    },
+    {
+      "binding": "beta-trend-orchestrator",
+      "service": "beta-trend-orchestrator",
+      "environment": "production"
+    },
+    {
+      "binding": "BETA_TREND_ORCHESTRATOR",
+      "service": "beta-trend-orchestrator",
+      "environment": "production"
+    },
+    {
+      "binding": "beta_trend_processor",
+      "service": "beta-trend-builder",
+      "environment": "production"
+    },
+    {
+      "binding": "eightk_summarizer",
+      "service": "8k-summarizer",
+      "environment": "production"
+    },
+    {
+      "binding": "form4_summarizer",
+      "service": "form4-summarizer",
+      "environment": "production"
+    },
+    {
+      "binding": "NEWS_ORCHESTRATOR",
+      "service": "news-orchestrator",
+      "environment": "production"
+    },
+    {
+      "binding": "news_summarizer",
+      "service": "news-summarizer",
+      "environment": "production"
+    },
+    {
+      "binding": "qk_cluster_summarizer",
+      "service": "qk-summarizer",
+      "environment": "production"
+    },
+    {
+      "binding": "qk_report_summarizer",
+      "service": "qk-report-summarizer",
+      "environment": "production"
+    },
+    {
+      "binding": "qk_structure_builder",
+      "service": "qk-structure-builder",
+      "environment": "production"
+    },
+    {
+      "binding": "REPORT_ORCHESTRATOR",
+      "service": "report-orchestrator",
+      "environment": "production"
+    },
+    {
+      "binding": "trend_builder",
+      "service": "trend-builder",
+      "environment": "production"
+    },
+    {
+      "binding": "TREND_ORCHESTRATOR",
+      "service": "trend-orchestrator",
+      "environment": "production"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_id": "e306b0a8-7d5e-4032-b46e-9b50fc6c4f99"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "JOB_QUEUE",
+        "queue": "job-queue"
+      }
+    ]
+  }
+}

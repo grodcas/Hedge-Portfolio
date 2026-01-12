@@ -1,0 +1,107 @@
+{
+  "name": "job-engine-workflow",
+  "main": "src/index.js",
+  "workers_dev": true,
+  "preview_urls": true,
+  "compatibility_date": "2025-01-10",
+  "services": [
+    {
+      "binding": "BETA_GEN_ORCHESTRATOR",
+      "service": "gen-orchestrator",
+      "environment": "production"
+    },
+    {
+      "binding": "beta_gen_processor",
+      "service": "gen-builder",
+      "environment": "production"
+    },
+    {
+      "binding": "beta_macro_processor",
+      "service": "macro-summarizer",
+      "environment": "production"
+    },
+    {
+      "binding": "beta_news_processor",
+      "service": "macro-news-summarizer",
+      "environment": "production"
+    },
+    {
+      "binding": "beta_sentiment_processor",
+      "service": "sentiment-summarizer",
+      "environment": "production"
+    },
+    {
+      "binding": "BETA_TREND_ORCHESTRATOR",
+      "service": "beta-trend-orchestrator",
+      "environment": "production"
+    },
+    {
+      "binding": "beta_trend_processor",
+      "service": "beta-trend-builder",
+      "environment": "production"
+    },
+    {
+      "binding": "eightk_summarizer",
+      "service": "8k-summarizer",
+      "environment": "production"
+    },
+    {
+      "binding": "form4_summarizer",
+      "service": "form4-summarizer",
+      "environment": "production"
+    },
+    {
+      "binding": "NEWS_ORCHESTRATOR",
+      "service": "news-orchestrator",
+      "environment": "production"
+    },
+    {
+      "binding": "news_summarizer",
+      "service": "news-summarizer",
+      "environment": "production"
+    },
+    {
+      "binding": "qk_cluster_summarizer",
+      "service": "qk-summarizer",
+      "environment": "production"
+    },
+    {
+      "binding": "qk_report_summarizer",
+      "service": "qk-report-summarizer",
+      "environment": "production"
+    },
+    {
+      "binding": "qk_structure_builder",
+      "service": "qk-structure-builder",
+      "environment": "production"
+    },
+    {
+      "binding": "REPORT_ORCHESTRATOR",
+      "service": "report-orchestrator",
+      "environment": "production"
+    },
+    {
+      "binding": "trend_builder",
+      "service": "trend-builder",
+      "environment": "production"
+    },
+    {
+      "binding": "TREND_ORCHESTRATOR",
+      "service": "trend-orchestrator",
+      "environment": "production"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_id": "e306b0a8-7d5e-4032-b46e-9b50fc6c4f99"
+    }
+  ],
+  "workflows": [
+    {
+      "binding": "WORKFLOW",
+      "name": "job-engine-workflow",
+      "class_name": "JobWorkflow"
+    }
+  ]
+}

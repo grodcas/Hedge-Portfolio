@@ -1,0 +1,9 @@
+# Environment variables
+.env
+.env.*
+
+# Node
+node_modules/
+edgar/edgar_raw_html
+edgar/edgar_parsed_json
+

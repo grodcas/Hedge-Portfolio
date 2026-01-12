@@ -1,0 +1,77 @@
+Wall Street traders gearing up for Nvidia Corp.’s earnings and the jobs report refrained from making riskier bets as both events will be key in shaping the outlook for markets throughout the rest of 2025.
+
+As stocks fell, bonds and the dollar edged up. While the S&P 500 is on track to halt a streak of six months of gains, that could change if investors get reassurance on prospects for artificial intelligence and Federal Reserve interest-rate cuts — the two main pillars of the bull market.
+
+Subscribe to the Stock Movers Podcast on Apple, Spotify and other Podcast Platforms.
+
+“The monthly jobs report would normally dominate this week’s economic calendar, but with the AI trade struggling the past couple of weeks, Nvidia’s earnings are once again looking like a key piece of the market’s momentum puzzle,” said Chris Larkin at E*Trade from Morgan Stanley.
+
+NvidiaBloomberg Terminal’s report on Wednesday will be picked over investors uneasiness over stratospheric AI valuations even though the chipmaker is widely expected to deliver another earnings beat.
+
+A day later, the September jobs report will be released after it was delayed due to the government shutdown. Fed Vice Chair Philip Jefferson said he sees risks to the labor market as skewed to the downside, but warned policymakers need to proceed slowly.
+
+Scrutiny of Walmart Inc. and Target Corp. results will also be heightened as investors seek clues on consumer appetite and the broader economy amid economic data gaps due to the prolonged US government shutdown.
+
+The S&P 500 hovered near 6,700, testing its 50-day moving average. Nvidia slipped as Peter Thiel’s hedge fund Thiel Macro LLC sold off its entire stake in the chipmaker last quarter. Alphabet Inc. climbed as Warren Buffett’s Berkshire Hathaway Inc. built a $4.9 billion stake in the third quarter.
+
+The yield on 10-year Treasuries slid two basis points to 4.13%. The dollar rose against most major currencies.
+
+“Nvidia earnings this Wednesday now stand as the next significant risk for participants to navigate, especially with the market seemingly having taken a much less euphoric view of the whole ‘AI frenzy’ in recent weeks,” said Michael Brown at Pepperstone.
+
+An analysis of 13F filingsBloomberg Terminal from 909 hedge funds found an even split of investor sentiment on Nvidia: 161 increased their investment positions in the giant chipmaker, while 160 decreased them during the three months to September. Opinions remain divided about the prospects for AI companies, which continue to raise and spend funds at elevated rates but have yet to demonstrate monetization models that would pay off the lofty investments.
+
+Tom Essaye points to the rising number of opinions doubting the sustainability of the AI capex boom is leading to a rise in skepticism. Now, investors expect strong Nvidia earnings to quell the recent uptick in AI uncertainty.
+
+“But what if that doesn’t happen? What if Nvidia results aren’t good enough to stop this modest increase in AI skepticism? In that case, can the rest of the market hold up while tech/AI decline?” noted the founder of The Sevens Report. “History implies it’s not likely, but it is possible.”
+
+As important as those results will be, they might not be as important as the question of whether the narrative is changing on the AI phenomenon or not, according to Matt Maley at Miller Tabak.
+
+“I’s becoming harder and harder to justify a bullish argument based on the profitability of AI,” he said.
+
+As traders position for the high-profile results from the last of the Magnificent Seven to report, Nicholas Ware and James Donahue at Janus Henderson noted that Big Tech is making greater use of the debt markets with heavier issuance, shifting from a predominantly cash-funded model to using more leverage as they compete in the AI arms race.
+
+“Credit markets remain open but cautious, demanding premiums even from highly rated technology issuers, potentially stalling the overall grind tighter in credit spreads,” they said. “While the credit fundamentals of Big Tech appear robust, the rise in debt issuance means investors need to consider the interplay between AI investment, corporate issuance and credit spreads.”
+
+“On the macro level, an AI bubble or potential crash from the current lofty valuations of hyperscaler’ is not our base case; we deem either outcome as premature,” said Tracy Chen at Brandywine Global. “However, heavy stock market concentration in ‘Magnificent Seven” companies and lack of market breadth warrant precautions.”
+
+For now, Invesco noted that investors had appeared to be steeling themselves for a market pullback. After a relentless surge from April lows, conversations about a stock bubble and stretched valuations have grown louder.
+
+“That backdrop may have made last week’s pullback feel inevitable,” said Brian Levitt and Benjamin Jones at Invesco. “The unwind was concentrated in megacap growth names, the very stocks that powered the rally. To us, this isn’t about broken business models but rather skepticism toward lofty valuations.”
+
+That’s why they don’t view it as the bursting of a stock bubble, but rather as a healthy reset following a sizeable advance.
+
+“While we should expect an eventual reckoning for blindly throwing trillions of dollars at AI capital expenditures with no clear path to profitability, markets are unlikely to tip over while the Fed is still in easing mode and the economy is still strong,” said Dennis Follmer at Montis Financial.
+
+“While the long-term uptrend is intact, we believe a corrective pullback/consolidation phase is already underway after the market’s six-month winning streak,” said Craig Johnson at Piper Sandler. “The technical evidence shows that breadth has deteriorated, with a rotation beyond just technology.”
+
+Johnson noted that investors must defend support around the 50-day moving average, especially with increased volatility expected around Nvidia’s earnings and delayed employment releases this week. A break of that threshold could invite deeper losses.
+
+Morgan Stanley’s Michael Wilson, who became one of the most bullish voices on US stocks, expects the S&P 500 to trade around 7,800 points by end-2026. That’s among the highest targets from strategists tracked by Bloomberg, and would mean a fourth straight year of double-digit gains for the index.
+
+“We’re in the midst of a new bull market and earnings cycle, especially for many of the lagging areas of the index,” Wilson wrote in a note.
+
+Aaron Nordvik, head of macro equity strategy for UBS’s trading floor, said he sees the S&P 500 breaching the 7,000 milestone before year-end and advised clients to buy any pullback.
+
+From a seasonal standpoint, “buy in November” returns — the subsequent six month period through April — are strong when the “sell in May” period — May to October — defies its bearish reputation like it did this year, according to Nordvik. The S&P 500 was up another 7.3% on average in the last two months of the year when gains from May to October exceeded 10%, going back to 1950. The S&P 500 climbed 17% in that period this year.
+
+“More clarity is coming this week with Nvidia’s earnings and the delayed release of the September jobs report on Thursday, but these events have the potential to spike volatility even further,” Dennis Follmer at Montis Financial.
+
+A surprisingly strong or surprisingly weak September jobs number would likely have a big impact on expectations for a December rate cut since the Fed is so split on next steps, he said.
+
+“While we should expect an eventual reckoning for blindly throwing trillions of dollars at AI capital expenditures with no clear path to profitability, markets are unlikely to tip over while the Fed is still in easing mode and the economy is still strong,” Follmer added.
+
+Interest-rate strategistsBloomberg Terminal at Goldman Sachs Group Inc., Barclays Plc and Bank of America Corp. are among those expecting US economic data delayed by the US government shutdown will revive the case for a Fed interest-rate cut in December.
+
+Though Treasury yields are little changed from late-September levels, “reductions in near-term cut pricing and lower front-end inflation through the course of the shutdown reflect a hawkish shift in the market’s Fed assessment,” a Goldman team including William Marshall and George Cole wrote in a Nov. 14 report.
+
+Investors and policymakers continue to wait on further updates to economic data calendars by official statistics agencies.
+
+Government funding resumed days ago following the longest shutdown in US history, but agencies are running behind on most data collection for key October reports on employment and inflation. The process of catching up will likely stretch well into November on economic information that in any event is growing increasingly stale.
+
+The dearth of official data helps explain recent comments by a number of policymakers that they should hold the line on interest rates when the meet next month. The Fed on Wednesday will issue minutes of its October meeting.
+
+What Bloomberg Strategists say...
+
+“The artificial intelligence narrative is starting to look less convincing for investors who are questioning the big-spending industry’s ambition. Nvidia’s quarterly earnings Wednesday offer the next chance to scrutinize AI and, if recent history is any guide, traders will treat it as an excuse to take profit.” — Sebastian Boyd, Macro Strategist, Markets Live. For the full analysis, click hereBloomberg Terminal.
+
+Some of the main moves in markets:

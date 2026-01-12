@@ -1,0 +1,67 @@
+Michael Burry has seen this movie before.
+
+Take, for instance, the scene in “The Big Short” in which Christian Bale—who is playing Burry—tells investors about his bet against the U.S. housing market. If he is right, the market collapses and the hedge-fund manager will collect a $700 million jackpot on insurancelike contracts. If not, he will be insolvent in a few quarters.
+
+“Watch. It will pay,” the fictional Burry says. “I may have been early, but I’m not wrong.”
+
+“It’s the same thing!” an investor yells back.
+
+Now, Burry (the real one) is trying to convince Wall Street that he can profit off a fall of the artificial-intelligence companies Nvidia NVDA -1.35%decrease; red down pointing triangle and Palantir Technologies PLTR -2.06%decrease; red down pointing triangle. The industry has underpinned the market’s rally to new highs throughout the year, but Burry, who has mostly kept a low profile this past decade, has emerged to pronounce there is a bubble that soon enough will pop.
+
+The problem? He isn’t sure when.
+
+“Michael, if he had one failing in the dot-com cycle, it was being early to the process. The housing bubble? It was being early to the process,” said Michael Green, a former hedge-fund manager who is now chief strategist at the active-ETF manager Simplify Asset Management and who, like Burry, has warned against popular trends—in his case, passive investing. “This is a significant issue, right? How quickly does this end?”
+
+Burry is the kind of outspoken outcast who makes for a good character in a Michael Lewis book: a neurologist by training who made it big in his off-hours betting against Wall Street’s best and brightest.
+
+It isn’t all self-aggrandizement. Warren Buffett once called him a Cassandra—the mythological Trojan priestess whose grim prophecies were ignored. Since his successful bet against the housing market, Burry has amassed a legion of online fans who pore over his posts in forums including Reddit’s Burryology. He has embraced this persona. On X, he is known as Cassandra Unchained, and he posts screenshots of Bale from the movie version of his life to his million-plus followers.
+
+He has credited his unorthodox point of view to the loss of his left eye to a childhood cancer, as well as his adult autism diagnosis. As if to emphasize his status, he is an avowed metalhead, occasionally recommending tunes such as “I Am Hated” by Slipknot.
+
+Burry is feeling the heat now. Last month, he formally closed his hedge fund. In its wake, he launched a newsletter he said would share his latest big thesis with investors, focusing on why the AI stocks would deflate. Within weeks, Cassandra Unchained became one of the top-selling finance newsletters on Substack, with some 171,000 subscribers, though typically only a small percentage pay. Burry asks $379 a year—a relative bargain, when some of his competitors charge upward of $1,000 a year.
+
+Burry’s call tapped into anxiety about how AI-themed companies were investing in each other and the practical limits of data centers. His underlying idea isn’t a jeremiad against AI as a whole, but that the market has detached from reality.
+
+“This bubble looks an awful lot like the dot-com bubble,” he said on a podcast hosted by Lewis, whose book first catapulted Burry to fame. “Which was not really a dot-com bubble. It was a data-transmission bubble.”
+
+Burry didn’t respond to a request for comment, but said on Lewis’s show that he usually declines to talk to reporters.
+
+So far, he has had little noticeable impact on the stocks, though some concerns have increased surrounding AI infrastructure.
+
+Burry is just as likely to be dismissed on social media, where jokers trot out a version of a wisecrack that he predicted 20 of the last two recessions.
+
+Many of Burry’s most-dramatic predictions about market crashes have been wrong during the past 15 years. In a gnomic Jan. 31, 2023, post he urged his followers to “SELL.” While Silicon Valley Bank cratered two months later, the S&P 500 index has risen around 70% since then, and he has said that it was the wrong call.
+
+After publication of this article, Burry took to X to defended his record, including his 2023 call.
+
+“Two banks failed, market fell, I corrected myself at the bottom and suggested it was all clear to buy again,” he posted.
+
+Alex Karp, the chief executive of Palantir PLTR -2.06%decrease; red down pointing triangle, called Burry “bats—crazy” on CNBC.
+
+On Nov. 3, Burry revealed a bet against Nvidia, the chip maker that is now the world’s most-valuable company, and Palantir, a major AI software business. Together, they account for about $5 trillion in market value. Burry’s bets were relatively small, about $10 million in put options, but could amount to more than $1 billion if those stocks drop significantly.
+
+“Palantir and Nvidia are the two luckiest companies on the planet,” he told Lewis.
+
+Burry said his short bets were for different, but related, reasons. Palantir is too dependent on stingy government contracts and overly generous to its executives, he said. He also pointed out fierce competition, particularly from International Business Machines. His bet pays off if Palantir drops in 2027 to $50 a share from the roughly $200 it has been trading around.
+
+Karp said on CNBC that he believes Burry was trying to manipulate the market and rejected Burry’s analysis.
+
+Nvidia’s problem has to do with its customers, like Oracle and Meta Platforms, where Burry has said he sees a web of issues.
+
+Nvidia has been helping fund some of their purchases in deals that, Burry said, resembled the way that companies like Enron financially supported its vendors purchasing its products.
+
+Burry has also focused on the accounting at the companies and Nvidia about the life expectancy of the chips, helping the companies inflate their earnings, he alleged.
+
+If the bubble bursts, a cascade effect of lower stated profits, shrinking share values, and less investment could weigh on Nvidia’s future sales.
+
+Burry’s bet pays off if Nvidia falls about 37%, to $110, by 2027. It is around $190 now.
+
+Nvidia has denied Burry’s analysis. “Nvidia does not resemble historical accounting frauds because Nvidia’s underlying business is economically sound, our reporting is complete and transparent, and we care about our reputation for integrity,” according to a memo that was earlier reported by Barron’s.
+
+While Nvidia and Palantir shares have fallen since Nov. 3, the decline has been choppy.
+
+For now, that might actually be fueling those investors who see no end in sight.
+
+“I would actually argue that awareness of this has encouraged people to defect and basically become more convinced that stocks can go to unlimited levels,” Green, the chief strategist at Simplify Asset Management, said.
+
+Write to Kevin T. Dugan at kevin.dugan@wsj.com

@@ -1,0 +1,1264 @@
+{
+  "AAPL": {
+    "4": {
+      "amount_numeric": 3,
+      "amount_non_numeric": 0,
+      "code_valid": 1,
+      "code_invalid": 2
+    },
+    "10-K": {
+      "item1": {
+        "texts": 44,
+        "titles": 12,
+        "tables": 0,
+        "rows": 0
+      },
+      "item7": {
+        "texts": 79,
+        "titles": 38,
+        "tables": 6,
+        "rows": 34
+      },
+      "item8": {
+        "texts": 237,
+        "titles": 248,
+        "tables": 34,
+        "rows": 376
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 104,
+        "titles": 150,
+        "tables": 17,
+        "rows": 245
+      },
+      "item2": {
+        "texts": 75,
+        "titles": 65,
+        "tables": 7,
+        "rows": 47
+      },
+      "item3": {
+        "texts": 3,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "8-K": {
+      "total_items": 1,
+      "items_with_paragraphs": 0,
+      "items_without_paragraphs": 1
+    }
+  },
+  "AMD": {
+    "4": {
+      "amount_numeric": 9,
+      "amount_non_numeric": 0,
+      "code_valid": 1,
+      "code_invalid": 8
+    },
+    "10-K": {
+      "item1": {
+        "texts": 106,
+        "titles": 45,
+        "tables": 0,
+        "rows": 0
+      },
+      "item7": {
+        "texts": 75,
+        "titles": 44,
+        "tables": 3,
+        "rows": 38
+      },
+      "item8": {
+        "texts": 257,
+        "titles": 458,
+        "tables": 49,
+        "rows": 530
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 153,
+        "titles": 285,
+        "tables": 29,
+        "rows": 359
+      },
+      "item2": {
+        "texts": 98,
+        "titles": 74,
+        "tables": 7,
+        "rows": 79
+      },
+      "item3": {
+        "texts": 2,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "8-K": {
+      "total_items": 3,
+      "items_with_paragraphs": 1,
+      "items_without_paragraphs": 2
+    }
+  },
+  "AMZN": {
+    "4": {
+      "amount_numeric": 12,
+      "amount_non_numeric": 0,
+      "code_valid": 3,
+      "code_invalid": 9
+    },
+    "10-K": {
+      "item1": {
+        "texts": 25,
+        "titles": 23,
+        "tables": 2,
+        "rows": 21
+      },
+      "item7": {
+        "texts": 93,
+        "titles": 53,
+        "tables": 8,
+        "rows": 92
+      },
+      "item8": {
+        "texts": 278,
+        "titles": 345,
+        "tables": 41,
+        "rows": 454
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 150,
+        "titles": 244,
+        "tables": 26,
+        "rows": 301
+      },
+      "item2": {
+        "texts": 75,
+        "titles": 68,
+        "tables": 6,
+        "rows": 72
+      },
+      "item3": {
+        "texts": 9,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "8-K": {
+      "total_items": 6,
+      "items_with_paragraphs": 0,
+      "items_without_paragraphs": 6
+    }
+  },
+  "BAC": {
+    "4": {
+      "amount_numeric": 5,
+      "amount_non_numeric": 0,
+      "code_valid": 1,
+      "code_invalid": 4
+    },
+    "10-K": {
+      "item1": {
+        "texts": 80,
+        "titles": 67,
+        "tables": 7,
+        "rows": 19
+      },
+      "item7": {
+        "texts": 880,
+        "titles": 3876,
+        "tables": 122,
+        "rows": 1228
+      },
+      "item8": {
+        "texts": 1101,
+        "titles": 6856,
+        "tables": 187,
+        "rows": 2236
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 673,
+        "titles": 5998,
+        "tables": 128,
+        "rows": 1804
+      },
+      "item2": {
+        "texts": 701,
+        "titles": 4033,
+        "tables": 102,
+        "rows": 1099
+      },
+      "item3": {
+        "texts": 1,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "8-K": {
+      "total_items": 2,
+      "items_with_paragraphs": 1,
+      "items_without_paragraphs": 1
+    }
+  },
+  "BA": {
+    "4": {
+      "amount_numeric": 3,
+      "amount_non_numeric": 0,
+      "code_valid": 1,
+      "code_invalid": 2
+    },
+    "10-K": {
+      "item1": {
+        "texts": 32,
+        "titles": 16,
+        "tables": 1,
+        "rows": 4
+      },
+      "item7": {
+        "texts": 210,
+        "titles": 371,
+        "tables": 19,
+        "rows": 172
+      },
+      "item8": {
+        "texts": 569,
+        "titles": 1600,
+        "tables": 81,
+        "rows": 844
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 281,
+        "titles": 1291,
+        "tables": 42,
+        "rows": 513
+      },
+      "item2": {
+        "texts": 147,
+        "titles": 475,
+        "tables": 17,
+        "rows": 152
+      },
+      "item3": {
+        "texts": 3,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "8-K": {
+      "total_items": 1,
+      "items_with_paragraphs": 0,
+      "items_without_paragraphs": 1
+    }
+  },
+  "BRK": {
+    "4": {
+      "amount_numeric": 8,
+      "amount_non_numeric": 0,
+      "code_valid": 4,
+      "code_invalid": 4
+    },
+    "10-K": {
+      "item1": {
+        "texts": 203,
+        "titles": 11,
+        "tables": 0,
+        "rows": 0
+      },
+      "item7": {
+        "texts": 263,
+        "titles": 386,
+        "tables": 24,
+        "rows": 230
+      },
+      "item8": {
+        "texts": 733,
+        "titles": 1499,
+        "tables": 81,
+        "rows": 1040
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 448,
+        "titles": 968,
+        "tables": 58,
+        "rows": 729
+      },
+      "item2": {
+        "texts": 155,
+        "titles": 399,
+        "tables": 20,
+        "rows": 200
+      },
+      "item3": {
+        "texts": 1,
+        "titles": 6,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "8-K": {
+      "total_items": 0,
+      "items_with_paragraphs": 0,
+      "items_without_paragraphs": 0
+    }
+  },
+  "CAT": {
+    "4": {
+      "amount_numeric": 3,
+      "amount_non_numeric": 0,
+      "code_valid": 0,
+      "code_invalid": 3
+    },
+    "10-K": {
+      "item1": {
+        "texts": 86,
+        "titles": 44,
+        "tables": 3,
+        "rows": 25
+      },
+      "item7": {
+        "texts": 229,
+        "titles": 1015,
+        "tables": 16,
+        "rows": 278
+      },
+      "item8": {
+        "texts": 472,
+        "titles": 3484,
+        "tables": 87,
+        "rows": 1187
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 281,
+        "titles": 1398,
+        "tables": 51,
+        "rows": 870
+      },
+      "item2": {
+        "texts": 281,
+        "titles": 595,
+        "tables": 26,
+        "rows": 498
+      },
+      "item3": {
+        "texts": 2,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "8-K": {
+      "total_items": 3,
+      "items_with_paragraphs": 1,
+      "items_without_paragraphs": 2
+    }
+  },
+  "CVX": {
+    "4": {
+      "amount_numeric": 6,
+      "amount_non_numeric": 0,
+      "code_valid": 2,
+      "code_invalid": 4
+    },
+    "10-K": {
+      "item1": {
+        "texts": 198,
+        "titles": 481,
+        "tables": 26,
+        "rows": 182
+      },
+      "item7": {
+        "texts": 1,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      },
+      "item8": {
+        "texts": 1,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 180,
+        "titles": 1540,
+        "tables": 28,
+        "rows": 532
+      },
+      "item2": {
+        "texts": 369,
+        "titles": 2285,
+        "tables": 56,
+        "rows": 767
+      },
+      "item3": {
+        "texts": 2,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "8-K": {
+      "total_items": 3,
+      "items_with_paragraphs": 1,
+      "items_without_paragraphs": 2
+    }
+  },
+  "GOOGL": {
+    "4": {
+      "amount_numeric": 10,
+      "amount_non_numeric": 0,
+      "code_valid": 2,
+      "code_invalid": 8
+    },
+    "10-K": {
+      "item1": {
+        "texts": 76,
+        "titles": 53,
+        "tables": 6,
+        "rows": 6
+      },
+      "item7": {
+        "texts": 204,
+        "titles": 208,
+        "tables": 29,
+        "rows": 114
+      },
+      "item8": {
+        "texts": 339,
+        "titles": 717,
+        "tables": 92,
+        "rows": 654
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 209,
+        "titles": 612,
+        "tables": 58,
+        "rows": 578
+      },
+      "item2": {
+        "texts": 209,
+        "titles": 248,
+        "tables": 20,
+        "rows": 151
+      },
+      "item3": {
+        "texts": 1,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "8-K": {
+      "total_items": 0,
+      "items_with_paragraphs": 0,
+      "items_without_paragraphs": 0
+    }
+  },
+  "GS": {
+    "4": {
+      "amount_numeric": 5,
+      "amount_non_numeric": 0,
+      "code_valid": 1,
+      "code_invalid": 4
+    },
+    "10-K": {
+      "item1": {
+        "texts": 416,
+        "titles": 37,
+        "tables": 30,
+        "rows": 30
+      },
+      "item7": {
+        "texts": 1103,
+        "titles": 3136,
+        "tables": 147,
+        "rows": 1236
+      },
+      "item8": {
+        "texts": 1931,
+        "titles": 7274,
+        "tables": 260,
+        "rows": 2899
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 1835,
+        "titles": 7106,
+        "tables": 223,
+        "rows": 2470
+      },
+      "item2": {
+        "texts": 1483,
+        "titles": 3833,
+        "tables": 167,
+        "rows": 1389
+      },
+      "item3": {
+        "texts": 1,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "8-K": {
+      "total_items": 0,
+      "items_with_paragraphs": 0,
+      "items_without_paragraphs": 0
+    }
+  },
+  "HD": {
+    "4": {
+      "amount_numeric": 3,
+      "amount_non_numeric": 0,
+      "code_valid": 1,
+      "code_invalid": 2
+    },
+    "10-K": {
+      "item1": {
+        "texts": 61,
+        "titles": 41,
+        "tables": 10,
+        "rows": 19
+      },
+      "item7": {
+        "texts": 79,
+        "titles": 66,
+        "tables": 12,
+        "rows": 49
+      },
+      "item8": {
+        "texts": 368,
+        "titles": 578,
+        "tables": 93,
+        "rows": 594
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 151,
+        "titles": 308,
+        "tables": 41,
+        "rows": 291
+      },
+      "item2": {
+        "texts": 253,
+        "titles": 415,
+        "tables": 65,
+        "rows": 414
+      },
+      "item3": {
+        "texts": 2,
+        "titles": 0,
+        "tables": 1,
+        "rows": 1
+      }
+    },
+    "8-K": {
+      "total_items": 3,
+      "items_with_paragraphs": 1,
+      "items_without_paragraphs": 2
+    }
+  },
+  "INTC": {
+    "4": {
+      "amount_numeric": 12,
+      "amount_non_numeric": 0,
+      "code_valid": 6,
+      "code_invalid": 6
+    },
+    "10-K": {
+      "item1": {
+        "texts": 0,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      },
+      "item7": {
+        "texts": 0,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      },
+      "item8": {
+        "texts": 0,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 0,
+        "titles": 2,
+        "tables": 0,
+        "rows": 0
+      },
+      "item2": {
+        "texts": 0,
+        "titles": 3,
+        "tables": 0,
+        "rows": 0
+      },
+      "item3": {
+        "texts": 0,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "8-K": {
+      "total_items": 2,
+      "items_with_paragraphs": 1,
+      "items_without_paragraphs": 1
+    }
+  },
+  "JNJ": {
+    "4": {
+      "amount_numeric": 6,
+      "amount_non_numeric": 0,
+      "code_valid": 2,
+      "code_invalid": 4
+    },
+    "10-K": {
+      "item1": {
+        "texts": 45,
+        "titles": 87,
+        "tables": 9,
+        "rows": 11
+      },
+      "item7": {
+        "texts": 148,
+        "titles": 540,
+        "tables": 35,
+        "rows": 203
+      },
+      "item8": {
+        "texts": 511,
+        "titles": 1610,
+        "tables": 145,
+        "rows": 1008
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 0,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      },
+      "item2": {
+        "texts": 0,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      },
+      "item3": {
+        "texts": 0,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "8-K": {
+      "total_items": 3,
+      "items_with_paragraphs": 1,
+      "items_without_paragraphs": 2
+    }
+  },
+  "JPM": {
+    "4": {
+      "amount_numeric": 4,
+      "amount_non_numeric": 0,
+      "code_valid": 1,
+      "code_invalid": 3
+    },
+    "10-K": {
+      "item1": {
+        "texts": 101,
+        "titles": 44,
+        "tables": 11,
+        "rows": 29
+      },
+      "item7": {
+        "texts": 2,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      },
+      "item8": {
+        "texts": 3,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 28,
+        "titles": 3,
+        "tables": 1,
+        "rows": 34
+      },
+      "item2": {
+        "texts": 20,
+        "titles": 9,
+        "tables": 1,
+        "rows": 8
+      },
+      "item3": {
+        "texts": 3,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "8-K": {
+      "total_items": 4,
+      "items_with_paragraphs": 0,
+      "items_without_paragraphs": 4
+    }
+  },
+  "KO": {
+    "4": {
+      "amount_numeric": 7,
+      "amount_non_numeric": 0,
+      "code_valid": 2,
+      "code_invalid": 5
+    },
+    "10-K": {
+      "item1": {
+        "texts": 99,
+        "titles": 14,
+        "tables": 0,
+        "rows": 0
+      },
+      "item7": {
+        "texts": 232,
+        "titles": 246,
+        "tables": 14,
+        "rows": 121
+      },
+      "item8": {
+        "texts": 556,
+        "titles": 1862,
+        "tables": 80,
+        "rows": 893
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 269,
+        "titles": 1048,
+        "tables": 44,
+        "rows": 589
+      },
+      "item2": {
+        "texts": 493,
+        "titles": 1192,
+        "tables": 55,
+        "rows": 710
+      },
+      "item3": {
+        "texts": 2,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "8-K": {
+      "total_items": 1,
+      "items_with_paragraphs": 0,
+      "items_without_paragraphs": 1
+    }
+  },
+  "META": {
+    "4": {
+      "amount_numeric": 3,
+      "amount_non_numeric": 0,
+      "code_valid": 0,
+      "code_invalid": 3
+    },
+    "10-K": {
+      "item1": {
+        "texts": 48,
+        "titles": 16,
+        "tables": 0,
+        "rows": 0
+      },
+      "item7": {
+        "texts": 136,
+        "titles": 169,
+        "tables": 15,
+        "rows": 97
+      },
+      "item8": {
+        "texts": 277,
+        "titles": 393,
+        "tables": 43,
+        "rows": 466
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 164,
+        "titles": 285,
+        "tables": 23,
+        "rows": 302
+      },
+      "item2": {
+        "texts": 273,
+        "titles": 498,
+        "tables": 40,
+        "rows": 416
+      },
+      "item3": {
+        "texts": 3,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    }
+  },
+  "MSFT": {
+    "4": {
+      "amount_numeric": 3,
+      "amount_non_numeric": 0,
+      "code_valid": 1,
+      "code_invalid": 2
+    },
+    "10-K": {
+      "item1": {
+        "texts": 181,
+        "titles": 36,
+        "tables": 1,
+        "rows": 8
+      },
+      "item7": {
+        "texts": 191,
+        "titles": 336,
+        "tables": 12,
+        "rows": 80
+      },
+      "item8": {
+        "texts": 526,
+        "titles": 3437,
+        "tables": 52,
+        "rows": 617
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 331,
+        "titles": 2740,
+        "tables": 37,
+        "rows": 481
+      },
+      "item2": {
+        "texts": 531,
+        "titles": 3222,
+        "tables": 52,
+        "rows": 588
+      },
+      "item3": {
+        "texts": 12,
+        "titles": 44,
+        "tables": 1,
+        "rows": 7
+      }
+    },
+    "8-K": {
+      "total_items": 11,
+      "items_with_paragraphs": 1,
+      "items_without_paragraphs": 10
+    }
+  },
+  "MS": {
+    "4": {
+      "amount_numeric": 3,
+      "amount_non_numeric": 0,
+      "code_valid": 1,
+      "code_invalid": 2
+    },
+    "10-K": {
+      "item1": {
+        "texts": 0,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      },
+      "item7": {
+        "texts": 0,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      },
+      "item8": {
+        "texts": 0,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 0,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      },
+      "item2": {
+        "texts": 0,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      },
+      "item3": {
+        "texts": 0,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "8-K": {
+      "total_items": 1,
+      "items_with_paragraphs": 0,
+      "items_without_paragraphs": 1
+    }
+  },
+  "NFLX": {
+    "4": {
+      "amount_numeric": 3,
+      "amount_non_numeric": 0,
+      "code_valid": 1,
+      "code_invalid": 2
+    },
+    "10-K": {
+      "item1": {
+        "texts": 16,
+        "titles": 14,
+        "tables": 0,
+        "rows": 0
+      },
+      "item7": {
+        "texts": 74,
+        "titles": 202,
+        "tables": 16,
+        "rows": 106
+      },
+      "item8": {
+        "texts": 2,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 7,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      },
+      "item2": {
+        "texts": 272,
+        "titles": 799,
+        "tables": 70,
+        "rows": 626
+      },
+      "item3": {
+        "texts": 11,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "8-K": {
+      "total_items": 1,
+      "items_with_paragraphs": 0,
+      "items_without_paragraphs": 1
+    }
+  },
+  "NVDA": {
+    "4": {
+      "amount_numeric": 3,
+      "amount_non_numeric": 0,
+      "code_valid": 0,
+      "code_invalid": 3
+    },
+    "10-K": {
+      "item1": {
+        "texts": 109,
+        "titles": 28,
+        "tables": 1,
+        "rows": 6
+      },
+      "item7": {
+        "texts": 95,
+        "titles": 87,
+        "tables": 10,
+        "rows": 79
+      },
+      "item8": {
+        "texts": 2,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 153,
+        "titles": 352,
+        "tables": 30,
+        "rows": 379
+      },
+      "item2": {
+        "texts": 269,
+        "titles": 472,
+        "tables": 43,
+        "rows": 476
+      },
+      "item3": {
+        "texts": 6,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "8-K": {
+      "total_items": 1,
+      "items_with_paragraphs": 0,
+      "items_without_paragraphs": 1
+    }
+  },
+  "PG": {
+    "4": {
+      "amount_numeric": 4,
+      "amount_non_numeric": 0,
+      "code_valid": 1,
+      "code_invalid": 3
+    },
+    "10-K": {
+      "item1": {
+        "texts": 24,
+        "titles": 2,
+        "tables": 0,
+        "rows": 0
+      },
+      "item7": {
+        "texts": 246,
+        "titles": 328,
+        "tables": 18,
+        "rows": 122
+      },
+      "item8": {
+        "texts": 473,
+        "titles": 1828,
+        "tables": 55,
+        "rows": 605
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 142,
+        "titles": 680,
+        "tables": 19,
+        "rows": 234
+      },
+      "item2": {
+        "texts": 318,
+        "titles": 887,
+        "tables": 36,
+        "rows": 375
+      },
+      "item3": {
+        "texts": 3,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "8-K": {
+      "total_items": 4,
+      "items_with_paragraphs": 0,
+      "items_without_paragraphs": 4
+    }
+  },
+  "TSLA": {
+    "4": {
+      "amount_numeric": 3,
+      "amount_non_numeric": 0,
+      "code_valid": 0,
+      "code_invalid": 3
+    },
+    "10-K": {
+      "item1": {
+        "texts": 97,
+        "titles": 64,
+        "tables": 0,
+        "rows": 0
+      },
+      "item7": {
+        "texts": 99,
+        "titles": 121,
+        "tables": 10,
+        "rows": 64
+      },
+      "item8": {
+        "texts": 312,
+        "titles": 443,
+        "tables": 49,
+        "rows": 573
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 162,
+        "titles": 423,
+        "tables": 33,
+        "rows": 387
+      },
+      "item2": {
+        "texts": 84,
+        "titles": 136,
+        "tables": 10,
+        "rows": 64
+      },
+      "item3": {
+        "texts": 5,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "8-K": {
+      "total_items": 6,
+      "items_with_paragraphs": 1,
+      "items_without_paragraphs": 5
+    }
+  },
+  "UNH": {
+    "4": {
+      "amount_numeric": 3,
+      "amount_non_numeric": 0,
+      "code_valid": 0,
+      "code_invalid": 3
+    },
+    "10-K": {
+      "item1": {
+        "texts": 93,
+        "titles": 26,
+        "tables": 1,
+        "rows": 8
+      },
+      "item7": {
+        "texts": 94,
+        "titles": 105,
+        "tables": 8,
+        "rows": 122
+      },
+      "item8": {
+        "texts": 213,
+        "titles": 386,
+        "tables": 38,
+        "rows": 587
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 95,
+        "titles": 241,
+        "tables": 19,
+        "rows": 394
+      },
+      "item2": {
+        "texts": 166,
+        "titles": 355,
+        "tables": 28,
+        "rows": 519
+      },
+      "item3": {
+        "texts": 5,
+        "titles": 0,
+        "tables": 1,
+        "rows": 6
+      }
+    },
+    "8-K": {
+      "total_items": 1,
+      "items_with_paragraphs": 1,
+      "items_without_paragraphs": 0
+    }
+  },
+  "XOM": {
+    "4": {
+      "amount_numeric": 3,
+      "amount_non_numeric": 0,
+      "code_valid": 0,
+      "code_invalid": 3
+    },
+    "10-K": {
+      "item1": {
+        "texts": 11,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      },
+      "item7": {
+        "texts": 1,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      },
+      "item8": {
+        "texts": 5,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    },
+    "10-Q": {
+      "item1": {
+        "texts": 138,
+        "titles": 1170,
+        "tables": 36,
+        "rows": 519
+      },
+      "item2": {
+        "texts": 258,
+        "titles": 1879,
+        "tables": 65,
+        "rows": 773
+      },
+      "item3": {
+        "texts": 1,
+        "titles": 0,
+        "tables": 0,
+        "rows": 0
+      }
+    }
+  }
+}
