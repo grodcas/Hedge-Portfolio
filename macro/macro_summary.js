@@ -16,6 +16,9 @@ import {
   getVIXTermStructure
 } from "./macro_scrap.js";
 
+console.log("→ MACRO SUMMARY STARTING");
+
+
 // ---------- paths ----------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -235,3 +238,5 @@ main().catch(err => {
   console.error("Macro pipeline error:", err);
   process.exit(1);
 });
+
+console.log("→ MACRO SUMMARY DONE");

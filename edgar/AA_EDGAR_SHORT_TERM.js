@@ -5,14 +5,21 @@ import "dotenv/config";
 import { fileURLToPath } from "url";
 import { execSync } from "child_process";
 
+console.log("→ AA_EDGAR_SHORT_TERM STARTING");
+
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-const START = "2025-09-28";
-//const END = new Date().toISOString().slice(0,10);
-const END = "2025-10-1";
+const END = new Date().toISOString().slice(0, 10);
+
+const d = new Date();
+d.setDate(d.getDate() - 1);
+const START = d.toISOString().slice(0, 10);
+
+//const END = "2025-10-1";
 const START_DATE = new Date(START);
 const TODAY = new Date(END);
 
@@ -30,6 +37,7 @@ const TICKERS = {
 };
 
 const TARGET_FORMS = new Set(["10-K", "10-Q", "8-K", "4"]);
+//const TARGET_FORMS = new Set(["10-K", "10-Q"]);
 
 const OUT_DIR = path.join(process.cwd(), "edgar_raw_html");
 if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR);
@@ -94,7 +102,9 @@ async function main() {
 
 
 console.log("→ Parsing downloaded HTMLs");
-execSync(`node edgar_dispatch.js ${START} ${END}`, { stdio: "inherit" });
+execSync(`node edgar/edgar_dispatch.js ${START} ${END}`, { stdio: "inherit" });
 
 console.log("→ Clustering parsed JSONs");
-execSync(`node edgar_dispatch_cluster.js ${START} ${END}`, { stdio: "inherit" });
+execSync(`node edgar/edgar_dispatch_cluster.js ${START} ${END}`, { stdio: "inherit" });
+
+console.log("→ AA_EDGAR_SHORT_TERM DONE");

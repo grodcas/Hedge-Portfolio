@@ -159,6 +159,7 @@ export default {
     if (which === "macro") {
       for (const x of body.Macro) {
         const id = await shortHash(`${x.heading}|${x.date}`);
+        const summary_json = x.summary ? JSON.stringify(x.summary) : null;
 
         await db.prepare(`
           INSERT INTO BETA_03_Macro
@@ -176,7 +177,7 @@ export default {
           id,
           x.date,
           x.heading,
-          x.summary ?? null,
+          summary_json ?? null,
           now
         ).run();
       }
@@ -188,8 +189,9 @@ export default {
     if (which === "sentiment") {
       for (const x of body.Sentiment) {
         const id = await shortHash(`${x.heading}|${x.date}`);
+         const summary_json = x.summary ? JSON.stringify(x.summary) : null;
 
-        await db.prepare(`
+        await db.prepare(`  
           INSERT INTO BETA_04_Sentiment
             (id, date, type, summary, last_update, created_at)
           VALUES (?, ?, ?, ?, 1, ?)
@@ -205,7 +207,7 @@ export default {
           id,
           x.date,
           x.heading,
-          x.summary ?? null,
+          summary_json ?? null,
           now
         ).run();
       }
@@ -237,15 +239,18 @@ export default {
       const reportBase = `${ticker}|${reportType}|${reportDate}|${report_seq}`;
       const reportId = await shortHash(reportBase, 8);
 
-      await db.prepare(
-        `INSERT INTO ALPHA_01_Reports
-        (id, date, ticker, type, structure, summary, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+      await db.prepare(`
+        INSERT INTO ALPHA_01_Reports
+          (id, date, ticker, type, structure, summary, last_update, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, 1, ?)
         ON CONFLICT(id) DO UPDATE SET
-          structure = excluded.structure,
-          summary   = excluded.summary,
-          created_at = excluded.created_at`
-      ).bind(
+          last_update = CASE
+            WHEN date(created_at) = date(excluded.created_at)
+              THEN last_update          -- same day → do nothing
+            ELSE last_update + 1        -- new day → increment
+          END,
+          created_at = excluded.created_at
+      `).bind(
         reportId,
         reportDate,
         ticker,
@@ -254,6 +259,7 @@ export default {
         null,
         now
       ).run();
+
 
       // ---------- CLUSTERS (cheap, deterministic IDs) ----------
       for (const c of clusters) {
@@ -268,12 +274,8 @@ export default {
           `INSERT INTO ALPHA_02_Clusters
           (id, report_id, date, item, content, importance, title, summary, created_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(id) DO UPDATE SET
-            importance = excluded.importance,
-            title      = excluded.title,
-            summary    = excluded.summary,
-            created_at = excluded.created_at`
-        ).bind(
+          ON CONFLICT(id) DO NOTHING
+        `).bind(
           clusterId,
           reportId,
           today,

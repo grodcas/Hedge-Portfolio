@@ -5,8 +5,8 @@ import cluster4 from "./cluster_4.js";
 import cluster8K from "./cluster_8K.js";
 import clusterKQ from "./cluster_K_Q.js";
 
-const INPUT_DIR = "edgar_parsed_json";
-const OUTPUT_DIR = "edgar_clustered_json";
+const INPUT_DIR = "edgar/edgar_parsed_json";
+const OUTPUT_DIR = "edgar/edgar_clustered_json";
 
 const [,, START, END] = process.argv;
 const startDate = new Date(START);

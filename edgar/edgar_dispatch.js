@@ -2,8 +2,8 @@ import fs from "fs";
 import path from "path";
 
 // folder with raw HTML
-const RAW_DIR = "edgar_raw_html";
-const OUT_DIR = "edgar_parsed_json";
+const RAW_DIR = "edgar/edgar_raw_html";
+const OUT_DIR = "edgar/edgar_parsed_json";
 
 const [,, START, END] = process.argv;
 const startDate = new Date(START);

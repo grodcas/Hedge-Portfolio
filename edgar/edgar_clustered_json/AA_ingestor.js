@@ -17,6 +17,17 @@ function chunkArray(arr, size) {
   return out;
 }
 
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function yesterdayISO() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+
 const reportCounter = new Map();
 
 
@@ -94,15 +105,63 @@ const MAX_CLUSTERS = 50;
 
 
 async function main() {
+
+  const today = todayISO();
+  const yesterday = yesterdayISO();
+
   const files = fs.readdirSync(DIR)
-  .filter(f => f.endsWith(".json"))
+    .filter(f => f.endsWith(".json"))
+    .map(f => {
+      try {
+        return { file: f, ...parseFilename(f) };
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+
+
+  // ---- 10-Q / 10-K: keep latest 4 per ticker ----
+  const longReports = files
+    .filter(f => (f.reportType === "10-Q" || f.reportType === "10-K")&&
+    (f.reportDate === today || f.reportDate === yesterday));
+
+    /*
+
+    .sort((a, b) => b.reportDate.localeCompare(a.reportDate));
+
+
+    
+  const latestLongReports = new Map(); // ticker → files[]
+
+  for (const f of longReports) {
+    if (!latestLongReports.has(f.ticker)) {
+      latestLongReports.set(f.ticker, []);
+    }
+    const arr = latestLongReports.get(f.ticker);
+    if (arr.length < 4) arr.push(f);
+  }
+    */
+
+  // ---- 8-K / FORM 4: today or yesterday ----
+  const shortReports = files.filter(f =>
+    (f.reportType === "8-K" || f.reportType === "FORM4" || f.reportType === "Form4") &&
+    (f.reportDate === today || f.reportDate === yesterday)
+  );
+
+  const filesToIngest = [
+    //...[...latestLongReports.values()].flat(),
+    ...longReports,
+    ...shortReports
+  ];
+
   //.filter(f => f.includes("_4_")); // ONLY Form 4
 
 
-  console.log(`Found ${files.length} json files in ${DIR}`);
+  console.log(`Found ${filesToIngest.length} json files in ${DIR}`);
 
-  for (const f of files) {
-    const full = path.join(DIR, f);
+  for (const f of filesToIngest) {
+    const full = path.join(DIR, f.file);
     const raw = fs.readFileSync(full, "utf8");
 
     let json;
@@ -113,7 +172,7 @@ async function main() {
       continue;
     }
 
-    const { ticker, reportType, reportDate } = parseFilename(f);
+    const { ticker, reportType, reportDate } = f;
     const key = `${ticker}|${reportType}|${reportDate}`;
     const seq = (reportCounter.get(key) ?? 0) + 1;
     reportCounter.set(key, seq);
@@ -138,7 +197,7 @@ async function main() {
         try {
           await postPayload(payload);
           console.log(
-            `OK: ${f} ${it.itemKey} chunk ${i + 1}/${chunks.length}`
+             `OK: ${f.ticker} ${f.reportType} ${f.reportDate} ${it.itemKey} chunk ${i + 1}/${chunks.length}`
           );
         } catch (e) {
           console.error(

@@ -95,18 +95,3 @@ function cluster8KItems(items, minChars, maxChars) {
   }));
 }
 
-// ===============================
-// EXECUTION
-// ===============================
-const data = JSON.parse(
-  fs.readFileSync("edgar_parsed_json/AMD_8-K_2025-10-06_parsed.json", "utf8")
-);
-
-const out = cluster8K(data, MIN_CHARS, MAX_CHARS);
-
-fs.writeFileSync(
-  "edgar_clustered_json/AMD_8-K_clusters.json",
-  JSON.stringify(out, null, 2)
-);
-
-console.log("DONE: 8-K clustered (titles + paragraphs).");

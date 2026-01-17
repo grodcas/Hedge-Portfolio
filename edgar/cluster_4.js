@@ -89,19 +89,3 @@ function clusterForm4(items, minChars, maxChars) {
     content: clusterString(c)
   }));
 }
-
-// ===============================
-// EXECUTION
-// ===============================
-const data = JSON.parse(
-  fs.readFileSync("edgar_parsed_json/AAPL_4_2025-11-12_parsed.json", "utf8")
-);
-
-const out = clusterForm4(data, MIN_CHARS, MAX_CHARS);
-
-fs.writeFileSync(
-  "edgar_clustered_json/AAPL_FORM4_clusters.json",
-  JSON.stringify(out, null, 2)
-);
-
-console.log("DONE: Form 4 clustered.");

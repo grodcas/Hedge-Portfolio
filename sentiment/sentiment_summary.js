@@ -12,6 +12,8 @@ import qp from "quoted-printable";
 import iconv from "iconv-lite";
 import { load } from "cheerio";
 
+console.log("→ SENTIMENT SUMMARY STARTING");
+
 //-------------------------------------------------------------
 // PATHS
 //-------------------------------------------------------------
@@ -54,7 +56,10 @@ function fixAAIIDate(str) {
 // 1) AAII SENTIMENT SURVEY (RAW)
 //-------------------------------------------------------------
 async function scrapeAAII() {
-  const raw = fs.readFileSync("Sentiment Survey Past Results _ AAII.mhtml", "utf8");
+  const raw = fs.readFileSync(
+    "C:\\AI_agent\\HF\\sentiment\\AAII.mhtml",
+    "utf8"
+  );
 
   const htmlIdx = raw.indexOf("Content-Type: text/html");
   if (htmlIdx === -1) return [];
@@ -184,7 +189,7 @@ async function main() {
   if (Object.keys(putcall).length > 1) {
     out.Sentiment.push({
       heading: "Put/Call Ratios (CBOE)",
-      date: putcall.date,
+      date: today(),
       summary: putcall
     });
   }
@@ -223,3 +228,5 @@ main().catch(err => {
   console.error("Sentiment pipeline error:", err);
   process.exit(1);
 });
+
+console.log("→ SENTIMENT SUMMARY DONE");
