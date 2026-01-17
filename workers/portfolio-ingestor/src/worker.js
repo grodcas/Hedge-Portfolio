@@ -159,15 +159,20 @@ export default {
     if (which === "macro") {
       for (const x of body.Macro) {
         const id = await shortHash(`${x.heading}|${x.date}`);
-    
-        await db.prepare(
-          `INSERT INTO BETA_03_Macro
-           (id, date, type, summary, created_at)
-           VALUES (?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET
-             summary=excluded.summary,
-             created_at=excluded.created_at`
-        ).bind(
+
+        await db.prepare(`
+          INSERT INTO BETA_03_Macro
+            (id, date, type, summary, last_update, created_at)
+          VALUES (?, ?, ?, ?, 1, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            summary = excluded.summary,
+            last_update = CASE
+              WHEN date(created_at) = date(excluded.created_at)
+                THEN last_update
+              ELSE last_update + 1
+            END,
+            created_at = excluded.created_at
+        `).bind(
           id,
           x.date,
           x.heading,
@@ -176,21 +181,27 @@ export default {
         ).run();
       }
     }
+
     
 
     // -------- BETA_04_Sentiment --------
     if (which === "sentiment") {
       for (const x of body.Sentiment) {
         const id = await shortHash(`${x.heading}|${x.date}`);
-    
-        await db.prepare(
-          `INSERT INTO BETA_04_Sentiment
-           (id, date, type, summary, created_at)
-           VALUES (?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET
-             summary=excluded.summary,
-             created_at=excluded.created_at`
-        ).bind(
+
+        await db.prepare(`
+          INSERT INTO BETA_04_Sentiment
+            (id, date, type, summary, last_update, created_at)
+          VALUES (?, ?, ?, ?, 1, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            summary = excluded.summary,
+            last_update = CASE
+              WHEN date(created_at) = date(excluded.created_at)
+                THEN last_update
+              ELSE last_update + 1
+            END,
+            created_at = excluded.created_at
+        `).bind(
           id,
           x.date,
           x.heading,
@@ -199,6 +210,7 @@ export default {
         ).run();
       }
     }
+
     
 
     /* =========================

@@ -7,7 +7,7 @@ const newsJson = JSON.parse(fs.readFileSync("news/news_summary.json", "utf8"));
 const pressJson = JSON.parse(fs.readFileSync("press/AA_press_summary.json", "utf8"));
 const sentimentJson = JSON.parse(fs.readFileSync("sentiment/sentiment_summary.json", "utf8"));
 const whitehouseJson = JSON.parse(fs.readFileSync("whitehouse/whitehouse_summary.json", "utf8"));
-
+/*
 await fetch("https://portfolio-ingestor.gines-rodriguez-castro.workers.dev/ingest/macro", {
   method: "POST",
   body: JSON.stringify(macroJson),
@@ -37,7 +37,7 @@ await fetch("https://portfolio-ingestor.gines-rodriguez-castro.workers.dev/inges
   body: JSON.stringify(whitehouseJson),
   headers: { "Content-Type": "application/json" }
 });
-
+*/
 // ---------- EDGAR LOCAL INGESTION ----------
 
 // MUST be set before import

@@ -1,0 +1,15 @@
+wrangler deploy src/worker.js --config wrangler.jsonc
+
+REQUESTS TO THE WORKFLOW
+
+Alpha Orchestrators
+Trend: curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"trend\", \"ticker\":\"NVDA\"}"
+
+Daily News: curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"daily_news\", \"ticker\":\"NVDA\"}"
+
+Report: curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"report\", \"ticker\":\"NVDA\"}"
+
+Beta Orchestrators
+Trend Beta curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"trend_beta\"}"
+
+Gen (Main Beta Summary) curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"gen\"}"

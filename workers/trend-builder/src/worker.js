@@ -63,28 +63,58 @@ ${blocks}
     `.trim();
 
     // ------------------------------------------------
-    // 4) AI call
+    // 4) AI call (GPT-5.2)
     // ------------------------------------------------
-    const ai = await fetch("https://api.openai.com/v1/chat/completions", {
+    const resp = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${env.OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0,
+        model: "gpt-5.2",
+        input: [
+          {
+            role: "system",
+            content:
+              "Produce a final textual answer. Do not stop at reasoning. Output plain text only."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
       }),
     });
 
-    const j = await ai.json();
-    const trend = j.choices?.[0]?.message?.content?.trim();
-    if (!trend)
-      return new Response("Empty AI output", { status: 502 });
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      console.error(data);
+      throw new Error(data?.error?.message || "OpenAI request failed");
+    }
 
     // ------------------------------------------------
-    // 5) Persist
+    // 5) Extract text (GPT-5.2 / GPT-5-mini safe)
+    // ------------------------------------------------
+    const trend =
+      data.output
+        ?.flatMap(item =>
+          item.type === "message"
+            ? item.content
+                ?.filter(c => c.type === "output_text")
+                ?.map(c => c.text) ?? []
+            : []
+        )
+        .join("")
+        .trim();
+
+    if (!trend) {
+      return new Response("Empty AI output", { status: 502 });
+    }
+
+    // ------------------------------------------------
+    // 6) Persist
     // ------------------------------------------------
     await db.prepare(`
       INSERT INTO ALPHA_04_Trends (id, ticker, summary, created_at)

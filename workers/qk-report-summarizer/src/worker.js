@@ -54,41 +54,91 @@ export default {
 
     const prompt =
       `Write a human-readable SEC report summary based ONLY on the provided bullet facts. ` +
-      `Be extremely concise, factual, and dense. No fluff, no generic statements, no repetition. ` +
-      `Do not invent numbers or context. If something is unclear, state it briefly. ` +
-      `Output MUST be <= 6000 characters. Use short sentences and compact paragraphs. ` +
+      `This summary is used ONLY for downstream trend analysis (not for humans). ` +
+
+      `Be extremely concise, factual, and dense. No fluff, no repetition, no interpretation. ` +
+      `Do NOT invent numbers, context, or causal links. If something is unclear, state it briefly. ` +
+
+      `CRITICAL SELECTION RULES:\n` +
+      `- Include ONLY facts that describe company-level operating performance or its numeric drivers.\n` +
+      `- Prefer facts related to:\n` +
+      `  * revenue or net sales (total, segment, product, geography)\n` +
+      `  * profitability (gross profit, operating income, margins)\n` +
+      `  * aggregated costs that materially affect margins\n` +
+      `  * demand, volume, users, backlog (numeric only)\n` +
+      `  * management-quantified drivers (FX, pricing, mix, inflation)\n` +
+      `  * capital or structural changes with numeric impact\n` +
+      `- Exclude numerically precise but economically trivial items.\n` +
+      `- Omission is always preferable to weak relevance.\n` +
+
+      `CONSTRAINTS:\n` +
+      `- Do NOT summarize or merge facts.\n` +
+      `- Do NOT generalize or normalize metrics.\n` +
+      `- Preserve metric identity, scope, period, and comparison exactly as stated.\n` +
+
+      `FORMAT:\n` +
+      `- Compact paragraphs or short sentences.\n` +
+      `- No headings, no bullet symbols, no narrative flow.\n` +
+      `- Output MUST be <= 6000 characters.\n` +
+
       `Facts:\n${bullets}`;
 
-    const aiResp = await fetch("https://api.openai.com/v1/chat/completions", {
+
+    const resp = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${env.OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0,
+        model: "gpt-5.2",
+        input: [
+          {
+            role: "system",
+            content:
+              "Produce a final textual answer. Do not stop at reasoning. Output plain text only."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
       }),
     });
 
-    const j = await aiResp.json();
-    const out = (j.choices?.[0]?.message?.content ?? "").trim();
-    if (!out)
-      return new Response("Empty AI output", { status: 500 });
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      console.error(data);
+      throw new Error(data?.error?.message);
+    }
+
+    // Robust extractor (works for 5.2 + mini)
+    const text =
+      data.output
+        ?.flatMap(item =>
+          item.type === "message"
+            ? item.content
+                ?.filter(c => c.type === "output_text")
+                ?.map(c => c.text) ?? []
+            : []
+        )
+        .join("") || "";
+
+
 
     // ---- Store summary in ALPHA_01_Reports ----
     await env.DB.prepare(`
       UPDATE ALPHA_01_Reports
       SET summary = ?
       WHERE id = ?
-    `).bind(out, report_id).run();
+    `).bind(text, report_id).run();
 
     return Response.json({
       ok: true,
       report_id,
       clusters_used: ordered.length,
-      summary_chars: out.length,
+      summary_chars: text.length,
     });
   },
 };

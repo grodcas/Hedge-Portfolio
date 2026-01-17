@@ -1,10 +1,10 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
 
-process.env.BLS_KEY = "5020b06502a044f590f39b44b811d6a8";
-process.env.BEA_KEY = "616BA15B-71E7-4988-868B-6B80FD60CA34";
-process.env.FRED_KEY= "4fd8718af3c6399e5ed4c0da85f52574";
-process.env.POLYGON_KEY="lzQLINbEzmuTnIzaqpxHOjTLmYSatVj4";
+const BLS_KEY = process.env.BLS_KEY;
+const BEA_KEY = process.env.BEA_KEY;
+const FRED_KEY = process.env.FRED_KEY;
+const POLYGON_KEY = process.env.POLYGON_KEY;
 
 function normalizeMonthYear(monthCol, yearCol) {
   const cleanMonth = monthCol.replace(" (P)", "");
@@ -66,29 +66,6 @@ async function getEmployment() {
 }
 
 // -------------------- GDP (BEA) --------------
-async function getGDP2() {
-  const url = "https://api.stlouisfed.org/fred/series/observations";
-
-  const params = {
-    api_key: FRED_KEY,
-    series_id: "A191RL1Q225SBEA",
-    file_type: "json",
-    sort_order: "desc",
-    limit: 2
-  };
-
-  const { data } = await axios.get(url, { params });
-
-  if (!data || !data.observations || data.observations.length === 0) {
-    console.log("FRED ERROR:", data);
-    return null;
-  }
-
-  return {
-    latest: data.observations[0],     // most recent quarter
-    previous: data.observations[1]   // quarter before
-  };
-}
 
 // -------------------- BANK RESERVES (FED) --------------
 async function getBankReserves() {
