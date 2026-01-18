@@ -7,6 +7,8 @@ import { scrapeWhiteHouseArticle } from "./WHparser2.js";
 import { fileURLToPath } from "url";
 import * as cheerio from "cheerio";
 
+
+console.log("WH_SUMMARY STARTED")
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -92,3 +94,4 @@ async function main() {
 }
 
 main();
+console.log("WH_SUMMARY DONE")

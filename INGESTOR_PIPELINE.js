@@ -1,7 +1,10 @@
 import fs from "fs";
 
 // ---------- SIMPLE INGESTIONS ----------
-
+await import("./press/AA_press_releases_today.js")
+await import("./press/AA_press_summary.json")
+await import("./whitehouse/whitehouse_summary.js")
+await import("./news/news_summary.js");
 await import("./edgar/AA_EDGAR_SHORT_TERM.js");
 //await import("./macro/macro_summary.js");
 await import("./sentiment/sentiment_summary.js");

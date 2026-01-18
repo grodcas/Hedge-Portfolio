@@ -8,6 +8,8 @@ import OpenAI from "openai";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+console.log("NEWS_SUMMARY STARTED")
+
 const __dirname = process.cwd();
 const date = new Date().toISOString().slice(0, 10);
 
@@ -27,7 +29,7 @@ const PORTFOLIO = [
 function parseBloomberg(path) {
   // Bloomberg HTML also often encoded as quoted-printable → must decode
   const raw = fs.readFileSync(path, "utf8");
-  const decoded = iconv.decode(qp.decode(raw), "utf8");
+  const decoded = raw; //iconv.decode(qp.decode(raw), "utf8");
 
   const $ = load(decoded);
 
@@ -56,7 +58,7 @@ function parseBloomberg(path) {
 function parseWSJ(path) {
   // WSJ HTML also uses =3D etc. → decode first
   const raw = fs.readFileSync(path, "utf8");
-  const decoded = iconv.decode(qp.decode(raw), "utf8");
+  const decoded = raw; //iconv.decode(qp.decode(raw), "utf8");
 
   const $ = load(decoded);
 
@@ -82,7 +84,7 @@ function parseWSJ(path) {
 function parseReuters(path) {
   // decode =3D etc.
   const raw = fs.readFileSync(path, "utf8");
-  const decoded = iconv.decode(qp.decode(raw), "utf8");
+  const decoded = raw; //iconv.decode(qp.decode(raw), "utf8");
 
   const $ = load(decoded);
 
@@ -196,9 +198,9 @@ async function processFolder(folderName, parser) {
 async function main() {
   const output = {};
 
-  output.Bloomberg = await processFolder("BLOOMBERG", parseBloomberg);
-  output.WSJ       = await processFolder("WSJ", parseWSJ);
-  output.Reuters   = await processFolder("REUTERS", parseReuters);
+  output.Bloomberg = await processFolder("BLOOMBERG/files", parseBloomberg);
+  output.WSJ       = await processFolder("WSJ/files", parseWSJ);
+  output.Reuters   = await processFolder("REUTERS/files", parseReuters);
 
   fs.writeFileSync(
     path.join(__dirname, "news_summary.json"),
@@ -207,3 +209,5 @@ async function main() {
 }
 
 main();
+
+console.log("NEWS_SUMMARY DONE")
