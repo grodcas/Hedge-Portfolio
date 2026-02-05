@@ -59,7 +59,7 @@ function normalizeDate(raw) {
 // ---- WARM PUPPETEER ----
 async function warmPuppeteer() {
   const puppeteer = await import("puppeteer");
-  const browser = await puppeteer.launch({
+  const browser = await puppeteer.default.launch({
     headless: "new",
     args: ["--no-sandbox", "--disable-setuid-sandbox"]
   });
@@ -203,5 +203,5 @@ async function main() {
   console.log("\nSaved → AA_press_releases_today.json");
 }
 
-main();
+await main();
 console.log("PRESS RELEASES FETCH DONE")

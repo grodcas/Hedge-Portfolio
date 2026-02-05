@@ -18,9 +18,11 @@ const END = new Date().toISOString().slice(0, 10);
 const d = new Date();
 d.setDate(d.getDate() - 1);
 const START = d.toISOString().slice(0, 10);
-
+//const START = "2026-01-17";
 //const END = "2025-10-1";
+
 const START_DATE = new Date(START);
+
 const TODAY = new Date(END);
 
 
@@ -39,7 +41,7 @@ const TICKERS = {
 const TARGET_FORMS = new Set(["10-K", "10-Q", "8-K", "4"]);
 //const TARGET_FORMS = new Set(["10-K", "10-Q"]);
 
-const OUT_DIR = path.join(process.cwd(), "edgar_raw_html");
+const OUT_DIR = "C:/AI_agent/HF/edgar/edgar_raw_html";
 if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR);
 
 // --------------------------------------------------
@@ -97,7 +99,7 @@ async function main() {
   console.log("\n✔ Done.");
 }
 
-//await main();
+await main();
 
 
 

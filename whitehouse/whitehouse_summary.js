@@ -93,5 +93,5 @@ async function main() {
   );
 }
 
-main();
+await main();
 console.log("WH_SUMMARY DONE")

@@ -1,76 +1,88 @@
 {
-  "AAPL": [
+  "GOOGL": [
     {
-      "heading": "Tyler, The Creator is Apple Music’s Artist of the Year for 2025",
-      "date": "2025-11-20",
-      "summary": "SpongeBob: Patty Pursuit 2, a sequel to the game SpongeBob: Patty Pursuit, will launch on December 4 exclusively on Apple Arcade. The game features SpongeBob and Plankton working together to recover the Krusty Krab’s fry cook station, find Plankton’s missing inventions, and save Bikini Bottom. It supports local co-op play and includes various puzzle and boss challenges across locations from the SpongeBob series.\n\nApple Arcade will also release five new games soon: Glassbreakers: Champions of Moss on November 13 for Apple Vision Pro; and on December 4, PowerWash Simulator, Cult of the Lamb Arcade Edition, Subway Surfers+, and NARUTO: Ultimate Ninja STORM+.\n\nApple Arcade subscriptions cost £6.99 per month with a one-month free trial and are included in Apple One plans. The service supports play across multiple Apple devices and allows up to six family members unlimited access to its games."
+      "heading": "Alphabet Announces Fourth Quarter 2025 and Fiscal Year Results",
+      "date": "2026-02-04",
+      "summary": "There is no text provided to summarize. Please provide the text of the press release."
     }
   ],
   "AMZN": [
     {
-      "heading": "West Ham United teams up with AWS and Crayon to create revolutionary talent identification platform",
-      "date": "2025-11-20",
-      "summary": "Genspark, an AI startup serving over 20 million users, has chosen Amazon Web Services (AWS) as its preferred cloud provider. Using AWS infrastructure and AI tools, Genspark reduced development and operational costs and improved the performance of its AI products. The company leverages AWS services such as Amazon EC2 Spot Instances to cut GPU costs by 60-70% and Amazon Bedrock to lower model inference costs by 72%. Founded in 2023, Genspark offers AI tools including Super Agent, AI Slides, AI Sheets, and AI Designer. The company has raised $160 million in funding and reached $50 million in annual recurring revenue within five months."
+      "heading": "Amazon.com Announces Fourth Quarter Results",
+      "date": "2026-02-05",
+      "summary": "Genspark, an AI startup serving over 20 million users, has chosen Amazon Web Services (AWS) as its preferred cloud provider. Using AWS infrastructure, including Amazon EC2 Spot Instances and Amazon Elastic Kubernetes Service (EKS), Genspark has significantly lowered GPU costs by 60-70% and improved product performance. The company leverages AWS generative AI capabilities, such as the Claude models on Amazon Bedrock, reducing model inference costs by 72%. Founded in 2023, Genspark offers AI products like its Super Agent workspace and other agentic AI tools. The company achieved $50 million in annual recurring revenue within five months and raised $160 million in funding, including a $100 million Series A at a $530 million valuation. Genspark benefited from AWS’s support programs to accelerate its AI product development and global growth."
     },
     {
-      "heading": "Cohesity Establishes Strategic Collaboration Agreement with AWS to Advance AI-Powered Cyber Resilience at Scale",
-      "date": "2025-11-20",
-      "summary": "Genspark, a startup founded in 2023 that builds general-purpose AI agents and serves over 20 million users, has chosen Amazon Web Services (AWS) as its preferred cloud provider. Using AWS infrastructure and AI capabilities, Genspark has lowered development and operational costs while improving product performance. AWS services such as Amazon EC2 Spot Instances and Amazon Elastic Kubernetes Service help reduce GPU costs by up to 70% and enhance computing efficiency. Genspark also uses the Claude models through Amazon Bedrock to power its AI products, cutting model inference costs by 72%. The company participated in AWS programs that supported its product rollout and global expansion. Genspark has raised $160 million in funding, reached $50 million in annual recurring revenue within five months, and offers AI tools like Super Agent, AI Slides, and AI Designer."
+      "heading": "Fundamental Announces $255M in Funding and Publicly Launches its Most Powerful Large Tabular Model (LTM)",
+      "date": "2026-02-05",
+      "summary": "Genspark, a startup founded in 2023 that offers AI-powered work tools to over 20 million users, has chosen Amazon Web Services (AWS) as its preferred cloud provider. Using AWS infrastructure, including EC2 Spot Instances and Amazon EKS, Genspark has reduced GPU costs by 60-70% and improved AI product performance. The company leverages AWS’s Amazon Bedrock service and the Claude AI models to power its agentic AI applications, cutting model inference costs by 72%. Genspark participated in AWS startup programs that supported its product development and global expansion. The company achieved $50 million in annual recurring revenue within five months and raised $160 million in funding, including a $100 million Series A round at a $530 million valuation."
     },
     {
-      "heading": "OCC Enhances Operational Efficiency with AWS GenAI Solutions",
-      "date": "2025-11-20",
-      "summary": "Genspark, a startup founded in 2023 that builds general-purpose AI agents for over 20 million users, has chosen Amazon Web Services (AWS) as its preferred cloud provider. Using AWS infrastructure and generative AI tools, Genspark has lowered development and operational costs and improved its AI product performance. The company uses AWS technologies such as EC2 Spot Instances, Amazon EKS, and Amazon Bedrock to reduce GPU and model inference costs by up to 70% and 72%, respectively. Genspark's product suite includes the Super Agent, AI Slides, AI Sheets, AI Designer, and AI Developer. The company raised $160 million in funding within 18 months, including a $100 million Series A round in February 2025 at a $530 million valuation. Genspark participated in AWS programs like AWS Activate 2.0 and the AWS Startup Accelerator to support its product development and growth."
+      "heading": "AT&T, AWS, and Amazon Leo Collaborate to Accelerate Modernization of Nation's Connectivity Infrastructure",
+      "date": "2026-02-04",
+      "summary": "Genspark, an AI startup serving over 20 million users, has chosen Amazon Web Services (AWS) as its preferred cloud provider. Using AWS infrastructure and generative AI tools, Genspark has cut product development and operational costs while improving the performance of its AI products. Founded in 2023, Genspark offers AI agent products like Super Agent, which supports tasks such as research, content creation, and office productivity.\n\nGenspark uses AWS features like EC2 Spot Instances and Amazon EKS autoscaling to reduce GPU costs by 60-70% and speed up image generation. It also employs the Claude family of models on Amazon Bedrock, achieving a 72% reduction in model inference costs. Genspark participated in AWS Activate 2.0 and the AWS Startup Accelerator to support its product development and global growth.\n\nThe company has raised $160 million over 18 months, including a $100 million Series A at a $530 million valuation in February 2025, and reached $50 million in annual recurring revenue within five months of launch."
+    },
+    {
+      "heading": "Prosus selects AWS to power AI-driven ecommerce innovation",
+      "date": "2026-02-04",
+      "summary": "Genspark, a startup founded in 2023 that builds general-purpose AI agents for over 20 million users, has chosen Amazon Web Services (AWS) as its preferred cloud provider. Using AWS infrastructure and AI tools, Genspark has lowered product development and operational costs while enhancing the performance of its AI products. Key AWS services used include Amazon EC2 Spot Instances, Amazon Elastic Kubernetes Service (EKS), and Amazon Bedrock, which together help reduce GPU and model inference costs by up to 72%. Genspark offers AI products like Super Agent, AI Slides, and AI Designer, running on a platform with multiple AI models and datasets. The company has rapidly grown, achieving $50 million in annual recurring revenue within five months and raising $160 million in funding by mid-2025."
     }
   ],
   "NVDA": [
     {
-      "heading": "NVIDIA Announces Upcoming Event for Financial Community",
-      "date": "2025-11-20",
-      "summary": "NVIDIA has developed RDMA for S3-compatible storage, a technology that uses remote direct memory access (RDMA) to speed up data transfers for AI workloads using object storage. This approach improves throughput, reduces latency, and lowers costs compared to traditional methods. NVIDIA provides client and server libraries optimized for NVIDIA GPUs and networking, with an open architecture for other vendors to adopt and contribute to. Key storage partners Cloudian, Dell Technologies, and HPE have integrated this technology into their products: Cloudian HyperStore, Dell ObjectScale, and HPE Alletra Storage MP X10000. NVIDIA’s RDMA for S3-compatible storage libraries are currently available to select partners and will be generally available in January via the NVIDIA CUDA Toolkit."
+      "heading": "GeForce NOW Celebrates Six Years of Streaming With 24 Games in February",
+      "date": "2026-02-05",
+      "summary": "NVIDIA has introduced RDMA for S3-compatible storage, using remote direct memory access to speed up object storage data transfers optimized for AI workloads. This technology offers higher throughput, lower latency, and reduced costs compared to traditional TCP-based storage. NVIDIA has developed RDMA client and server libraries, initially optimized for NVIDIA GPUs and networking, with an open architecture allowing contributions from other vendors.\n\nKey storage partners—Cloudian, Dell Technologies, and HPE—have integrated these RDMA libraries into their products: Cloudian HyperStore, Dell ObjectScale, and HPE Alletra Storage MP X10000. The libraries are currently available to select partners and will become generally available through the NVIDIA CUDA Toolkit in January. NVIDIA is also working with partners to standardize RDMA for S3-compatible storage and has introduced a new NVIDIA Object Storage Certification program."
     },
     {
-      "heading": "Into the Omniverse: How Smart City AI Agents Transform Urban Operations",
-      "date": "2025-11-20",
-      "summary": "NVIDIA has developed RDMA client and server libraries to accelerate S3-compatible object storage, improving data transfer speed and efficiency for AI workloads. This technology uses remote direct memory access (RDMA) to enhance throughput, reduce latency, and lower costs compared to traditional TCP protocols. The RDMA libraries run on AI GPU compute nodes and are initially optimized for NVIDIA hardware, but the open architecture allows other vendors to contribute and adopt the technology.\n\nStorage partners Cloudian, Dell Technologies, and HPE are integrating these RDMA libraries into their products—Cloudian HyperStore, Dell ObjectScale, and HPE Alletra Storage MP X10000—to provide faster, more scalable object storage solutions for AI. NVIDIA’s RDMA for S3-compatible storage libraries are currently available to select partners and will be generally available in January via the NVIDIA CUDA Toolkit. NVIDIA is also working with partners to standardize this technology."
-    },
-    {
-      "heading": "The Largest Digital Zoo: Biology Model Trained on NVIDIA GPUs Identifies Over a Million Species",
-      "date": "2025-11-20",
-      "summary": "NVIDIA has developed RDMA for S3-compatible storage, a technology that uses remote direct memory access (RDMA) to speed up S3 API-based object storage, improving data transfer speeds and efficiency for AI workloads. This technology offers higher throughput, lower latency, and reduced costs compared to traditional TCP-based storage. NVIDIA provides RDMA client and server libraries optimized for NVIDIA GPUs and networking, with an open architecture allowing contributions from other vendors. Key storage partners—Cloudian, Dell Technologies, and HPE—are integrating this technology into their products (Cloudian HyperStore, Dell ObjectScale, and HPE Alletra Storage MP X10000). The RDMA libraries are currently available to select partners and will be generally available through the NVIDIA CUDA Toolkit in January. NVIDIA also introduced a new Object Storage Certification as part of its NVIDIA-Certified Storage program."
-    },
-    {
-      "heading": "Ultimate Cloud Gaming Is Everywhere With GeForce NOW",
-      "date": "2025-11-20",
-      "summary": "NVIDIA has developed RDMA (remote direct memory access) client and server libraries to accelerate S3-compatible object storage, improving data transfer speeds and efficiency for AI workloads. This technology delivers higher throughput, lower latency, and reduced costs compared to traditional TCP-based storage access. Storage partners Cloudian, Dell Technologies, and HPE have integrated these RDMA libraries into their object storage products—Cloudian HyperStore, Dell ObjectScale, and HPE Alletra Storage MP X10000. The RDMA for S3-compatible storage libraries are currently available to select partners and will be generally available through the NVIDIA CUDA Toolkit in January. NVIDIA is collaborating with partners to standardize this technology and has introduced an NVIDIA Object Storage Certification program."
+      "heading": "Nemotron Labs: How AI Agents Are Turning Documents Into Real-Time Business Intelligence",
+      "date": "2026-02-04",
+      "summary": "NVIDIA has developed RDMA for S3-compatible storage, which accelerates S3-API-based object storage using remote direct memory access (RDMA) to improve performance for AI workloads. This technology offers higher throughput, lower latency, and greater efficiency compared to traditional TCP-based storage access. NVIDIA provides RDMA client and server libraries optimized for NVIDIA GPUs and networking, with an open architecture for other vendors to adopt and contribute.\n\nSeveral storage partners, including Cloudian, Dell Technologies, and HPE, are integrating RDMA for S3-compatible storage into their products (Cloudian HyperStore, Dell ObjectScale, and HPE Alletra Storage MP X10000) to enhance scalability and AI workload performance. NVIDIA’s RDMA storage libraries are currently available to select partners and will be generally available in January via the NVIDIA CUDA Toolkit. Additionally, NVIDIA announced a new Object Storage Certification as part of its NVIDIA-Certified Storage program."
     }
   ],
   "BAC": [
     {
-      "heading": "The Global Power of Sport: Bank of America Partners with Great Ethiopian Run to Expand Access to Endurance Sports",
-      "date": "2025-11-20",
-      "summary": "Bank of America is launching 401k Pay, a new digital solution that helps convert 401(k) assets into retirement income. Available November 17 at no extra cost to corporate plan sponsors and participants, 401k Pay integrates recordkeeping, flexible deposit options, and financial advice in one platform. It is offered to clients enrolled in Bank of America’s Personal Retirement Strategy program. The solution aims to assist employees in setting, depositing, and tracking retirement income. Bank of America developed 401k Pay in collaboration with corporate clients to address retirement income planning needs highlighted in its 2025 Workplace Benefits Report."
+      "heading": "Bank of America Announces Full Redemption of Its Series DD Preferred Stock and Related Depositary Shares",
+      "date": "2026-02-05",
+      "summary": "Bank of America is launching 401k Pay on November 17, a new digital solution that helps 401(k) plan participants convert their account assets into retirement income. The service is available at no extra cost to corporate plan sponsors and participants enrolled in Bank of America's Personal Retirement Strategy program. 401k Pay offers 401(k) recordkeeping, flexible deposit options, and advice in one platform, allowing users to set, deposit, and track retirement income. The solution was developed in collaboration with corporate clients to address employees' needs for retirement education and income planning."
+    },
+    {
+      "heading": "BofA Merchant Services Ranks No. 1 by J.D. Power for Customer Satisfaction in the 2026 U.S. Merchant Services Satisfaction Study",
+      "date": "2026-02-04",
+      "summary": "Bank of America is launching 401k Pay, a new digital solution to help convert 401(k) assets into retirement income. Available starting November 17 at no extra cost to the company’s corporate clients and plan participants, 401k Pay offers 401(k) recordkeeping, flexible deposit options, and retirement income advice in one platform. It integrates with Bank of America’s Personal Retirement Strategy program and aims to assist employees with retirement income planning and management. The solution was developed in collaboration with corporate clients to enhance workplace retirement benefits."
     }
   ],
-  "HD": [
+  "CVX": [
     {
-      "heading": "The Home Depot Declares Quarterly Dividend of $2.30",
-      "date": "2025-11-20",
-      "summary": "The Home Depot is launching the \"Holiday Gift Edit,\" a set of curated Pinterest boards featuring popular holiday gifts like tools, smart home devices, appliances, and home decor. Starting October 28, customers can shop these items both in stores and online, with options for free delivery and same-day or next-day shipping on select products. The release highlights the return of the Grand Duchess Twinkling Balsam Fir Artificial Christmas Tree and introduces the new Breckenridge Twinkling Adaptive Lighting Fraser Fir Christmas Tree. The campaign targets Millennials and Gen Z shoppers, who are more likely to create holiday wish lists and buy gifts for themselves. Gift ideas and inspiration are available on The Home Depot’s Pinterest page and corporate website."
+      "heading": "Chevron Announces Senior Leadership Changes",
+      "date": "2026-02-05",
+      "summary": "Chevron Corporation announced its five-year plan through 2030, aiming for sustained cash flow growth, portfolio strengthening, shareholder return growth, and advancing power solutions for AI data centers. Key targets include:\n\n- Adjusted free cash flow growth above 10% annually at $70 Brent.\n- Capital expenditure (capex) guidance reduced to $18-$21 billion per year.\n- Earnings per share growth above 10% annually at $70 Brent.\n- Maintaining capex and dividend breakeven below $50 Brent per barrel.\n- Improving return on capital employed by over 3% by 2030 at $70 Brent.\n- Increasing synergies from Hess acquisition to $1.5 billion and structural cost reductions to $3-$4 billion by end of 2026.\n- Growing oil and gas production by 2%-3% annually through 2030.\n- Launching its first AI data center power project in West Texas, with power targeted for 2027 startup."
     }
   ],
-  "INTC": [
+  "UNH": [
     {
-      "heading": "Intel Brings AI PCs to Arizona State University Football, Extends Innovation Legacy",
-      "date": "2025-11-20",
-      "summary": "Intel Corporation appointed Craig H. Barratt, Ph.D., age 63, as an independent member of its board of directors, effective immediately. Dr. Barratt has over 30 years of experience in the semiconductor and technology industries, including leadership roles as CEO of Atheros Communications, SVP at Intel, and senior positions at Google. He currently serves on the boards of Intuitive Surgical, Astera Labs, and several private companies. Dr. Barratt holds degrees from the University of Sydney and Stanford University."
+      "heading": "New Report Reveals Americans Are Getting Sick More Often, Earlier in Life",
+      "date": "2026-02-04",
+      "summary": "UnitedHealthcare announced its 2026 Medicare Advantage plans, emphasizing coverage options with $0 premiums and copays for primary care and certain prescriptions. The plans, available to 94% of Medicare eligibles, include access to dental, vision, and hearing benefits. UnitedHealthcare continues to offer expanded HMO, D-SNP, and C-SNP plans and aims to keep care accessible and costs low. The company is the largest Medicare Advantage provider and was named Best Insurance Company for Medicare Advantage 2025 by U.S. News & World Report."
+    }
+  ],
+  "LLY": [
+    {
+      "heading": "Lilly reports fourth-quarter 2025 financial results and provides 2026 guidance",
+      "date": "2026-02-04",
+      "summary": "Lilly has launched the Changing the Thread Collection™, a campaign featuring clothing embroidered with personal stories from people living with obesity. The campaign aims to reframe obesity as a chronic disease and reduce stigma by combining science and storytelling. Tan France, stylist and advocate, partnered with Lilly to promote the collection and raise awareness of obesity bias.\n\nThe campaign is linked to Zepbound (tirzepatide), an FDA-approved injectable medication designed to help adults with obesity or certain overweight adults lose weight and maintain it, alongside diet and exercise. Zepbound is the first dual GIP and GLP-1 receptor agonist medicine for obesity. It is not approved for children and should not be used with other tirzepatide or GLP-1 receptor agonist drugs.\n\nZepbound carries warnings for potential serious side effects, including thyroid tumors, severe stomach problems, dehydration, gallbladder issues, pancreatitis, allergic reactions, low blood sugar, vision changes, and mental health effects. Common side effects include nausea, diarrhea, vomiting, constipation, and injection site reactions.\n\nMore information about the campaign and Zepbound is available at ChangingTheThreadCollection.com and www.zepbound.lilly.com."
     }
   ],
   "MS": [
     {
-      "heading": "Morgan Stanley Sustainable Signals: Global Survey Shows Institutional Investors Maintain Positive Outlook on Sustainable Investing",
-      "date": "2025-11-20",
-      "summary": "Morgan Stanley Real Estate Investing (MSREI) and Global Student Accommodation (GSA) have acquired an off-market portfolio of eight student housing properties totaling 6,200 beds near top U.S. universities. The transaction, valued at over $1 billion, includes assets in seven states such as Virginia, Georgia, Pennsylvania, Texas, Florida, Oregon, and North Carolina. This deal expands MSREI and GSA's U.S. portfolio to 50 properties across 23 states with nearly 24,000 beds. Yugo will manage and rebrand the new assets. The properties have nearly 100% occupancy and are located near universities including the University of Virginia, University of Florida, Texas A&M, and Penn State."
+      "heading": "Morgan Stanley to Host 17th Annual Go Red Women’s Leadership Event in Collaboration with the American Heart Association",
+      "date": "2026-02-05",
+      "summary": "Morgan Stanley Real Estate Investing (MSREI) and Global Student Accommodation (GSA) have acquired an off-market portfolio of eight student housing properties near top U.S. universities, totaling 6,200 beds. The transaction, valued at over $1 billion, is one of the largest student housing deals globally this year. The properties are located across seven states, including new markets in Virginia, Georgia, and Pennsylvania, and near universities such as the University of Virginia and Penn State. This acquisition expands MSREI and GSA’s U.S. portfolio to 50 properties in 23 states, with nearly 24,000 beds. Yugo has been appointed to manage and rebrand the new assets."
+    },
+    {
+      "heading": "Morgan Stanley Inclusive & Sustainable Ventures Hosts Global Demo Day, Opens Applications for Next Cohort",
+      "date": "2026-02-04",
+      "summary": "Morgan Stanley Real Estate Investing (MSREI) and Global Student Accommodation (GSA) have acquired an off-market portfolio of eight student housing properties with 6,200 beds near top U.S. universities, including the University of Virginia, University of Florida, Texas A&M, and Penn State. The transaction, valued at over $1 billion, expands their portfolio to 50 properties with nearly 24,000 beds across 23 states. The acquisition introduces MSREI and GSA into new markets such as Virginia, Georgia, and Pennsylvania. Yugo has been appointed as the manager of the assets."
     }
   ]
 }

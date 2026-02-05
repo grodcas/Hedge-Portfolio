@@ -20,17 +20,17 @@
     },
     {
       "heading": "PPI",
-      "date": "2025-11-01",
+      "date": "2025-12-01",
       "summary": {
-        "previous PPI Final Demand": 150.332,
-        "current PPI Final Demand": 150.705,
-        "pct_change PPI Final Demand": 0.24811749993349314,
-        "previous PPI Goods": 150.389,
-        "current PPI Goods": 150.303,
-        "pct_change PPI Goods": -0.057185033479850746,
-        "previous PPI Services": 149.275,
-        "current PPI Services": 148.9,
-        "pct_change PPI Services": -0.2512142019762184
+        "previous PPI Final Demand": 150.733,
+        "current PPI Final Demand": 151.472,
+        "pct_change PPI Final Demand": 0.4902708763177302,
+        "previous PPI Goods": 150.332,
+        "current PPI Goods": 150.552,
+        "pct_change PPI Goods": 0.14634276135486715,
+        "previous PPI Services": 149.032,
+        "current PPI Services": 149.751,
+        "pct_change PPI Services": 0.4824467228514641
       }
     },
     {
@@ -47,11 +47,11 @@
     },
     {
       "heading": "Bank Reserves",
-      "date": "2026-01-14",
+      "date": "2026-02-04",
       "summary": {
-        "previous Bank Reserves": 2996379,
-        "current Bank Reserves": 3049630,
-        "pct_change Bank Reserves": 1.7771783876472234
+        "previous Bank Reserves": 2901600,
+        "current Bank Reserves": 2925170,
+        "pct_change Bank Reserves": 0.8123104494072235
       }
     },
     {
@@ -59,8 +59,8 @@
       "date": "2026-01-01",
       "summary": {
         "previous Consumer Sentiment": 52.9,
-        "current Consumer Sentiment": 54,
-        "pct_change Consumer Sentiment": 2.0793950850661655
+        "current Consumer Sentiment": 56.4,
+        "pct_change Consumer Sentiment": 6.616257088846882
       }
     },
     {
@@ -68,39 +68,38 @@
       "date": "2026-01-01",
       "summary": {
         "previous 1Y Inflation Expectations": 4.2,
-        "current 1Y Inflation Expectations": 4.2,
-        "pct_change 1Y Inflation Expectations": 0,
+        "current 1Y Inflation Expectations": 4,
+        "pct_change 1Y Inflation Expectations": -4.761904761904765,
         "previous 5Y Inflation Expectations": 3.2,
-        "current 5Y Inflation Expectations": 3.4,
-        "pct_change 5Y Inflation Expectations": 6.249999999999992
+        "current 5Y Inflation Expectations": 3.3,
+        "pct_change 5Y Inflation Expectations": 3.124999999999989
       }
     },
     {
       "heading": "Gamma Regime (VIX)",
-      "date": "2026-01-16",
+      "date": "2026-02-05",
       "summary": {
-        "VIX9D": 12.09000015258789,
-        "VIX": 15.859999656677246,
-        "VIX3M": 18.989999771118164,
+        "VIX9D": 22.290000915527344,
+        "VIX": 21.770000457763672,
+        "VIX3M": 22.450000762939453,
         "Gamma Regime": "POSITIVE"
       }
     },
     {
       "heading": "FOMC",
-      "date": "2025-12-10",
+      "date": "2026-01-28",
       "summary": {
         "title": "Federal Reserve issues FOMC statement",
         "paragraphs": [
-          "December 10, 2025",
+          "January 28, 2026",
           "For release at 2:00 p.m. EST",
-          "Available indicators suggest that economic activity has been expanding at a moderate pace. Job gains have slowed this year, and the unemployment rate has edged up through September. More recent indicators are consistent with these developments. Inflation has moved up since earlier in the year and remains somewhat elevated.",
-          "The Committee seeks to achieve maximum employment and inflation at the rate of 2 percent over the longer run. Uncertainty about the economic outlook remains elevated. The Committee is attentive to the risks to both sides of its dual mandate and judges that downside risks to employment rose in recent months.",
-          "In support of its goals and in light of the shift in the balance of risks, the Committee decided to lower the target range for the federal funds rate by 1/4 percentage point to 3-1/2 to 3‑3/4 percent. In considering the extent and timing of additional adjustments to the target range for the federal funds rate, the Committee will carefully assess incoming data, the evolving outlook, and the balance of risks. The Committee is strongly committed to supporting maximum employment and returning inflation to its 2 percent objective.",
+          "Available indicators suggest that economic activity has been expanding at a solid pace. Job gains have remained low, and the unemployment rate has shown some signs of stabilization. Inflation remains somewhat elevated.",
+          "The Committee seeks to achieve maximum employment and inflation at the rate of 2 percent over the longer run. Uncertainty about the economic outlook remains elevated. The Committee is attentive to the risks to both sides of its dual mandate.",
+          "In support of its goals, the Committee decided to maintain the target range for the federal funds rate at 3‑1/2 to 3‑3/4 percent. In considering the extent and timing of additional adjustments to the target range for the federal funds rate, the Committee will carefully assess incoming data, the evolving outlook, and the balance of risks. The Committee is strongly committed to supporting maximum employment and returning inflation to its 2 percent objective.",
           "In assessing the appropriate stance of monetary policy, the Committee will continue to monitor the implications of incoming information for the economic outlook. The Committee would be prepared to adjust the stance of monetary policy as appropriate if risks emerge that could impede the attainment of the Committee's goals. The Committee's assessments will take into account a wide range of information, including readings on labor market conditions, inflation pressures and inflation expectations, and financial and international developments.",
-          "The Committee judges that reserve balances have declined to ample levels and will initiate purchases of shorter-term Treasury securities as needed to maintain an ample supply of reserves on an ongoing basis.",
-          "Voting for the monetary policy action were Jerome H. Powell, Chair; John C. Williams, Vice Chair; Michael S. Barr; Michelle W. Bowman; Susan M. Collins; Lisa D. Cook; Philip N. Jefferson; Alberto G. Musalem; and Christopher J. Waller. Voting against this action were Stephen I. Miran, who preferred to lower the target range for the federal funds rate by 1/2 percentage point at this meeting; and Austan D. Goolsbee and Jeffrey R. Schmid, who preferred no change to the target range for the federal funds rate at this meeting.",
+          "Voting for the monetary policy action were Jerome H. Powell, Chair; John C. Williams, Vice Chair; Michael S. Barr; Michelle W. Bowman; Lisa D. Cook; Beth M. Hammack; Philip N. Jefferson; Neel Kashkari; Lorie K. Logan; and Anna Paulson. Voting against this action were Stephen I. Miran and Christopher J. Waller, who preferred to lower the target range for the federal funds rate by 1/4 percentage point at this meeting.",
           "For media inquiries, please email [email protected] or call 202-452-2955.",
-          "Implementation Note issued December 10, 2025"
+          "Implementation Note issued January 28, 2026"
         ]
       }
     }

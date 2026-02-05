@@ -64,7 +64,7 @@ async function main() {
       const safeType = file.type.replace(/[^A-Za-z0-9-]/g, "");
       const safeDate = file.date.replace(/[^0-9-]/g, "");
 
-      const outDir = path.join(process.cwd(), "edgar_raw_html");
+      const outDir = "C:/AI_agent/HF/edgar/edgar_raw_html";
       if (!fs.existsSync(outDir)) fs.mkdirSync(outDir);
 
       const filename = path.join(

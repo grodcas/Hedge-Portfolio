@@ -10,7 +10,7 @@ const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 console.log("NEWS_SUMMARY STARTED")
 
-const __dirname = process.cwd();
+const __dirname = "C:/AI_agent/HF";
 const date = new Date().toISOString().slice(0, 10);
 
 // -------------------------------------------------
@@ -26,10 +26,11 @@ const PORTFOLIO = [
 // PARSERS
 // -------------------------------------------------
 
+
 function parseBloomberg(path) {
   // Bloomberg HTML also often encoded as quoted-printable → must decode
   const raw = fs.readFileSync(path, "utf8");
-  const decoded = raw; //iconv.decode(qp.decode(raw), "utf8");
+  const decoded = iconv.decode(qp.decode(raw), "utf8");
 
   const $ = load(decoded);
 
@@ -56,11 +57,8 @@ function parseBloomberg(path) {
 
 
 function parseWSJ(path) {
-  // WSJ HTML also uses =3D etc. → decode first
   const raw = fs.readFileSync(path, "utf8");
-  const decoded = raw; //iconv.decode(qp.decode(raw), "utf8");
-
-  const $ = load(decoded);
+  const $ = load(raw);
 
   // Headline: WSJ stores multiple meta variants
   const headline =
@@ -71,7 +69,9 @@ function parseWSJ(path) {
   // Extract all WSJ article paragraphs
   let paragraphs = [];
   $('p[data-type="paragraph"]').each((_, el) => {
-    const t = $(el).text().trim();
+    const $el = $(el).clone();
+    $el.find("style").remove(); // Remove embedded <style> tags
+    const t = $el.text().trim();
     if (t.length) paragraphs.push(t);
   });
 
@@ -84,9 +84,9 @@ function parseWSJ(path) {
 function parseReuters(path) {
   // decode =3D etc.
   const raw = fs.readFileSync(path, "utf8");
-  const decoded = raw; //iconv.decode(qp.decode(raw), "utf8");
+  //const decoded = iconv.decode(qp.decode(raw), "utf8");
 
-  const $ = load(decoded);
+  const $ = load(raw);
 
   // Headline
   const headline =
@@ -113,8 +113,9 @@ function parseReuters(path) {
 
 async function summarize(text) {
   const prompt = `
+You are a financial expert given a financial news article.
 Summarize this article in short, neutral, factual English.
-No opinions. No fluff.
+No opinions and concise, try to do around 1.5k chars.
 
 TEXT:
 ${text}
@@ -130,7 +131,7 @@ ${text}
 
 async function detectTickers(text) {
   const prompt = `
-You are given a financial news article.
+You are a financial expert given a financial news article.
 
 From the following portfolio:
 ${PORTFOLIO.join(", ")}
@@ -142,12 +143,13 @@ Return a JSON array of tickers that are:
 If none, return [].
 Only return valid JSON. No text.
 
+
 ARTICLE:
 ${text}
 `;
 
   const r = await client.chat.completions.create({
-    model: "o3-mini",
+    model: "gpt-4.1-mini",
     messages: [{ role: "user", content: prompt }]
   });
 
@@ -169,13 +171,11 @@ async function processFolder(folderName, parser) {
   const results = [];
 
   for (const file of files) {
-    if (!file.endsWith(".mhtml")) continue;
 
     const id = path.parse(file).name;
     const filePath = path.join(folderPath, file);
 
     const { headline: heading, text } = parser(filePath);
-    fs.writeFileSync(path.join(__dirname, `${id}.txt`), text);
 
     const summary = await summarize(text);
     const tickers = await detectTickers(text);
@@ -198,9 +198,9 @@ async function processFolder(folderName, parser) {
 async function main() {
   const output = {};
 
-  output.Bloomberg = await processFolder("BLOOMBERG/files", parseBloomberg);
-  output.WSJ       = await processFolder("WSJ/files", parseWSJ);
-  output.Reuters   = await processFolder("REUTERS/files", parseReuters);
+  output.Bloomberg = await processFolder("news/BLOOMBERG/files", parseBloomberg);
+  output.WSJ       = await processFolder("news/WSJ/files", parseWSJ);
+  output.Reuters   = await processFolder("news/REUTERS/files", parseReuters);
 
   fs.writeFileSync(
     path.join(__dirname, "news_summary.json"),
@@ -208,6 +208,6 @@ async function main() {
   );
 }
 
-main();
+await main();
 
 console.log("NEWS_SUMMARY DONE")

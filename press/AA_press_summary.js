@@ -52,8 +52,8 @@ async function summarize(text) {
   const prompt = `
 Summarize the following press release into a short, factual, plain-English summary.
 
-Do NOT add opinions.  
-Do NOT add analysis.  
+Do NOT add opinions.
+Do NOT add analysis.
 Focus only on key facts.
 
 TEXT:
@@ -99,7 +99,7 @@ async function main() {
   );
 }
 
-main();
+await main();
 
 console.log("PRESS SUMMARY DONE")
 

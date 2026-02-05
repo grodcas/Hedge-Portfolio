@@ -4,6 +4,16 @@
 
 # Node
 node_modules/
-edgar/edgar_raw_html
-edgar/edgar_parsed_json
+
+# Edgar
+edgar/edgar_raw_html/
+edgar/edgar_parsed_json/
+edgar/edgar_clustered_json/*
+!edgar/edgar_clustered_json/AA_clustered_report.js
+!edgar/edgar_clustered_json/AA_ingestor.js
+
+# News
+news/BLOOMBERG/files/
+news/REUTERS/files/
+news/WSJ/files/
 

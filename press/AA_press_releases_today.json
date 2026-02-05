@@ -1,4 +1,91 @@
 {
-  "results": {},
+  "results": {
+    "GOOGL": [
+      {
+        "title": "Alphabet Announces Fourth Quarter 2025 and Fiscal Year Results",
+        "url": "https://abc.xyz/investor/news/news-details/2026/Alphabet-Announces-Fourth-Quarter-2025-and-Fiscal-Year-Results-2026-KEvZIMKBLS/default.aspx",
+        "norm": "2026-02-04"
+      }
+    ],
+    "AMZN": [
+      {
+        "title": "Amazon.com Announces Fourth Quarter Results",
+        "url": "https://press.aboutamazon.com/https:/ir.aboutamazon.com/news-release/news-release-details/2026/Amazon-com-Announces-Fourth-Quarter-Results/",
+        "norm": "2026-02-05"
+      },
+      {
+        "title": "Fundamental Announces $255M in Funding and Publicly Launches its Most Powerful Large Tabular Model (LTM)",
+        "url": "https://press.aboutamazon.com/aws/2026/2/fundamental-announces-255m-in-funding-and-publicly-launches-its-most-powerful-large-tabular-model-ltm",
+        "norm": "2026-02-05"
+      },
+      {
+        "title": "AT&T, AWS, and Amazon Leo Collaborate to Accelerate Modernization of Nation's Connectivity Infrastructure",
+        "url": "https://press.aboutamazon.com/2026/2/at-t-aws-and-amazon-leo-collaborate-to-accelerate-modernization-of-nations-connectivity-infrastructure",
+        "norm": "2026-02-04"
+      },
+      {
+        "title": "Prosus selects AWS to power AI-driven ecommerce innovation",
+        "url": "https://press.aboutamazon.com/aws/2026/2/prosus-selects-aws-to-power-ai-driven-ecommerce-innovation",
+        "norm": "2026-02-04"
+      }
+    ],
+    "NVDA": [
+      {
+        "title": "GeForce NOW Celebrates Six Years of Streaming With 24 Games in February",
+        "url": "https://blogs.nvidia.com/blog/geforce-now-thursday-feb-2026-games-list/",
+        "norm": "2026-02-05"
+      },
+      {
+        "title": "Nemotron Labs: How AI Agents Are Turning Documents Into Real-Time Business Intelligence",
+        "url": "https://blogs.nvidia.com/blog/ai-agents-intelligent-document-processing/",
+        "norm": "2026-02-04"
+      }
+    ],
+    "BAC": [
+      {
+        "title": "Bank of America Announces Full Redemption of Its Series DD Preferred Stock and Related Depositary Shares",
+        "url": "https://newsroom.bankofamerica.com/content/newsroom/press-releases/2026/02/bank-of-america-announces-full-redemption-of-its-series-dd-prefe.html",
+        "norm": "2026-02-05"
+      },
+      {
+        "title": "BofA Merchant Services Ranks No. 1 by J.D. Power for Customer Satisfaction in the 2026 U.S. Merchant Services Satisfaction Study",
+        "url": "https://newsroom.bankofamerica.com/content/newsroom/press-releases/2026/02/bofa-merchant-services-ranks-no--1-by-j-d--power-for-customer-sa.html",
+        "norm": "2026-02-04"
+      }
+    ],
+    "CVX": [
+      {
+        "title": "Chevron Announces Senior Leadership Changes",
+        "url": "https://chevroncorp.gcs-web.com/news-releases/news-release-details/chevron-announces-senior-leadership-changes-2",
+        "norm": "2026-02-05"
+      }
+    ],
+    "UNH": [
+      {
+        "title": "New Report Reveals Americans Are Getting Sick More Often, Earlier in Life",
+        "url": "https://www.unitedhealthgroup.com/newsroom/2026/2026-02-04-uhc-hac-new-report-reveals-americans-getting-sick-more-often.html",
+        "norm": "2026-02-04"
+      }
+    ],
+    "LLY": [
+      {
+        "title": "Lilly reports fourth-quarter 2025 financial results and provides 2026 guidance",
+        "url": "https://investor.lilly.com/news-releases/news-release-details/lilly-reports-fourth-quarter-2025-financial-results-and-provides",
+        "norm": "2026-02-04"
+      }
+    ],
+    "MS": [
+      {
+        "title": "Morgan Stanley to Host 17th Annual Go Red Women’s Leadership Event in Collaboration with the American Heart Association",
+        "url": "https://www.morganstanley.com/press-releases/morgan-stanley-17th-annual-go-red-womens-leadership-event",
+        "norm": "2026-02-05"
+      },
+      {
+        "title": "Morgan Stanley Inclusive & Sustainable Ventures Hosts Global Demo Day, Opens Applications for Next Cohort",
+        "url": "https://www.morganstanley.com/press-releases/msisv-hosts-global-demo-day",
+        "norm": "2026-02-04"
+      }
+    ]
+  },
   "errors": {}
 }

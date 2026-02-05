@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 
-const DIR = process.cwd();
+const DIR = "C:/AI_agent/HF/edgar/edgar_clustered_json";
 
 // --------------------
 // failure heuristics

@@ -2,11 +2,11 @@ import fs from "fs";
 
 // ---------- SIMPLE INGESTIONS ----------
 await import("./press/AA_press_releases_today.js")
-await import("./press/AA_press_summary.json")
+await import("./press/AA_press_summary.js")
 await import("./whitehouse/whitehouse_summary.js")
 await import("./news/news_summary.js");
 await import("./edgar/AA_EDGAR_SHORT_TERM.js");
-//await import("./macro/macro_summary.js");
+await import("./macro/macro_summary.js");
 await import("./sentiment/sentiment_summary.js");
 
 const macroJson = JSON.parse(fs.readFileSync("macro/macro_summary.json", "utf8"));
@@ -29,7 +29,7 @@ await fetch("https://portfolio-ingestor.gines-rodriguez-castro.workers.dev/inges
   headers: { "Content-Type": "application/json" }
 });
 
-/*
+
 await fetch("https://portfolio-ingestor.gines-rodriguez-castro.workers.dev/ingest/news", {
   method: "POST",
   body: JSON.stringify(newsJson),
@@ -49,7 +49,7 @@ await fetch("https://portfolio-ingestor.gines-rodriguez-castro.workers.dev/inges
 });
 
 // ---------- EDGAR LOCAL INGESTION ----------
-*/
+
 // MUST be set before import
 process.env.INGEST_URL =
   "https://portfolio-ingestor.gines-rodriguez-castro.workers.dev/ingest/reports";

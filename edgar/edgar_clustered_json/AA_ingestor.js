@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const DIR = process.argv[2] || "./edgar/edgar_clustered_json";
+const DIR = process.argv[2] || "C:/AI_agent/HF/edgar/edgar_clustered_json";
 const WORKER_INGEST_URL = process.env.INGEST_URL; // e.g. https://edgar-ingestor.yourname.workers.dev/ingest
 
 if (!WORKER_INGEST_URL) {
@@ -123,8 +123,10 @@ async function main() {
 
   // ---- 10-Q / 10-K: keep latest 4 per ticker ----
   const longReports = files
-    .filter(f => (f.reportType === "10-Q" || f.reportType === "10-K")&&
-    (f.reportDate === today || f.reportDate === yesterday));
+    .filter(f => (f.reportType === "10-Q" || f.reportType === "10-K")
+     && (f.reportDate === today || f.reportDate === yesterday)
+    //&& f.reportDate >= "2026-01-17"
+    );
 
     /*
 
