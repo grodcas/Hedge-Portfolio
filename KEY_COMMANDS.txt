@@ -1,15 +1,74 @@
 wrangler deploy src/worker.js --config wrangler.jsonc
 
-REQUESTS TO THE WORKFLOW
+================================================================================
+REQUESTS TO THE WORKFLOW (job-engine-workflow)
+================================================================================
+Base URL: https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run
 
-Alpha Orchestrators
-Trend: curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"trend\", \"ticker\":\"NVDA\"}"
+--------------------------------------------------------------------------------
+MASTER ENDPOINT (runs everything)
+--------------------------------------------------------------------------------
+Daily Update (queues: daily_news for all tickers, daily_macro, trend_beta, macro_news):
+curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"daily_update\"}"
 
-Daily News: curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"daily_news\", \"ticker\":\"NVDA\"}"
+Daily Update (with specific date):
+curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"daily_update\",\"date\":\"2026-02-05\"}"
 
-Report: curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"report\", \"ticker\":\"NVDA\"}"
+--------------------------------------------------------------------------------
+ALPHA ORCHESTRATORS (Direct execution)
+--------------------------------------------------------------------------------
+Trend (single ticker):
+curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"trend\",\"ticker\":\"NVDA\"}"
 
-Beta Orchestrators
-Trend Beta curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"trend_beta\"}"
+Report (single ticker):
+curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"report\",\"ticker\":\"NVDA\"}"
 
-Gen (Main Beta Summary) curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"gen\"}"
+--------------------------------------------------------------------------------
+ALPHA ORCHESTRATORS (Queued execution)
+--------------------------------------------------------------------------------
+Daily News (all 25 tickers):
+curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"daily_news\"}"
+
+Daily News (single ticker):
+curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"daily_news\",\"ticker\":\"AAPL\"}"
+
+--------------------------------------------------------------------------------
+BETA ORCHESTRATORS (Direct execution)
+--------------------------------------------------------------------------------
+Gen (macro + sentiment synthesis):
+curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"gen\"}"
+
+Trend Beta:
+curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"trend_beta\"}"
+
+--------------------------------------------------------------------------------
+BETA ORCHESTRATORS (Queued execution)
+--------------------------------------------------------------------------------
+Daily Macro (macro + sentiment daily summary):
+curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"daily_macro\"}"
+
+Macro News (market news summary):
+curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"macro_news\"}"
+
+Macro News (with specific date):
+curl -X POST https://job-engine-workflow.gines-rodriguez-castro.workers.dev/run -H "Content-Type: application/json" -d "{\"action\":\"macro_news\",\"date\":\"2026-02-05\"}"
+
+================================================================================
+ACTIONS SUMMARY
+================================================================================
+| Action        | Type   | Description                                        |
+|---------------|--------|----------------------------------------------------|
+| daily_update  | QUEUED | Master: runs daily_news + daily_macro + trend_beta + macro_news |
+| daily_news    | QUEUED | News summary for all/single ticker                 |
+| daily_macro   | QUEUED | Daily macro indicators summary                     |
+| macro_news    | QUEUED | Market news summary                                |
+| report        | DIRECT | Report processing for ticker                       |
+| trend         | DIRECT | Alpha trend for ticker                             |
+| gen           | DIRECT | Gen synthesis (macro + sentiment)                  |
+| trend_beta    | DIRECT | Beta trend synthesis                               |
+
+================================================================================
+TICKERS IN PORTFOLIO (25)
+================================================================================
+AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA, BRK, JPM, GS, BAC, XOM, CVX, UNH,
+LLY, JNJ, PG, KO, HD, CAT, BA, INTC, AMD, NFLX, MS

@@ -155,6 +155,36 @@ var index_default = {
         VALUES (?, ?, ?, ?)
       `).bind(now, "beta-news-processor", JSON.stringify({ date: inputDate }), "pending").run();
     }
+    if (action === "daily_update") {
+      const now = new Date().toISOString();
+      const inputDate = body.date || now.slice(0, 10);
+
+      // 1) Queue daily_news (news-orchestrator for all tickers)
+      for (const t of TICKERS) {
+        await this_env.DB.prepare(`
+          INSERT INTO PROC_01_Job_queue (date, worker, input, status)
+          VALUES (?, ?, ?, ?)
+        `).bind(now, "news-orchestrator", JSON.stringify({ ticker: t }), "pending").run();
+      }
+
+      // 2) Queue daily_macro
+      await this_env.DB.prepare(`
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
+        VALUES (?, ?, ?, ?)
+      `).bind(now, "daily-macro-summarizer", "{}", "pending").run();
+
+      // 3) Queue trend_beta
+      await this_env.DB.prepare(`
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
+        VALUES (?, ?, ?, ?)
+      `).bind(now, "beta-trend-orchestrator", "{}", "pending").run();
+
+      // 4) Queue macro_news
+      await this_env.DB.prepare(`
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
+        VALUES (?, ?, ?, ?)
+      `).bind(now, "beta-news-processor", JSON.stringify({ date: inputDate }), "pending").run();
+    }
     const instanceId = `run-${Date.now()}`;
     await this_env.WORKFLOW.create({ id: instanceId });
     return Response.json({ ok: true, workflowId: instanceId });
