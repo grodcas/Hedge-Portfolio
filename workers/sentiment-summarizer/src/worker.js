@@ -57,16 +57,16 @@ export default {
       return new Response("Empty AI output", { status: 502 });
 
     // --------------------------------------------
-    // Persist
+    // Persist (one entry per week, override Mon-Fri)
     // --------------------------------------------
-    const hashInput = `${date}|sentiment`;
-    const hashBuffer = await crypto.subtle.digest(
-      "SHA-256",
-      new TextEncoder().encode(hashInput)
-    );
-    const id = [...new Uint8Array(hashBuffer)]
-      .map(b => b.toString(16).padStart(2, "0"))
-      .join("");
+    const dayOfWeek = new Date().getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+    const isMonday = dayOfWeek === 1;
+    const idDate = new Date();
+    if (!isMonday) {
+      const daysBack = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      idDate.setDate(idDate.getDate() - daysBack);
+    }
+    const id = `sentiment-${idDate.toISOString().slice(0, 10)}`;
 
     await db.prepare(`
       INSERT INTO BETA_06_Sentiment_Processed

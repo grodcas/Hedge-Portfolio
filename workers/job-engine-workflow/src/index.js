@@ -82,6 +82,9 @@ var JobWorkflow = class extends WorkflowEntrypoint {
             case "trend-builder":
               res = await this.env.trend_builder.fetch("https://internal/build-trend", { method: "POST", body });
               break;
+            case "daily-macro-summarizer":
+              res = await this.env.DAILY_MACRO_SUMMARIZER.fetch("https://internal/process-daily-macro", { method: "POST", body });
+              break;
             default:
               throw new Error(`Unknown worker: ${job.worker}`);
           }
@@ -100,6 +103,11 @@ var JobWorkflow = class extends WorkflowEntrypoint {
     }
   }
 };
+var TICKERS = [
+  "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK",
+  "JPM", "GS", "BAC", "XOM", "CVX", "UNH", "LLY", "JNJ",
+  "PG", "KO", "HD", "CAT", "BA", "INTC", "AMD", "NFLX", "MS"
+];
 var index_default = {
   async fetch(req, this_env) {
     const url = new URL(req.url);
@@ -114,7 +122,14 @@ var index_default = {
       await this_env.REPORT_ORCHESTRATOR.fetch("https://internal/process-report", { method: "POST", body: JSON.stringify(body) });
     }
     if (action === "daily_news") {
-      await this_env.NEWS_ORCHESTRATOR.fetch("https://internal/process-daily-news", { method: "POST", body: JSON.stringify(body) });
+      const tickersToProcess = body.ticker ? [body.ticker.toUpperCase()] : TICKERS;
+      const now = new Date().toISOString();
+      for (const t of tickersToProcess) {
+        await this_env.DB.prepare(`
+          INSERT INTO PROC_01_Job_queue (date, worker, input, status)
+          VALUES (?, ?, ?, ?)
+        `).bind(now, "news-orchestrator", JSON.stringify({ ticker: t }), "pending").run();
+      }
     }
     if (action === "trend") {
       await this_env.TREND_ORCHESTRATOR.fetch("https://internal/process-trend", { method: "POST", body: JSON.stringify(body) });
@@ -124,6 +139,21 @@ var index_default = {
     }
     if (action === "trend_beta") {
       await this_env.BETA_TREND_ORCHESTRATOR.fetch("https://internal/process-trend-orchestrator", { method: "POST", body: "{}" });
+    }
+    if (action === "daily_macro") {
+      const now = new Date().toISOString();
+      await this_env.DB.prepare(`
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
+        VALUES (?, ?, ?, ?)
+      `).bind(now, "daily-macro-summarizer", "{}", "pending").run();
+    }
+    if (action === "macro_news") {
+      const now = new Date().toISOString();
+      const inputDate = body.date || now.slice(0, 10);
+      await this_env.DB.prepare(`
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
+        VALUES (?, ?, ?, ?)
+      `).bind(now, "beta-news-processor", JSON.stringify({ date: inputDate }), "pending").run();
     }
     const instanceId = `run-${Date.now()}`;
     await this_env.WORKFLOW.create({ id: instanceId });

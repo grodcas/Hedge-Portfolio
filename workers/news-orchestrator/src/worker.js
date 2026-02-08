@@ -10,7 +10,7 @@ export default {
 
     const db = env.DB;
     const now = new Date().toISOString();
-    const today = "2025-12-29";
+    const today = "2026-02-05"; // TESTING: hardcoded date
     const T = ticker.toUpperCase();
 
     // --------------------------------------------

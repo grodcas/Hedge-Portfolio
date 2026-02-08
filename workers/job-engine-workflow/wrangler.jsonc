@@ -89,6 +89,11 @@
       "binding": "TREND_ORCHESTRATOR",
       "service": "trend-orchestrator",
       "environment": "production"
+    },
+    {
+      "binding": "DAILY_MACRO_SUMMARIZER",
+      "service": "daily-macro-summarizer",
+      "environment": "production"
     }
   ],
   "d1_databases": [
