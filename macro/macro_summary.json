@@ -56,32 +56,32 @@
     },
     {
       "heading": "Consumer Sentiment",
-      "date": "2026-01-01",
+      "date": "2026-02-01",
       "summary": {
-        "previous Consumer Sentiment": 52.9,
-        "current Consumer Sentiment": 56.4,
-        "pct_change Consumer Sentiment": 6.616257088846882
+        "previous Consumer Sentiment": 56.4,
+        "current Consumer Sentiment": 57.3,
+        "pct_change Consumer Sentiment": 1.5957446808510614
       }
     },
     {
       "heading": "Inflation Expectations",
-      "date": "2026-01-01",
+      "date": "2026-02-01",
       "summary": {
-        "previous 1Y Inflation Expectations": 4.2,
-        "current 1Y Inflation Expectations": 4,
-        "pct_change 1Y Inflation Expectations": -4.761904761904765,
-        "previous 5Y Inflation Expectations": 3.2,
-        "current 5Y Inflation Expectations": 3.3,
-        "pct_change 5Y Inflation Expectations": 3.124999999999989
+        "previous 1Y Inflation Expectations": 4,
+        "current 1Y Inflation Expectations": 3.5,
+        "pct_change 1Y Inflation Expectations": -12.5,
+        "previous 5Y Inflation Expectations": 3.3,
+        "current 5Y Inflation Expectations": 3.4,
+        "pct_change 5Y Inflation Expectations": 3.030303030303033
       }
     },
     {
       "heading": "Gamma Regime (VIX)",
-      "date": "2026-02-05",
+      "date": "2026-02-06",
       "summary": {
-        "VIX9D": 22.290000915527344,
-        "VIX": 21.770000457763672,
-        "VIX3M": 22.450000762939453,
+        "VIX9D": 15.430000305175781,
+        "VIX": 17.760000228881836,
+        "VIX3M": 20.3700008392334,
         "Gamma Regime": "POSITIVE"
       }
     },

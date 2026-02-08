@@ -224,9 +224,5 @@ async function main() {
   );
 }
 
-main().catch(err => {
-  console.error("Sentiment pipeline error:", err);
-  process.exit(1);
-});
-
+await main();
 console.log("→ SENTIMENT SUMMARY DONE");

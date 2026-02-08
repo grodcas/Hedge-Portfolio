@@ -234,9 +234,5 @@ async function main() {
   );
 }
 
-main().catch(err => {
-  console.error("Macro pipeline error:", err);
-  process.exit(1);
-});
-
+await main();
 console.log("→ MACRO SUMMARY DONE");

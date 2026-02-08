@@ -2,65 +2,65 @@
   "Sentiment": [
     {
       "heading": "Put/Call Ratios (CBOE)",
-      "date": "2026-02-05",
+      "date": "2026-02-06",
       "summary": {
         "date": null,
-        "total_put_call_ratio": 1,
-        "index_put_call_ratio": 1.02,
-        "exchange_traded_products_put_call_ratio": 1.7,
-        "equity_put_call_ratio": 0.63,
-        "cboe_volatility_index_vix_put_call_ratio": 0.52,
-        "spx_spxw_put_call_ratio": 1.12,
-        "oex_put_call_ratio": 0.5,
-        "mrut_put_call_ratio": 0.94,
+        "total_put_call_ratio": 0.92,
+        "index_put_call_ratio": 1.09,
+        "exchange_traded_products_put_call_ratio": 1.06,
+        "equity_put_call_ratio": 0.65,
+        "cboe_volatility_index_vix_put_call_ratio": 0.7,
+        "spx_spxw_put_call_ratio": 1.2,
+        "oex_put_call_ratio": 0.75,
+        "mrut_put_call_ratio": 1,
         "mxea_put_call_ratio": 0,
-        "mxef_put_call_ratio": 80,
+        "mxef_put_call_ratio": 0.1,
         "mxacw_put_call_ratio": 0,
         "mxwld_put_call_ratio": 0,
         "mxusa_put_call_ratio": 0,
-        "cbtx_put_call_ratio": 0.97,
-        "mbtx_put_call_ratio": 0.35,
+        "cbtx_put_call_ratio": 1.05,
+        "mbtx_put_call_ratio": 10.45,
         "speqx_put_call_ratio": 0,
-        "speqw_put_call_ratio": 0,
-        "mgtn_put_call_ratio": 0.33,
-        "mgtnw_put_call_ratio": 80.46
+        "speqw_put_call_ratio": 1,
+        "mgtn_put_call_ratio": 0.92,
+        "mgtnw_put_call_ratio": 83.76
       }
     },
     {
       "heading": "AAII Sentiment Survey",
-      "date": "2026-11-19",
+      "date": "2026-02-04",
       "summary": {
         "latest": {
-          "date": "2026-11-19",
-          "bullish": 32.6,
-          "neutral": 23.9,
-          "bearish": 43.6
+          "date": "2026-02-04",
+          "bullish": 39.7,
+          "neutral": 31.3,
+          "bearish": 29
         },
         "previous": {
-          "date": "2026-11-12",
-          "bullish": 31.6,
-          "neutral": 19.2,
-          "bearish": 49.1
+          "date": "2026-01-28",
+          "bullish": 44.4,
+          "neutral": 24.8,
+          "bearish": 30.8
         },
         "two_weeks_ago": {
-          "date": "2026-11-05",
-          "bullish": 38,
-          "neutral": 25.8,
-          "bearish": 36.3
+          "date": "2026-01-21",
+          "bullish": 43.2,
+          "neutral": 24.1,
+          "bearish": 32.7
         }
       }
     },
     {
       "heading": "COT Futures (ES / NQ)",
-      "date": "2026-02-05",
+      "date": "2026-02-06",
       "summary": {
         "es": {
-          "asset_managers_net": -17061,
-          "leveraged_funds_net": -4744
+          "asset_managers_net": -17650,
+          "leveraged_funds_net": -4698
         },
         "nq": {
-          "asset_managers_net": -108204,
-          "leveraged_funds_net": -51200
+          "asset_managers_net": -105532,
+          "leveraged_funds_net": -52246
         }
       }
     }

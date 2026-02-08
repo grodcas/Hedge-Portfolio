@@ -1,88 +1,49 @@
 {
-  "GOOGL": [
+  "AAPL": [
     {
-      "heading": "Alphabet Announces Fourth Quarter 2025 and Fiscal Year Results",
-      "date": "2026-02-04",
-      "summary": "There is no text provided to summarize. Please provide the text of the press release."
+      "heading": "Apple Sports adds golf to its lineup",
+      "date": "2026-02-06",
+      "summary": "Apple Arcade will release SpongeBob: Patty Pursuit 2 on December 4, featuring SpongeBob and Plankton working together to save Bikini Bottom. The game includes local co-op play and multiple Bikini Bottom locations. \n\nAlongside this, Apple Arcade is adding five new games soon: Glassbreakers: Champions of Moss on November 13, and on December 4, PowerWash Simulator, Cult of the Lamb Arcade Edition, Subway Surfers+, and NARUTO: Ultimate Ninja STORM+. \n\nPowerWash Simulator and Cult of the Lamb are launching on mobile for the first time with exclusive content. Sneaky Sasquatch recently added a farming town update.\n\nApple Arcade costs £6.99 per month with a one-month free trial, includes access across Apple devices, and supports up to six family members. It is also part of Apple One subscription plans. Availability depends on device compatibility and region."
     }
   ],
   "AMZN": [
     {
       "heading": "Amazon.com Announces Fourth Quarter Results",
       "date": "2026-02-05",
-      "summary": "Genspark, an AI startup serving over 20 million users, has chosen Amazon Web Services (AWS) as its preferred cloud provider. Using AWS infrastructure, including Amazon EC2 Spot Instances and Amazon Elastic Kubernetes Service (EKS), Genspark has significantly lowered GPU costs by 60-70% and improved product performance. The company leverages AWS generative AI capabilities, such as the Claude models on Amazon Bedrock, reducing model inference costs by 72%. Founded in 2023, Genspark offers AI products like its Super Agent workspace and other agentic AI tools. The company achieved $50 million in annual recurring revenue within five months and raised $160 million in funding, including a $100 million Series A at a $530 million valuation. Genspark benefited from AWS’s support programs to accelerate its AI product development and global growth."
+      "summary": "Genspark, a startup with over 20 million users, has chosen Amazon Web Services (AWS) as its preferred cloud provider. Using AWS infrastructure and AI services, Genspark has lowered development and operational costs while improving performance for its AI products. Founded in 2023, Genspark offers a range of AI tools including the Super Agent workspace and other agentic AI applications. The company uses AWS technologies like Amazon EC2 Spot Instances and Amazon EKS to reduce GPU costs by 60-70% and speed up image generation. Genspark also utilizes Amazon Bedrock and Claude models to enhance AI workflows and reduce model inference costs by 72%. The partnership with AWS, supported by programs like AWS Activate 2.0, has helped Genspark accelerate its product rollout and global growth. Genspark has reached $50 million ARR in five months and raised $160 million in funding, including a $100 million Series A at a $530 million valuation."
     },
     {
       "heading": "Fundamental Announces $255M in Funding and Publicly Launches its Most Powerful Large Tabular Model (LTM)",
       "date": "2026-02-05",
-      "summary": "Genspark, a startup founded in 2023 that offers AI-powered work tools to over 20 million users, has chosen Amazon Web Services (AWS) as its preferred cloud provider. Using AWS infrastructure, including EC2 Spot Instances and Amazon EKS, Genspark has reduced GPU costs by 60-70% and improved AI product performance. The company leverages AWS’s Amazon Bedrock service and the Claude AI models to power its agentic AI applications, cutting model inference costs by 72%. Genspark participated in AWS startup programs that supported its product development and global expansion. The company achieved $50 million in annual recurring revenue within five months and raised $160 million in funding, including a $100 million Series A round at a $530 million valuation."
-    },
-    {
-      "heading": "AT&T, AWS, and Amazon Leo Collaborate to Accelerate Modernization of Nation's Connectivity Infrastructure",
-      "date": "2026-02-04",
-      "summary": "Genspark, an AI startup serving over 20 million users, has chosen Amazon Web Services (AWS) as its preferred cloud provider. Using AWS infrastructure and generative AI tools, Genspark has cut product development and operational costs while improving the performance of its AI products. Founded in 2023, Genspark offers AI agent products like Super Agent, which supports tasks such as research, content creation, and office productivity.\n\nGenspark uses AWS features like EC2 Spot Instances and Amazon EKS autoscaling to reduce GPU costs by 60-70% and speed up image generation. It also employs the Claude family of models on Amazon Bedrock, achieving a 72% reduction in model inference costs. Genspark participated in AWS Activate 2.0 and the AWS Startup Accelerator to support its product development and global growth.\n\nThe company has raised $160 million over 18 months, including a $100 million Series A at a $530 million valuation in February 2025, and reached $50 million in annual recurring revenue within five months of launch."
-    },
-    {
-      "heading": "Prosus selects AWS to power AI-driven ecommerce innovation",
-      "date": "2026-02-04",
-      "summary": "Genspark, a startup founded in 2023 that builds general-purpose AI agents for over 20 million users, has chosen Amazon Web Services (AWS) as its preferred cloud provider. Using AWS infrastructure and AI tools, Genspark has lowered product development and operational costs while enhancing the performance of its AI products. Key AWS services used include Amazon EC2 Spot Instances, Amazon Elastic Kubernetes Service (EKS), and Amazon Bedrock, which together help reduce GPU and model inference costs by up to 72%. Genspark offers AI products like Super Agent, AI Slides, and AI Designer, running on a platform with multiple AI models and datasets. The company has rapidly grown, achieving $50 million in annual recurring revenue within five months and raising $160 million in funding by mid-2025."
+      "summary": "Genspark, a startup founded in 2023 that serves over 20 million users with general-purpose AI agents, has chosen Amazon Web Services (AWS) as its preferred cloud provider. Using AWS infrastructure, including EC2 Spot Instances, Amazon EKS, and Amazon Bedrock, Genspark has reduced costs by up to 72% and improved performance for its generative and agentic AI products. The company’s products include the Super Agent workspace, AI Slides, AI Sheets, and AI Designer. Genspark raised $160 million in 18 months, reaching a $530 million valuation in February 2025, and achieved $50 million annual recurring revenue within five months. Genspark also participated in AWS startup programs that supported its product development and global growth."
     }
   ],
   "NVDA": [
     {
       "heading": "GeForce NOW Celebrates Six Years of Streaming With 24 Games in February",
       "date": "2026-02-05",
-      "summary": "NVIDIA has introduced RDMA for S3-compatible storage, using remote direct memory access to speed up object storage data transfers optimized for AI workloads. This technology offers higher throughput, lower latency, and reduced costs compared to traditional TCP-based storage. NVIDIA has developed RDMA client and server libraries, initially optimized for NVIDIA GPUs and networking, with an open architecture allowing contributions from other vendors.\n\nKey storage partners—Cloudian, Dell Technologies, and HPE—have integrated these RDMA libraries into their products: Cloudian HyperStore, Dell ObjectScale, and HPE Alletra Storage MP X10000. The libraries are currently available to select partners and will become generally available through the NVIDIA CUDA Toolkit in January. NVIDIA is also working with partners to standardize RDMA for S3-compatible storage and has introduced a new NVIDIA Object Storage Certification program."
-    },
-    {
-      "heading": "Nemotron Labs: How AI Agents Are Turning Documents Into Real-Time Business Intelligence",
-      "date": "2026-02-04",
-      "summary": "NVIDIA has developed RDMA for S3-compatible storage, which accelerates S3-API-based object storage using remote direct memory access (RDMA) to improve performance for AI workloads. This technology offers higher throughput, lower latency, and greater efficiency compared to traditional TCP-based storage access. NVIDIA provides RDMA client and server libraries optimized for NVIDIA GPUs and networking, with an open architecture for other vendors to adopt and contribute.\n\nSeveral storage partners, including Cloudian, Dell Technologies, and HPE, are integrating RDMA for S3-compatible storage into their products (Cloudian HyperStore, Dell ObjectScale, and HPE Alletra Storage MP X10000) to enhance scalability and AI workload performance. NVIDIA’s RDMA storage libraries are currently available to select partners and will be generally available in January via the NVIDIA CUDA Toolkit. Additionally, NVIDIA announced a new Object Storage Certification as part of its NVIDIA-Certified Storage program."
+      "summary": "NVIDIA has developed RDMA (remote direct memory access) client and server libraries to accelerate S3-compatible object storage, optimized for AI workloads. This technology enables faster data transfers, higher throughput, lower latency, and improved efficiency compared to traditional TCP-based storage access. The architecture is open for other vendors to adopt and contribute to. Key storage partners—Cloudian, Dell Technologies, and HPE—are integrating RDMA for S3-compatible storage into their products: Cloudian HyperStore, Dell ObjectScale, and HPE Alletra Storage MP X10000. NVIDIA's RDMA libraries are currently available to select partners and will be generally available via the NVIDIA CUDA Toolkit in January. The company has also introduced a new NVIDIA Object Storage Certification as part of its NVIDIA-Certified Storage program."
     }
   ],
   "BAC": [
     {
       "heading": "Bank of America Announces Full Redemption of Its Series DD Preferred Stock and Related Depositary Shares",
       "date": "2026-02-05",
-      "summary": "Bank of America is launching 401k Pay on November 17, a new digital solution that helps 401(k) plan participants convert their account assets into retirement income. The service is available at no extra cost to corporate plan sponsors and participants enrolled in Bank of America's Personal Retirement Strategy program. 401k Pay offers 401(k) recordkeeping, flexible deposit options, and advice in one platform, allowing users to set, deposit, and track retirement income. The solution was developed in collaboration with corporate clients to address employees' needs for retirement education and income planning."
-    },
-    {
-      "heading": "BofA Merchant Services Ranks No. 1 by J.D. Power for Customer Satisfaction in the 2026 U.S. Merchant Services Satisfaction Study",
-      "date": "2026-02-04",
-      "summary": "Bank of America is launching 401k Pay, a new digital solution to help convert 401(k) assets into retirement income. Available starting November 17 at no extra cost to the company’s corporate clients and plan participants, 401k Pay offers 401(k) recordkeeping, flexible deposit options, and retirement income advice in one platform. It integrates with Bank of America’s Personal Retirement Strategy program and aims to assist employees with retirement income planning and management. The solution was developed in collaboration with corporate clients to enhance workplace retirement benefits."
+      "summary": "Bank of America is launching 401k Pay on November 17, a new digital solution that helps convert 401(k) assets into retirement income. The service is available at no extra cost to corporate plan sponsors and participants who use Bank of America's employer-sponsored Personal Retirement Strategy program. 401k Pay offers 401(k) recordkeeping, flexible deposit options, and retirement income advice in one platform. It aims to help employees set, deposit, and track retirement income and addresses employee needs for retirement education and income planning."
     }
   ],
   "CVX": [
     {
       "heading": "Chevron Announces Senior Leadership Changes",
       "date": "2026-02-05",
-      "summary": "Chevron Corporation announced its five-year plan through 2030, aiming for sustained cash flow growth, portfolio strengthening, shareholder return growth, and advancing power solutions for AI data centers. Key targets include:\n\n- Adjusted free cash flow growth above 10% annually at $70 Brent.\n- Capital expenditure (capex) guidance reduced to $18-$21 billion per year.\n- Earnings per share growth above 10% annually at $70 Brent.\n- Maintaining capex and dividend breakeven below $50 Brent per barrel.\n- Improving return on capital employed by over 3% by 2030 at $70 Brent.\n- Increasing synergies from Hess acquisition to $1.5 billion and structural cost reductions to $3-$4 billion by end of 2026.\n- Growing oil and gas production by 2%-3% annually through 2030.\n- Launching its first AI data center power project in West Texas, with power targeted for 2027 startup."
-    }
-  ],
-  "UNH": [
-    {
-      "heading": "New Report Reveals Americans Are Getting Sick More Often, Earlier in Life",
-      "date": "2026-02-04",
-      "summary": "UnitedHealthcare announced its 2026 Medicare Advantage plans, emphasizing coverage options with $0 premiums and copays for primary care and certain prescriptions. The plans, available to 94% of Medicare eligibles, include access to dental, vision, and hearing benefits. UnitedHealthcare continues to offer expanded HMO, D-SNP, and C-SNP plans and aims to keep care accessible and costs low. The company is the largest Medicare Advantage provider and was named Best Insurance Company for Medicare Advantage 2025 by U.S. News & World Report."
-    }
-  ],
-  "LLY": [
-    {
-      "heading": "Lilly reports fourth-quarter 2025 financial results and provides 2026 guidance",
-      "date": "2026-02-04",
-      "summary": "Lilly has launched the Changing the Thread Collection™, a campaign featuring clothing embroidered with personal stories from people living with obesity. The campaign aims to reframe obesity as a chronic disease and reduce stigma by combining science and storytelling. Tan France, stylist and advocate, partnered with Lilly to promote the collection and raise awareness of obesity bias.\n\nThe campaign is linked to Zepbound (tirzepatide), an FDA-approved injectable medication designed to help adults with obesity or certain overweight adults lose weight and maintain it, alongside diet and exercise. Zepbound is the first dual GIP and GLP-1 receptor agonist medicine for obesity. It is not approved for children and should not be used with other tirzepatide or GLP-1 receptor agonist drugs.\n\nZepbound carries warnings for potential serious side effects, including thyroid tumors, severe stomach problems, dehydration, gallbladder issues, pancreatitis, allergic reactions, low blood sugar, vision changes, and mental health effects. Common side effects include nausea, diarrhea, vomiting, constipation, and injection site reactions.\n\nMore information about the campaign and Zepbound is available at ChangingTheThreadCollection.com and www.zepbound.lilly.com."
+      "summary": "Chevron Corporation announced its five-year plan to 2030, aiming to grow adjusted free cash flow and earnings per share by over 10% annually at a $70 Brent oil price. The company plans to reduce capital expenditures to $18-$21 billion per year, maintain a capital and dividend breakeven below $50 per barrel, and improve return on capital employed by more than 3% by 2030. Chevron expects to increase oil and gas production by 2%-3% annually through 2030, achieve $1.5 billion in synergies with Hess Corporation, and realize $3-$4 billion in structural cost reductions by the end of 2026. The company is also developing a large-scale power project for AI data centers in West Texas, with first power targeted in 2027. Chevron plans to continue dividend growth and share repurchases, expecting to buy back $10-$20 billion in shares annually through 2030."
     }
   ],
   "MS": [
     {
       "heading": "Morgan Stanley to Host 17th Annual Go Red Women’s Leadership Event in Collaboration with the American Heart Association",
       "date": "2026-02-05",
-      "summary": "Morgan Stanley Real Estate Investing (MSREI) and Global Student Accommodation (GSA) have acquired an off-market portfolio of eight student housing properties near top U.S. universities, totaling 6,200 beds. The transaction, valued at over $1 billion, is one of the largest student housing deals globally this year. The properties are located across seven states, including new markets in Virginia, Georgia, and Pennsylvania, and near universities such as the University of Virginia and Penn State. This acquisition expands MSREI and GSA’s U.S. portfolio to 50 properties in 23 states, with nearly 24,000 beds. Yugo has been appointed to manage and rebrand the new assets."
-    },
-    {
-      "heading": "Morgan Stanley Inclusive & Sustainable Ventures Hosts Global Demo Day, Opens Applications for Next Cohort",
-      "date": "2026-02-04",
-      "summary": "Morgan Stanley Real Estate Investing (MSREI) and Global Student Accommodation (GSA) have acquired an off-market portfolio of eight student housing properties with 6,200 beds near top U.S. universities, including the University of Virginia, University of Florida, Texas A&M, and Penn State. The transaction, valued at over $1 billion, expands their portfolio to 50 properties with nearly 24,000 beds across 23 states. The acquisition introduces MSREI and GSA into new markets such as Virginia, Georgia, and Pennsylvania. Yugo has been appointed as the manager of the assets."
+      "summary": "Morgan Stanley Real Estate Investing (MSREI) and Global Student Accommodation (GSA) have acquired an off-market portfolio of eight student housing properties in the U.S. for over $1 billion. The portfolio includes 6,200 beds near top universities in seven states, including the University of Virginia, University of Florida, Texas A&M, and Penn State University. This acquisition expands the partnership’s U.S. portfolio to 50 properties across 23 states with nearly 24,000 beds. Yugo has been appointed to manage and rebrand the assets. The deal marks MSREI and GSA’s entry into new markets such as Virginia, Georgia, and Pennsylvania, while increasing their presence in Texas, Florida, Oregon, and North Carolina."
     }
   ]
 }

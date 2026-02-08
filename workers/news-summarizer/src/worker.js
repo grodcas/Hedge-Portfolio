@@ -10,8 +10,8 @@ export default {
 
     const db = env.DB;
     const T = ticker.toUpperCase();
-    //const today = new Date().toISOString().slice(0, 10);
-    const today = "2025-12-29";
+    const today = new Date().toISOString().slice(0, 10);
+    //const today = "2025-12-29";
 
 
     // --------------------------------------------
