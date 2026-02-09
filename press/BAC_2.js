@@ -39,7 +39,8 @@ async function scrapeArticle(url) {
   return paragraphs.join("\n\n");
 }
 
-scrapeArticle("https://newsroom.bankofamerica.com/content/newsroom/press-releases/2025/11/bofa-launches-401k-pay--comprehensive-solution-simplifies-retire.html")
+const url = process.argv[2];
+scrapeArticle(url)
   .then(console.log)
   .catch(console.error);
 

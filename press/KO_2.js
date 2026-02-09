@@ -39,6 +39,7 @@ async function scrapeArticle(url) {
   return paragraphs.join("\n\n");
 }
 
-scrapeArticle("https://investors.coca-colacompany.com/news-events/press-releases/detail/1145/coca-cola-consolidated-repurchases-all-outstanding-shares-held-by-the-coca-cola-company")
+const url = process.argv[2];
+scrapeArticle(url)
   .then(console.log)
   .catch(console.error);

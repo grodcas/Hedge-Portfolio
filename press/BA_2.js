@@ -37,6 +37,7 @@ async function scrapeArticle(url) {
   return paragraphs.join("\n\n");
 }
 
-scrapeArticle("https://investors.boeing.com/investors/news/press-release-details/2025/Boeing-South-Carolina-Breaks-Ground-on-787-Site-Expansion/default.aspx")
+const url = process.argv[2];
+scrapeArticle(url)
   .then(console.log)
   .catch(console.error);

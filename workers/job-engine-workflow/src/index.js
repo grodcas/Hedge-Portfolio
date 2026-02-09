@@ -34,8 +34,8 @@ var JobWorkflow = class extends WorkflowEntrypoint {
             case "beta-sentiment-processor":
               res = await this.env.beta_sentiment_processor.fetch("https://internal/process-sentiment", { method: "POST", body });
               break;
-            case "beta-news-processor":
-              res = await this.env.beta_news_processor.fetch("https://internal/process-news", { method: "POST", body });
+            case "macro-news-summarizer":
+              res = await this.env.macro_news_summarizer.fetch("https://internal/process-news", { method: "POST", body });
               break;
             case "beta-gen-processor":
               res = await this.env.beta_gen_processor.fetch("https://internal/process-gen", { method: "POST", body });
@@ -153,7 +153,7 @@ var index_default = {
       await this_env.DB.prepare(`
         INSERT INTO PROC_01_Job_queue (date, worker, input, status)
         VALUES (?, ?, ?, ?)
-      `).bind(now, "beta-news-processor", JSON.stringify({ date: inputDate }), "pending").run();
+      `).bind(now, "macro-news-summarizer", JSON.stringify({ date: inputDate }), "pending").run();
     }
     if (action === "daily_update") {
       const now = new Date().toISOString();
@@ -183,7 +183,7 @@ var index_default = {
       await this_env.DB.prepare(`
         INSERT INTO PROC_01_Job_queue (date, worker, input, status)
         VALUES (?, ?, ?, ?)
-      `).bind(now, "beta-news-processor", JSON.stringify({ date: inputDate }), "pending").run();
+      `).bind(now, "macro-news-summarizer", JSON.stringify({ date: inputDate }), "pending").run();
     }
     const instanceId = `run-${Date.now()}`;
     await this_env.WORKFLOW.create({ id: instanceId });

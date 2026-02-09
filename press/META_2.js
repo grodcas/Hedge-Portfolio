@@ -31,6 +31,7 @@ async function scrapeArticle(url) {
 
 
 
-scrapeArticle("https://investor.atmeta.com/investor-news/press-release-details/2025/Meta-Announces-Joint-Venture-with-Funds-Managed-by-Blue-Owl-Capital-to-Develop-Hyperion-Data-Center/default.aspx")
+const url = process.argv[2];
+scrapeArticle(url)
   .then(console.log)
   .catch(console.error);

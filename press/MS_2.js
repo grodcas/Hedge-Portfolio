@@ -48,7 +48,7 @@ async function scrapeArticle(url) {
 
 
 
-// test
-scrapeArticle("https://www.morganstanley.com/press-releases/msrei-and-gsa-accelerate-us-student-housing-expansion")
+const url = process.argv[2];
+scrapeArticle(url)
   .then(console.log)
   .catch(console.error);

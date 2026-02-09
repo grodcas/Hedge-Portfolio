@@ -45,6 +45,7 @@ async function scrapeArticle(url) {
 }
 
 
-scrapeArticle("https://newsroom.intel.com/corporate/intel-appoints-dr-craig-h-barratt-to-board-of-directors")
+const url = process.argv[2];
+scrapeArticle(url)
   .then(console.log)
   .catch(console.error);

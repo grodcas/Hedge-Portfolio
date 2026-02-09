@@ -6,12 +6,10 @@ export default {
 
     const db = env.DB;
     const now = new Date();
-    //const today = now.toISOString().slice(0, 10);
-    const today = "2026-02-01"; // TESTING: hardcoded date
-    //const yesterdayDate = new Date(now);
-    //yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-    //const yesterday = yesterdayDate.toISOString().slice(0, 10);
-    const yesterday = "2026-01-31"; // TESTING: hardcoded date
+    const today = now.toISOString().slice(0, 10);
+    const yesterdayDate = new Date(now);
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterday = yesterdayDate.toISOString().slice(0, 10);
 
     // --------------------------------------------
     // Fetch macro indicators from today or yesterday

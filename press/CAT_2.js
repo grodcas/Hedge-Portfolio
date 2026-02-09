@@ -38,6 +38,7 @@ async function scrapeArticle(url) {
   return paragraphs.join("\n\n");
 }
 
-scrapeArticle("https://www.caterpillar.com/en/news/corporate-press-releases/h/3q25-results-cat-financial.html")
+const url = process.argv[2];
+scrapeArticle(url)
   .then(console.log)
   .catch(console.error);

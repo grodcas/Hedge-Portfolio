@@ -39,6 +39,7 @@ async function scrapeArticle(url) {
   return paragraphs.join("\n\n");
 }
 
-scrapeArticle("https://ir.homedepot.com/news-releases/2025/09-30-2025-130427755")
+const url = process.argv[2];
+scrapeArticle(url)
   .then(console.log)
   .catch(console.error);

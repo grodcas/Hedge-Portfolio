@@ -21,12 +21,12 @@ export default {
     // --------------------------------------------
     // INPUT: latest news synthesis
     // --------------------------------------------
-    const news = await db.prepare(`
-      SELECT summary
-      FROM BETA_07_News_Processed
-      ORDER BY date DESC
-      LIMIT 1
-    `).first();
+    //const news = await db.prepare(`
+    //  SELECT summary
+    //  FROM BETA_07_News_Processed
+    //  ORDER BY date DESC
+    //  LIMIT 1
+    //`).first();
 
     // --------------------------------------------
     // INPUT: latest FOMC
@@ -42,7 +42,6 @@ export default {
     const prompt = buildPrompt(
       date,
       gen.summary,
-      news.summary,
       fomc.date,
       fomc.summary
     );
@@ -98,23 +97,20 @@ export default {
   },
 };
 
-function buildPrompt(date, gen, news, fomcDate, fomc) {
+function buildPrompt(date, gen, fomcDate, fomc) {
   return `
 You are a macro trend analyst.
 
 DATE: ${date}
 
 Your task is to infer the prevailing market trend
-by combining macro regime, news flow, and monetary policy.
+by combining macro regime, and monetary policy.
 
 Focus on persistence, direction, and regime transitions.
 No bullet points. One compact analytical narrative.
 
 GENERAL MACRO & SENTIMENT:
 ${gen}
-
-NEWS FLOW:
-${news}
 
 FOMC (${fomcDate}):
 ${fomc}

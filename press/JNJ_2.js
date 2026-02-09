@@ -45,6 +45,7 @@ async function scrapeArticle(url) {
   return paragraphs.join("\n\n");
 }
 
-scrapeArticle("https://www.jnj.com/media-center/press-releases/fda-approval-of-caplyta-lumateperone-has-the-potential-to-reset-treatment-expectations-offering-hope-for-remission-in-adults-with-major-depressive-disorder")
+const url = process.argv[2];
+scrapeArticle(url)
   .then(console.log)
   .catch(console.error);

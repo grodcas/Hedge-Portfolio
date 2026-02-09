@@ -30,6 +30,7 @@ async function scrapeArticle(url) {
 }
 
 
-scrapeArticle("https://www.goldmansachs.com/pressroom/press-releases/2025/denis-coleman-to-speak-at-goldman-sachs-us-financial-services-conference")
+const url = process.argv[2];
+scrapeArticle(url)
   .then(console.log)
   .catch(console.error);

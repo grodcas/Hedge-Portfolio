@@ -29,6 +29,7 @@ async function scrapeArticle(url) {
   return paragraphs.join("\n\n");
 }
 
-scrapeArticle("https://www.jpmorganchase.com/newsroom/press-releases/2025/detroit-two-billion-dollar-milestone-new-downtown-office")
+const url = process.argv[2];
+scrapeArticle(url)
   .then(console.log)
   .catch(console.error);

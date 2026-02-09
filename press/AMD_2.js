@@ -47,9 +47,7 @@ async function scrapeArticle(url) {
 }
 
 
-// test
-scrapeArticle(
-  "https://ir.amd.com/news-events/press-releases/detail/1266/amd-unveils-strategy-to-lead-the-1-trillion-compute-market-and-accelerate-next-phase-of-growth"
-)
+const url = process.argv[2];
+scrapeArticle(url)
   .then(console.log)
   .catch(console.error);

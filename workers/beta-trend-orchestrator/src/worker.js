@@ -25,6 +25,7 @@ export default {
     // ------------------------------------------------
     // 2) News prerequisite (runs before trend)
     // ------------------------------------------------
+    /*
     const newsRow = await db.prepare(`
       SELECT id
       FROM BETA_07_News_Processed
@@ -43,7 +44,7 @@ export default {
         "pending"
       ).run();
     }
-
+*/
     // ------------------------------------------------
     // 3) Gen prerequisite (runs FIRST)
     // ------------------------------------------------
@@ -71,7 +72,6 @@ export default {
       date: today,
       enqueued: {
         trend: true,
-        news_if_missing: !newsRow,
         gen_if_missing: !genRow
       }
     });

@@ -2,49 +2,23 @@
   "results": {
     "AAPL": [
       {
-        "title": "Apple Sports adds golf to its lineup",
-        "url": "https://www.apple.com/uk/newsroom/2026/02/apple-sports-adds-golf-to-its-lineup/",
-        "norm": "2026-02-06"
+        "title": "The biggest hits of Bad Bunny’s Apple Music Super Bowl LX Halftime Show",
+        "url": "https://www.apple.com/uk/newsroom/2026/02/the-biggest-hits-of-bad-bunnys-apple-music-super-bowl-lx-halftime-show/",
+        "norm": "2026-02-09"
       }
     ],
-    "AMZN": [
+    "LLY": [
       {
-        "title": "Amazon.com Announces Fourth Quarter Results",
-        "url": "https://press.aboutamazon.com/https:/ir.aboutamazon.com/news-release/news-release-details/2026/Amazon-com-Announces-Fourth-Quarter-Results/",
-        "norm": "2026-02-05"
-      },
-      {
-        "title": "Fundamental Announces $255M in Funding and Publicly Launches its Most Powerful Large Tabular Model (LTM)",
-        "url": "https://press.aboutamazon.com/aws/2026/2/fundamental-announces-255m-in-funding-and-publicly-launches-its-most-powerful-large-tabular-model-ltm",
-        "norm": "2026-02-05"
+        "title": "Lilly to acquire Orna Therapeutics to advance cell therapies",
+        "url": "https://investor.lilly.com/news-releases/news-release-details/lilly-acquire-orna-therapeutics-advance-cell-therapies",
+        "norm": "2026-02-09"
       }
     ],
-    "NVDA": [
+    "PG": [
       {
-        "title": "GeForce NOW Celebrates Six Years of Streaming With 24 Games in February",
-        "url": "https://blogs.nvidia.com/blog/geforce-now-thursday-feb-2026-games-list/",
-        "norm": "2026-02-05"
-      }
-    ],
-    "BAC": [
-      {
-        "title": "Bank of America Announces Full Redemption of Its Series DD Preferred Stock and Related Depositary Shares",
-        "url": "https://newsroom.bankofamerica.com/content/newsroom/press-releases/2026/02/bank-of-america-announces-full-redemption-of-its-series-dd-prefe.html",
-        "norm": "2026-02-05"
-      }
-    ],
-    "CVX": [
-      {
-        "title": "Chevron Announces Senior Leadership Changes",
-        "url": "https://chevroncorp.gcs-web.com/news-releases/news-release-details/chevron-announces-senior-leadership-changes-2",
-        "norm": "2026-02-05"
-      }
-    ],
-    "MS": [
-      {
-        "title": "Morgan Stanley to Host 17th Annual Go Red Women’s Leadership Event in Collaboration with the American Heart Association",
-        "url": "https://www.morganstanley.com/press-releases/morgan-stanley-17th-annual-go-red-womens-leadership-event",
-        "norm": "2026-02-05"
+        "title": "Where Curiosity Meets Purpose: How Inventors Thrive at P&G",
+        "url": "https://us.pg.com/blogs/how-inventors-thrive-at-pg/",
+        "norm": "2026-02-09"
       }
     ]
   },

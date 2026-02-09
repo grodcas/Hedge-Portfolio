@@ -16,10 +16,11 @@ function normalizeMonthYear(monthCol, yearCol) {
 
 // ----------- BLS GENERIC FETCHER -----------
 async function bls(seriesId) {
+  const currentYear = new Date().getFullYear();
   const body = {
     seriesid: [seriesId],
-    startyear: "2024",
-    endyear: "2026",
+    startyear: String(currentYear - 2),
+    endyear: String(currentYear),
     registrationkey: BLS_KEY
   };
 

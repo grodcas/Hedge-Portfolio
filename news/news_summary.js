@@ -203,7 +203,7 @@ async function main() {
   output.Reuters   = await processFolder("news/REUTERS/files", parseReuters);
 
   fs.writeFileSync(
-    path.join(__dirname, "news_summary.json"),
+    path.join("C:/AI_agent/HF/news/news_summary.json"),
     JSON.stringify(output, null, 2)
   );
 }

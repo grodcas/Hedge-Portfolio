@@ -35,6 +35,7 @@ async function scrapeArticle(url) {
   return paragraphs.join("\n\n");
 }
 
-scrapeArticle("https://corporate.exxonmobil.com/locations/brazil/news/exxonmobil-begins-first-deepwater-production-in-brazil#Deepwaterdeeperimpact")
+const url = process.argv[2];
+scrapeArticle(url)
   .then(console.log)
   .catch(console.error);

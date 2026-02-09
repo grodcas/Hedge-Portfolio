@@ -46,6 +46,7 @@ async function scrapeArticle(url) {
   return paragraphs.join("\n\n");
 }
 
-scrapeArticle("https://investor.lilly.com/news-releases/news-release-details/queer-eyes-tan-france-helps-unthread-obesity-bias-part-zepbounds")
+const url = process.argv[2];
+scrapeArticle(url)
   .then(console.log)
   .catch(console.error);

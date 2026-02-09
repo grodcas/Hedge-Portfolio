@@ -30,6 +30,7 @@ async function scrapeArticle(url) {
 }
 
 
-scrapeArticle("https://blogs.nvidia.com/blog/s3-compatible-ai-storage/")
+const url = process.argv[2];
+scrapeArticle(url)
   .then(console.log)
   .catch(console.error);

@@ -25,7 +25,7 @@ async function scrapeArticle(url) {
   return paragraphs.join("\n\n");
 }
 
-// usage:
-scrapeArticle("https://www.apple.com/uk/newsroom/2025/11/spongebob-patty-pursuit-2-launches-december-4-on-apple-arcade/")
+const url = process.argv[2];
+scrapeArticle(url)
   .then(console.log)
   .catch(console.error);

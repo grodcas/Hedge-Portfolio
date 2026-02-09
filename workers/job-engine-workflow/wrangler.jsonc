@@ -21,7 +21,7 @@
       "environment": "production"
     },
     {
-      "binding": "beta_news_processor",
+      "binding": "macro_news_summarizer",
       "service": "macro-news-summarizer",
       "environment": "production"
     },

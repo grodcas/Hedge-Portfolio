@@ -30,7 +30,7 @@ export default {
     `).bind(date).all();
 
     if (!news.length && !wh.length)
-      return new Response("No news data", { status: 204 });
+      return new Response(null, { status: 204 });
 
     const prompt = buildPrompt(date, news, wh);
 

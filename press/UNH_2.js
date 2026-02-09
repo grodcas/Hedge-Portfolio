@@ -40,6 +40,7 @@ async function scrapeArticle(url) {
   return paragraphs.join("\n\n");
 }
 
-scrapeArticle("https://www.unitedhealthgroup.com/newsroom/2025/2025-10-01-uhc-2026-medicare-advantage-plans-deliver-value-access-consumer-choice.html")
+const url = process.argv[2];
+scrapeArticle(url)
   .then(console.log)
   .catch(console.error);

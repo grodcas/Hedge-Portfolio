@@ -34,6 +34,7 @@ async function scrapeArticle(url) {
   return paragraphs.join("\n\n");
 }
 
-scrapeArticle("https://chevroncorp.gcs-web.com/news-releases/news-release-details/chevron-outlines-plan-sustained-cash-flow-growth-investor-day")
+const url = process.argv[2];
+scrapeArticle(url)
   .then(console.log)
   .catch(console.error);

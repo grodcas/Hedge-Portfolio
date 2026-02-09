@@ -24,6 +24,7 @@ async function scrapeArticle(url) {
   return paragraphs.join("\n\n");
 }
 
-scrapeArticle("https://press.aboutamazon.com/aws/2025/11/genspark-joins-forces-with-aws-to-deliver-the-next-generation-agentic-ai-experiences-for-users-worldwide")
+const url = process.argv[2];
+scrapeArticle(url)
   .then(console.log)
   .catch(console.error);

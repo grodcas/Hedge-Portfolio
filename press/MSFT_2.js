@@ -26,7 +26,7 @@ async function scrapeMSFTArticle(url) {
   return paragraphs.join("\n\n");
 }
 
-// usage
-scrapeMSFTArticle("https://news.microsoft.com/source/2025/07/30/microsoft-cloud-and-ai-strength-fuels-fourth-quarter-results/")
+const url = process.argv[2];
+scrapeMSFTArticle(url)
   .then(console.log)
   .catch(console.error);

@@ -51,9 +51,7 @@ async function scrapeArticle(url) {
   return paragraphs.join("\n\n");
 }
 
-// test
-scrapeArticle(
-  "https://ir.netflix.net/investor-news-and-events/financial-releases/press-release-details/2025/Netflix-Announces-Ten-For-One-Stock-Split/default.aspx"
-)
+const url = process.argv[2];
+scrapeArticle(url)
   .then(console.log)
   .catch(console.error);
