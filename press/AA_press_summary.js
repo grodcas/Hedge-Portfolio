@@ -82,7 +82,7 @@ async function main() {
 
     for (const art of articles) {
       const text = await runArticleScraper(ticker, art.url);
-      console.log(text)
+      console.log(art.title)
       const summary = await summarize(text);
 
       output[ticker].push({
