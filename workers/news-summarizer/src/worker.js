@@ -43,12 +43,39 @@ export default {
         AND type IN ('4', '8-K')
     `).bind(T, today).all();
 
-    if (
-      !news.results.length &&
-      !press.results.length &&
-      !filings.results.length
-    ) {
+    // --------------------------------------------
+    // Check for 10-K/10-Q filings (today or yesterday) - needed for early return decision
+    // --------------------------------------------
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterday = yesterdayDate.toISOString().slice(0, 10);
+
+    const { results: secFilings } = await db.prepare(`
+      SELECT id
+      FROM ALPHA_01_Reports
+      WHERE ticker = ?
+        AND type IN ('10-Q', '10-K')
+        AND date IN (?, ?)
+    `).bind(T, today, yesterday).all();
+
+    const hasNewsContent = news.results.length || press.results.length || filings.results.length;
+
+    if (!hasNewsContent && !secFilings.length) {
       return new Response(null, { status: 204 });
+    }
+
+    // If we only have SEC filings but no news content, queue trend-orchestrator and return
+    if (!hasNewsContent && secFilings.length > 0) {
+      await db.prepare(`
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
+        VALUES (?, ?, ?, ?)
+      `).bind(
+        new Date().toISOString(),
+        "trend-orchestrator",
+        JSON.stringify({ ticker: T }),
+        "pending"
+      ).run();
+      return Response.json({ ok: true, ticker: T, trendQueued: true, newsSkipped: true });
     }
 
     const prompt = buildPrompt(
@@ -139,21 +166,6 @@ export default {
         // Otherwise keep today's (default)
       }
     }
-
-    // --------------------------------------------
-    // Check for new SEC filings (10-Q or 10-K from today or yesterday)
-    // --------------------------------------------
-    const yesterdayDate = new Date();
-    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-    const yesterday = yesterdayDate.toISOString().slice(0, 10);
-
-    const { results: secFilings } = await db.prepare(`
-      SELECT id
-      FROM ALPHA_01_Reports
-      WHERE ticker = ?
-        AND type IN ('10-Q', '10-K')
-        AND date IN (?, ?)
-    `).bind(T, today, yesterday).all();
 
     const newSec = JSON.stringify(secFilings.map(f => f.id));
 
