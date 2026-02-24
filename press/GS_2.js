@@ -20,11 +20,11 @@ async function scrapeArticle(url) {
   const $ = load(html);
   const paragraphs = [];
 
-  $(".gs-uitk-c-1kdujvh--text-root--top-spacing-style-top-spacing--bottom-spacing-style-bottom-spacing--spacing-style-bottom-spacing p")
-    .each((_, el) => {
-      const txt = $(el).text().trim();
-      if (txt) paragraphs.push(txt);
-    });
+  // Updated selector: simple p tags work on GS article pages
+  $("main p, article p, #__next p").each((_, el) => {
+    const txt = $(el).text().trim();
+    if (txt && txt.length > 20) paragraphs.push(txt);
+  });
 
   return paragraphs.join("\n\n");
 }

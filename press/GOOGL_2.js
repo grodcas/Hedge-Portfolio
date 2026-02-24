@@ -10,8 +10,8 @@ async function scrapeArticle(url) {
   );
 
   await page.goto(url, {
-    waitUntil: "domcontentloaded",
-    timeout: 120000,
+    waitUntil: "networkidle0",
+    timeout: 60000,
   });
 
   const html = await page.content();
@@ -20,8 +20,8 @@ async function scrapeArticle(url) {
   const $ = load(html);
   const paragraphs = [];
 
-  // Updated selector: .press-release p works on current BAC site structure
-  $(".press-release p").each((_, el) => {
+  // GOOGL articles use main p structure
+  $("main p, .layout_content p").each((_, el) => {
     const txt = $(el).text().trim();
     if (txt && txt.length > 20) paragraphs.push(txt);
   });
@@ -33,4 +33,3 @@ const url = process.argv[2];
 scrapeArticle(url)
   .then(console.log)
   .catch(console.error);
-

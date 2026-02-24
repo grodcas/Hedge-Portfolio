@@ -20,14 +20,10 @@ async function scrapeArticle(url) {
   const $ = load(html);
   const paragraphs = [];
 
-  $(".formatted-text").each((_, block) => {
-    $(block)
-      .find("p, h2, h3")
-      .each((__, el) => {
-        const txt = $(el).text().trim();
-        if (!txt) return;
-        paragraphs.push(txt);
-      });
+  // Updated selector: main p works on current PG site structure
+  $("main p, .page-content p").each((_, el) => {
+    const txt = $(el).text().trim();
+    if (txt && txt.length > 20) paragraphs.push(txt);
   });
 
   return paragraphs.join("\n\n");

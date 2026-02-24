@@ -14,12 +14,12 @@ async function scrapeArticle(url) {
   );
 
   await page.goto(url, {
-    waitUntil: "networkidle2",
-    timeout: 60000
+    waitUntil: "domcontentloaded",
+    timeout: 25000
   });
 
-  // 🔥 CRITICAL: Intel loads text *after* the first HTML load
-  await page.waitForSelector("div.entry-content p", { timeout: 60000 });
+  // Wait briefly for content to load
+  await page.waitForSelector("article p", { timeout: 10000 }).catch(() => {});
 
   const html = await page.content();
   await browser.close();
@@ -27,17 +27,13 @@ async function scrapeArticle(url) {
   const $ = load(html);
 
   const paragraphs = [];
-  let stop = false;
 
-  $("div.entry-content p").each((_, el) => {
-    if (stop) return;
+  $("article p, main p").each((_, el) => {
     const t = $(el).text().trim();
-    if (!t) return;
+    if (!t || t.length < 20) return;
 
-    if (/about intel/i.test(t)) {
-      stop = true;
-      return;
-    }
+    // Stop at boilerplate
+    if (/about intel/i.test(t)) return false;
     paragraphs.push(t);
   });
 

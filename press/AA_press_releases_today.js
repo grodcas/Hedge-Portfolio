@@ -137,6 +137,7 @@ function isValidArticleText(text) {
 async function main() {
   const results = {};
   const errors = {};
+  const healthCheck = {};  // Track parser validation for each ticker
 
   const entries = Object.entries(TICKERS);
   let count = 0;
@@ -153,6 +154,12 @@ async function main() {
     if (!items || !Array.isArray(items) || items.length === 0) {
       console.error(`❌ ${ticker} discovery failed → ${error}`);
       errors[ticker] = error || "EMPTY";
+      healthCheck[ticker] = {
+        discovery: false,
+        content: false,
+        error: error || "EMPTY",
+        latest: null
+      };
       continue;
     }
 
@@ -184,20 +191,34 @@ async function main() {
       console.error(`⚠️ ${ticker} latest invalid metadata`);
       console.error(`   ${latest?.title || "[NO TITLE]"}`);
       console.error(`   ${latest?.url || "[NO URL]"}`);
+      healthCheck[ticker] = {
+        discovery: true,
+        content: false,
+        error: "INVALID_METADATA",
+        latest: { title: latest?.title, url: latest?.url, date: latestNorm }
+      };
     } else {
       const text = await runArticleScraper(ticker, latest.url);
-      if (!isValidArticleText(text)) {
+      const contentValid = isValidArticleText(text);
+      if (!contentValid) {
         console.error(`❌ ${ticker} BAD LATEST ARTICLE`);
         console.error(`   ${latest.title}`);
         console.error(`   ${latest.url}`);
       }
+      healthCheck[ticker] = {
+        discovery: true,
+        content: contentValid,
+        error: contentValid ? null : "BAD_CONTENT",
+        latest: { title: latest.title, url: latest.url, date: latestNorm },
+        textLength: text ? text.length : 0
+      };
     }
 
   }
 
   fs.writeFileSync(
     path.join(__dirname, "AA_press_releases_today.json"),
-    JSON.stringify({ results, errors }, null, 2)
+    JSON.stringify({ date: todayISO(), results, errors, healthCheck }, null, 2)
   );
 
   console.log("\nSaved → AA_press_releases_today.json");
