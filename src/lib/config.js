@@ -18,5 +18,6 @@ export const CONFIG = {
 };
 
 export const INGEST_BASE = "https://portfolio-ingestor.gines-rodriguez-castro.workers.dev";
+export const WORKFLOW_BASE = "https://job-engine-workflow.gines-rodriguez-castro.workers.dev";
 
 export default CONFIG;

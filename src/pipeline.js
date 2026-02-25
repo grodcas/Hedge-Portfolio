@@ -15,6 +15,7 @@ import { ingestMacro } from "./steps/ingest-macro.js";
 import { ingestSentiment } from "./steps/ingest-sentiment.js";
 import { upload } from "./steps/upload.js";
 import { summarize } from "./steps/summarize.js";
+import { syncDashboard } from "./steps/sync-dashboard.js";
 
 /**
  * Main pipeline execution
@@ -32,8 +33,9 @@ async function main(options = {}) {
     "SEC Edgar",
     "Macro",
     "Sentiment",
-    "Upload Data",
-    "Validation"
+    "Upload + Workflow",
+    "Validation",
+    "Sync Dashboard"
   ];
 
   logger.init(steps, config.logDir);
@@ -96,6 +98,12 @@ async function main(options = {}) {
     const summaryResult = await summarize(config, logger, stepResults);
     results.summary = summaryResult.summary;
     results.logFile = summaryResult.logFile;
+
+    // Step 9: Sync Dashboard (poll workflow completion and cache data)
+    if (!config.skipIngestion && uploadResult.workflowId) {
+      const syncResult = await syncDashboard(config, logger, uploadResult.workflowId);
+      results.dashboardSynced = syncResult.synced;
+    }
 
   } catch (err) {
     console.error("Pipeline error:", err);

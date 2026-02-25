@@ -4,7 +4,7 @@ This document describes the local data ingestion pipeline (`npm run pipeline`).
 
 ## Overview
 
-The pipeline runs 8 sequential steps to ingest, validate, and upload market data from multiple sources.
+The pipeline runs 9 sequential steps to ingest, validate, upload, and process market data.
 
 ```
 npm run pipeline
@@ -15,8 +15,9 @@ npm run pipeline
     ├─► Step 4: SEC Edgar        (10-K, 10-Q, 8-K, Form 4)
     ├─► Step 5: Macro            (8 economic indicators)
     ├─► Step 6: Sentiment        (AAII, Put/Call, COT)
-    ├─► Step 7: Upload           (POST to portfolio-ingestor)
-    └─► Step 8: Summarize        (Generate validation report)
+    ├─► Step 7: Upload + Workflow (POST to ingestor, trigger daily_update)
+    ├─► Step 8: Summarize        (Generate validation report)
+    └─► Step 9: Sync Dashboard   (Poll completion, cache D1 data)
 ```
 
 ## Step Details
@@ -105,7 +106,7 @@ Scrapes 3 sentiment indicators:
 
 **Output:** `sentiment/sentiment_summary.json`
 
-### Step 7: Upload
+### Step 7: Upload + Workflow
 
 **Module:** `src/steps/upload.js`
 
@@ -121,6 +122,8 @@ POSTs all ingested data to the portfolio-ingestor worker:
 
 Edgar data is ingested locally via the edgar module.
 
+**Workflow Trigger:** After all uploads complete, triggers `daily_update` action on the job-engine-workflow, which queues processing jobs for all 25 tickers.
+
 ### Step 8: Summarize
 
 **Module:** `src/steps/summarize.js`
@@ -129,6 +132,24 @@ Generates a validation summary report:
 - Counts ingested items per source
 - Reports validation pass/fail status
 - Saves log to `logs/pipeline_YYYY-MM-DD.json`
+
+### Step 9: Sync Dashboard
+
+**Module:** `src/steps/sync-dashboard.js`
+
+Polls the workflow for completion and syncs processed data to local cache:
+
+1. **Poll Workflow Status** - Checks `/query/workflow-status` every 15 seconds (max 5 minutes)
+2. **Fetch Processed Data** - Once complete, fetches all processed data from D1
+3. **Cache Locally** - Saves to `data/` directory for dashboard offline access
+
+**Cached Files:**
+- `data/daily_macro.json` - BETA_10_Daily_macro
+- `data/macro_trend.json` - BETA_09_Trend
+- `data/ticker_trends.json` - ALPHA_04_Trends
+- `data/daily_news.json` - ALPHA_05_Daily_news
+- `data/reports.json` - ALPHA_01_Reports
+- `data/earnings_calendar.json` - Estimated earnings dates
 
 ---
 
@@ -215,7 +236,7 @@ src/
 ├── pipeline.js           # Main orchestrator
 ├── verify.js             # Standalone fact verification
 ├── lib/
-│   └── config.js         # Configuration
+│   └── config.js         # Configuration (includes WORKFLOW_BASE)
 └── steps/
     ├── ingest-press.js   # Step 1
     ├── ingest-whitehouse.js # Step 2
@@ -223,8 +244,9 @@ src/
     ├── ingest-edgar.js   # Step 4
     ├── ingest-macro.js   # Step 5
     ├── ingest-sentiment.js # Step 6
-    ├── upload.js         # Step 7
+    ├── upload.js         # Step 7 (includes workflow trigger)
     ├── summarize.js      # Step 8
+    ├── sync-dashboard.js # Step 9 (poll + cache)
     └── verify-facts.js   # Fact verification helper
 ```
 

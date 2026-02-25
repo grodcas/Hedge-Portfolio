@@ -1,7 +1,7 @@
-// src/steps/upload.js - Upload data to workers
+// src/steps/upload.js - Upload data to workers and trigger workflow
 
 import { importScript } from "../lib/utils.js";
-import { INGEST_BASE } from "../lib/config.js";
+import { INGEST_BASE, WORKFLOW_BASE } from "../lib/config.js";
 
 /**
  * Upload ingested data to Cloudflare workers
@@ -56,6 +56,28 @@ export async function upload(config, logger, ingestedData) {
     process.env.INGEST_URL = `${INGEST_BASE}/ingest/reports`;
     await importScript("../../edgar/edgar_clustered_json/AA_ingestor.js", logger, "UPLOAD");
     logger.log("UPLOAD", "EDGAR ingestion complete", "ok");
+
+    // Trigger daily_update workflow for all tickers
+    logger.log("UPLOAD", "Triggering daily_update workflow...");
+    try {
+      const workflowRes = await fetch(`${WORKFLOW_BASE}/run`, {
+        method: "POST",
+        body: JSON.stringify({ action: "daily_update" }),
+        headers: { "Content-Type": "application/json" }
+      });
+
+      if (workflowRes.ok) {
+        const result = await workflowRes.json();
+        logger.log("UPLOAD", `Workflow started: ${result.workflowId}`, "ok");
+        stepResult.workflowId = result.workflowId;
+      } else {
+        logger.log("UPLOAD", `Workflow trigger failed: HTTP ${workflowRes.status}`, "warn");
+        stepResult.hasWarnings = true;
+      }
+    } catch (err) {
+      logger.log("UPLOAD", `Workflow trigger error: ${err.message}`, "warn");
+      stepResult.hasWarnings = true;
+    }
   } else {
     logger.log("UPLOAD", "Skipped (validation only mode)", "info");
     logger.completeStep(6, 0);
