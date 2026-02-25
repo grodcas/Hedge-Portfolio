@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HF Trading Journal - Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <h1>HF Trading Journal</h1>
+      <div class="header-controls">
+        <select id="dateSelector">
+          <option value="">Select Date</option>
+        </select>
+        <button id="refreshBtn" class="btn btn-primary">Refresh</button>
+      </div>
+    </header>
+
+    <!-- Tabs -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="overview">Overview</button>
+      <button class="tab" data-tab="daily">Daily</button>
+      <button class="tab" data-tab="macro">Macro</button>
+      <button class="tab" data-tab="portfolio">Portfolio</button>
+      <button class="tab" data-tab="validation">Validation</button>
+      <button class="tab" data-tab="monthly">Monthly Check</button>
+    </nav>
+
+    <!-- Tab Content -->
+    <main class="content">
+      <!-- Overview Tab -->
+      <section id="overview" class="tab-content active">
+        <div class="overview-grid">
+          <!-- Health Cards -->
+          <div class="card health-card">
+            <h3>Ingestion Health</h3>
+            <div class="health-value" id="ingestionHealth">--</div>
+            <div class="health-label">Success Rate</div>
+          </div>
+          <div class="card health-card">
+            <h3>Processing</h3>
+            <div class="health-value" id="processingHealth">--</div>
+            <div class="health-label">Success Rate</div>
+          </div>
+          <div class="card health-card">
+            <h3>Data Freshness</h3>
+            <div class="health-value" id="freshness">--</div>
+            <div class="health-label">Last Update</div>
+          </div>
+
+          <!-- Quick Stats -->
+          <div class="card stats-card">
+            <h3>Today's Stats</h3>
+            <div class="stats-grid">
+              <div class="stat">
+                <span class="stat-value" id="secFilings">--</span>
+                <span class="stat-label">SEC Filings</span>
+              </div>
+              <div class="stat">
+                <span class="stat-value" id="macroUpdates">--</span>
+                <span class="stat-label">Macro Updates</span>
+              </div>
+              <div class="stat">
+                <span class="stat-value" id="newsArticles">--</span>
+                <span class="stat-label">News Articles</span>
+              </div>
+              <div class="stat">
+                <span class="stat-value" id="pressReleases">--</span>
+                <span class="stat-label">Press Releases</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Calendar Events -->
+          <div class="card calendar-card">
+            <h3>Calendar Events Today</h3>
+            <ul id="calendarEvents" class="event-list">
+              <li class="loading">Loading...</li>
+            </ul>
+          </div>
+
+          <!-- Action Required -->
+          <div class="card action-card">
+            <h3>Action Required</h3>
+            <ul id="actionRequired" class="action-list">
+              <li class="loading">Loading...</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Validation Tab -->
+      <section id="validation" class="tab-content">
+        <!-- AI FACT VERIFICATION - Prominent Section at Top -->
+        <div class="fact-verification-section">
+          <!-- Critical Issues Alert (shown at very top) -->
+          <div class="critical-issues-banner" id="criticalIssuesBanner" style="display:none;">
+            <div class="critical-header">
+              <span class="critical-icon">⚠</span>
+              <h2>Potential Hallucinations Detected</h2>
+              <span class="critical-count" id="criticalCount">0</span>
+            </div>
+            <div class="critical-issues-list" id="criticalIssuesList">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- Verification Header -->
+          <div class="verification-header">
+            <div class="verification-title">
+              <h2>AI Summary Verification</h2>
+              <p>Fact-checking AI-generated summaries against source documents</p>
+            </div>
+            <div class="verification-controls">
+              <button id="runContentValidation" class="btn btn-primary btn-large">
+                <span class="btn-icon">▶</span> Run Verification
+              </button>
+              <span id="contentValStatus" class="status-text"></span>
+            </div>
+          </div>
+
+          <!-- Overall Stats Bar -->
+          <div class="verification-stats-bar" id="verificationStatsBar">
+            <div class="stat-item">
+              <span class="stat-number" id="statTotalItems">--</span>
+              <span class="stat-label">Items Processed</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-number" id="statTotalFacts">--</span>
+              <span class="stat-label">Facts Extracted</span>
+            </div>
+            <div class="stat-item verified">
+              <span class="stat-number" id="statVerified">--</span>
+              <span class="stat-label">Verified</span>
+            </div>
+            <div class="stat-item warning">
+              <span class="stat-number" id="statNotFound">--</span>
+              <span class="stat-label">Not Found</span>
+            </div>
+            <div class="stat-item error">
+              <span class="stat-number" id="statContradicted">--</span>
+              <span class="stat-label">Contradicted</span>
+            </div>
+            <div class="stat-item">
+              <div class="overall-score" id="overallScore">--%</div>
+              <span class="stat-label">Overall Score</span>
+            </div>
+          </div>
+
+          <!-- Items Grid - Each Processed Element -->
+          <div class="verification-items-grid" id="verificationItemsGrid">
+            <!-- Placeholder before validation runs -->
+            <div class="verification-placeholder">
+              <p>Click <strong>Run Verification</strong> to analyze today's AI-generated summaries.</p>
+              <p class="placeholder-sub">This will extract facts from each summary and verify them against source documents.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Collapsible: Traditional Validation Tables -->
+        <details class="traditional-validation-details">
+          <summary class="traditional-validation-summary">
+            <span>Parser Health Checks</span>
+            <span class="toggle-hint">SEC, Macro, Sentiment, Press validation</span>
+          </summary>
+
+          <div class="validation-grid">
+            <!-- SEC Validation -->
+            <div class="card validation-section">
+              <h3>SEC Edgar Validation</h3>
+              <div class="validation-summary" id="secSummary"></div>
+              <table class="validation-table" id="secTable">
+                <thead>
+                  <tr>
+                    <th>CAL</th>
+                    <th>Ticker</th>
+                    <th>Ingestor</th>
+                    <th>SEC Check</th>
+                    <th>Match</th>
+                    <th>New</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <!-- Macro Validation -->
+            <div class="card validation-section">
+              <h3>Macro Indicators Validation</h3>
+              <div class="validation-summary" id="macroSummary"></div>
+              <table class="validation-table" id="macroTable">
+                <thead>
+                  <tr>
+                    <th>CAL</th>
+                    <th>Indicator</th>
+                    <th>URL</th>
+                    <th>Format</th>
+                    <th>Data</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <!-- Sentiment Validation -->
+            <div class="card validation-section">
+              <h3>Sentiment Validation</h3>
+              <table class="validation-table" id="sentimentTable">
+                <thead>
+                  <tr>
+                    <th>Indicator</th>
+                    <th>URL</th>
+                    <th>Format</th>
+                    <th>Data</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <!-- Policy Validation -->
+            <div class="card validation-section">
+              <h3>White House / FOMC Validation</h3>
+              <table class="validation-table" id="policyTable">
+                <thead>
+                  <tr>
+                    <th>Source</th>
+                    <th>URL</th>
+                    <th>Format</th>
+                    <th>Text</th>
+                    <th>Latest</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <!-- Press Releases Validation -->
+            <div class="card validation-section">
+              <h3>Press Releases Validation</h3>
+              <div class="validation-summary" id="pressSummary"></div>
+              <table class="validation-table" id="pressTable">
+                <thead>
+                  <tr>
+                    <th>Ticker</th>
+                    <th>URL</th>
+                    <th>Format</th>
+                    <th>Text</th>
+                    <th>AI</th>
+                    <th>Latest</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <!-- Daily Output Tab (Redesigned) -->
+      <section id="daily" class="tab-content">
+        <div class="daily-output-container">
+          <!-- Daily Macro Summary -->
+          <div class="card daily-macro-section">
+            <div class="section-header">
+              <h3>Daily Macro Summary</h3>
+              <span class="last-update" id="dailyMacroUpdate">Last update: --</span>
+            </div>
+            <div class="macro-badges" id="macroPublishedToday"></div>
+            <div class="summary-text" id="dailyMacroSummary">Loading...</div>
+          </div>
+
+          <!-- Ticker Daily News -->
+          <div class="card ticker-news-section">
+            <div class="section-header">
+              <h3>Portfolio Daily News</h3>
+              <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="sec">SEC</button>
+                <button class="filter-btn" data-filter="press">Press</button>
+                <button class="filter-btn" data-filter="news">News</button>
+              </div>
+            </div>
+            <div class="ticker-news-grid" id="tickerNewsGrid">
+              <!-- Dynamically populated ticker cards -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Macro Tab (New) -->
+      <section id="macro" class="tab-content">
+        <div class="macro-tab-container">
+          <!-- FOMC Countdown -->
+          <div class="card fomc-card">
+            <div class="section-header">
+              <h3>Next FOMC Meeting</h3>
+            </div>
+            <div class="fomc-countdown">
+              <div class="fomc-date" id="fomcNextDate">--</div>
+              <div class="temperature-bar">
+                <div class="temp-fill" id="fomcTempBar"></div>
+              </div>
+              <div class="fomc-days" id="fomcDaysLeft">-- days away</div>
+            </div>
+          </div>
+
+          <!-- Macro Trend Summary -->
+          <div class="card macro-trend-card">
+            <div class="section-header">
+              <h3>Weekly Macro Trend (BETA_09)</h3>
+              <span class="last-update" id="macroTrendUpdate">Last update: --</span>
+            </div>
+            <div class="summary-text" id="macroTrendSummary">Loading...</div>
+          </div>
+
+          <!-- Recent Macro Events -->
+          <div class="card recent-events-card">
+            <h3>Recent Macro Events</h3>
+            <div class="events-timeline" id="macroEventsTimeline">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Portfolio Tab (New) -->
+      <section id="portfolio" class="tab-content">
+        <div class="portfolio-tab-container">
+          <div class="portfolio-header">
+            <h3>Portfolio Trends (ALPHA_04)</h3>
+            <div class="portfolio-sort">
+              <label>Sort by:</label>
+              <select id="portfolioSort">
+                <option value="earnings">Next Earnings</option>
+                <option value="ticker">Ticker</option>
+                <option value="update">Last Update</option>
+              </select>
+            </div>
+          </div>
+          <div class="portfolio-grid" id="portfolioGrid">
+            <!-- Dynamically populated ticker trend cards -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Monthly Check Tab -->
+      <section id="monthly" class="tab-content">
+        <div class="monthly-controls">
+          <button id="runMonthlyCheck" class="btn btn-primary">Run Full Check</button>
+          <button id="openAllUrls" class="btn btn-secondary">Open All URLs</button>
+          <span id="monthlyStatus"></span>
+        </div>
+
+        <div class="monthly-grid">
+          <!-- Macro Check -->
+          <div class="card">
+            <h3>Macro Indicators</h3>
+            <table class="check-table" id="monthlyMacroTable">
+              <thead>
+                <tr>
+                  <th>Indicator</th>
+                  <th>Value</th>
+                  <th>Date</th>
+                  <th>Verify</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <!-- Press Check -->
+          <div class="card full-width">
+            <h3>Press Releases (All Tickers)</h3>
+            <button id="openPressUrls" class="btn btn-secondary" style="margin-bottom:1rem;">Open All PR Pages</button>
+            <table class="check-table" id="monthlyPressTable">
+              <thead>
+                <tr>
+                  <th>Ticker</th>
+                  <th>URL</th>
+                  <th>Latest Title</th>
+                  <th>Open</th>
+                  <th>Verify</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <!-- FOMC Check -->
+          <div class="card">
+            <h3>FOMC / Policy</h3>
+            <table class="check-table" id="monthlyFomcTable">
+              <thead>
+                <tr>
+                  <th>Source</th>
+                  <th>Title</th>
+                  <th>Date</th>
+                  <th>Verify</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="verification-summary">
+          <h3>Verification Progress</h3>
+          <div class="progress-bar">
+            <div class="progress-fill" id="verifyProgress"></div>
+          </div>
+          <span id="verifyCount">0 / 0 checked</span>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span>Last updated: <span id="lastUpdate">--</span></span>
+      <span>Log file: <span id="logFile">--</span></span>
+    </footer>
+  </div>
+
+  <!-- Report Modal -->
+  <div id="reportModal" class="modal">
+    <div class="modal-content">
+      <span class="modal-close">&times;</span>
+      <h3 id="modalTitle">Report Summary</h3>
+      <div id="modalBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
