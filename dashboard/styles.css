@@ -655,6 +655,10 @@ select {
   border-radius: 8px;
   padding: 1rem;
   border-left: 4px solid var(--accent-blue);
+  height: 220px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .ticker-card.has-sec {
@@ -688,6 +692,22 @@ select {
   color: var(--text-primary);
   margin-bottom: 0.75rem;
   line-height: 1.5;
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.ticker-summary::-webkit-scrollbar {
+  width: 4px;
+}
+
+.ticker-summary::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+.ticker-summary::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 2px;
 }
 
 .ticker-important {

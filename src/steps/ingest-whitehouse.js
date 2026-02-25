@@ -30,8 +30,13 @@ export async function ingestWhitehouse(config, logger, results) {
   });
 
   for (const r of policyResults) {
-    const latestStr = r.latest ? r.latest.title?.substring(0, 40) : "[NO DATA]";
-    logger.log("WH", `${r.source}: url:${r.checks.url ? "✓" : "✗"} fmt:${r.checks.format ? "✓" : "✗"} ${latestStr}`,
+    let latestStr = "[NO DATA]";
+    if (r.latest) {
+      const title = r.latest.title?.substring(0, 30) || "";
+      const date = r.latest.date ? ` (${r.latest.date})` : "";
+      latestStr = title + date;
+    }
+    logger.log("POLICY", `${r.source.padEnd(14)} url:${r.checks.url ? "✓" : "✗"} fmt:${r.checks.format ? "✓" : "✗"} txt:${r.checks.text ? "✓" : "✗"} ${latestStr}`,
       r.checks.url && r.checks.format ? "ok" : "warn");
   }
 

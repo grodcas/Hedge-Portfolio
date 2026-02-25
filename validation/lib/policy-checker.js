@@ -166,7 +166,21 @@ function extractLatest(html, source) {
   if (!html) return null;
 
   try {
-    const $ = cheerio.load(html, { xmlMode: source !== "WhiteHouse" });
+    // Check if it's RSS/XML first
+    if (html.includes("<item") || html.includes("<rss")) {
+      const $ = cheerio.load(html, { xmlMode: true });
+      const firstItem = $("item").first();
+      if (firstItem.length) {
+        return {
+          title: firstItem.find("title").text().trim(),
+          date: firstItem.find("pubDate").text().trim(),
+          link: firstItem.find("link").text().trim()
+        };
+      }
+    }
+
+    // Parse as HTML
+    const $ = cheerio.load(html);
 
     if (source === "WhiteHouse") {
       const firstPost = $(".wp-block-post").first();
@@ -177,18 +191,34 @@ function extractLatest(html, source) {
           link: firstPost.find("a").first().attr("href")
         };
       }
-    } else {
-      // RSS feed
-      const firstItem = $("item").first();
-      if (firstItem.length) {
-        const title = firstItem.find("title").text().trim();
-        const pubDate = firstItem.find("pubDate").text().trim();
-        const link = firstItem.find("link").text().trim();
-
+    } else if (source === "FOMC") {
+      // Extract from Fed monetarypolicy.htm - look for "FOMC Statement" paragraph
+      const statementMatch = html.match(/FOMC Statement:.*?Released\s+([A-Za-z]+\s+\d+,\s+\d{4})/s);
+      if (statementMatch) {
         return {
-          title,
-          date: pubDate,
-          link
+          title: "FOMC Statement",
+          date: statementMatch[1],
+          link: "/monetarypolicy.htm"
+        };
+      }
+    } else if (source === "FedMinutes") {
+      // Extract from Fed calendar page - look for Minutes with release date
+      // Format: "Minutes:" ... "(Released February 18, 2026)"
+      const minutesMatch = html.match(/<strong>Minutes:<\/strong>.*?\(Released\s+([A-Za-z]+\s+\d+,\s+\d{4})\)/s);
+      if (minutesMatch) {
+        return {
+          title: "FOMC Minutes",
+          date: minutesMatch[1],
+          link: "/monetarypolicy/fomccalendars.htm"
+        };
+      }
+      // Fallback: try simpler pattern
+      const fallbackMatch = html.match(/Minutes:.*?Released\s+([A-Za-z]+\s+\d+,?\s+\d{4})/s);
+      if (fallbackMatch) {
+        return {
+          title: "FOMC Minutes",
+          date: fallbackMatch[1],
+          link: "/monetarypolicy/fomccalendars.htm"
         };
       }
     }

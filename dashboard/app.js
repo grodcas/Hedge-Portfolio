@@ -354,64 +354,93 @@ function updateDailyOutput() {
 
   const dailyNews = dashboardData.dailyNews || {};
   const reports = dashboardData.reports || {};
+  const today = currentDate; // Use selected date for filtering
+
+  let tickersAdded = 0;
 
   // If we have daily news data
   if (Object.keys(dailyNews).length > 0) {
     Object.entries(dailyNews).forEach(([ticker, data]) => {
-      tickerGrid.appendChild(createTickerCard(ticker, data, reports[ticker]));
+      // Only show tickers updated today
+      if (data.date === today) {
+        tickerGrid.appendChild(createTickerCard(ticker, data, reports[ticker]));
+        tickersAdded++;
+      }
     });
   } else {
-    // Fallback: create cards from news and press data
-    const allTickers = new Set();
+    // Fallback: create cards from news and press data - only today's updates
+    const tickerUpdates = new Map(); // ticker -> { news: [], press: [] }
 
-    // Collect tickers from news
+    // Collect news articles from today
     if (dashboardData.news) {
-      Object.values(dashboardData.news).forEach(articles => {
+      Object.entries(dashboardData.news).forEach(([source, articles]) => {
         if (Array.isArray(articles)) {
           articles.forEach(article => {
-            if (article.tickers) {
-              article.tickers.forEach(t => allTickers.add(t));
+            // Check if article is from today
+            const articleDate = article.date || article.published_date || article.publishedAt;
+            if (articleDate && articleDate.startsWith(today)) {
+              if (article.tickers) {
+                article.tickers.forEach(ticker => {
+                  if (!tickerUpdates.has(ticker)) {
+                    tickerUpdates.set(ticker, { news: [], press: [] });
+                  }
+                  tickerUpdates.get(ticker).news.push({ ...article, source });
+                });
+              }
             }
           });
         }
       });
     }
 
-    // Collect tickers from press
+    // Collect press releases from today
     if (dashboardData.press) {
-      Object.keys(dashboardData.press).forEach(t => allTickers.add(t));
+      Object.entries(dashboardData.press).forEach(([ticker, items]) => {
+        if (Array.isArray(items)) {
+          items.forEach(item => {
+            const itemDate = item.date || item.published_date;
+            if (itemDate && itemDate.startsWith(today)) {
+              if (!tickerUpdates.has(ticker)) {
+                tickerUpdates.set(ticker, { news: [], press: [] });
+              }
+              tickerUpdates.get(ticker).press.push(item);
+            }
+          });
+        }
+      });
     }
 
-    // Create fallback cards
-    allTickers.forEach(ticker => {
-      const newsItems = [];
-      const pressItems = dashboardData.press?.[ticker] || [];
+    // Create cards only for tickers with today's updates
+    tickerUpdates.forEach((updates, ticker) => {
+      const newsItems = updates.news;
+      const pressItems = updates.press;
 
-      // Find news for this ticker
-      if (dashboardData.news) {
-        Object.entries(dashboardData.news).forEach(([source, articles]) => {
-          if (Array.isArray(articles)) {
-            articles.forEach(article => {
-              if (article.tickers?.includes(ticker)) {
-                newsItems.push({ ...article, source });
-              }
-            });
+      // Only create card if there's something from today
+      if (newsItems.length > 0 || pressItems.length > 0) {
+        const fallbackData = {
+          summary: `${newsItems.length} news items, ${pressItems.length} press releases`,
+          todays_important: newsItems[0]?.summary || pressItems[0]?.summary || null,
+          new_sec: null,
+          types: {
+            news: newsItems.length,
+            press: pressItems.length
           }
-        });
+        };
+
+        tickerGrid.appendChild(createTickerCard(ticker, fallbackData, null));
+        tickersAdded++;
       }
-
-      const fallbackData = {
-        summary: `${newsItems.length} news items, ${pressItems.length} press releases`,
-        todays_important: newsItems[0]?.summary || pressItems[0]?.summary || null,
-        new_sec: null,
-        types: {
-          news: newsItems.length,
-          press: pressItems.length
-        }
-      };
-
-      tickerGrid.appendChild(createTickerCard(ticker, fallbackData, null));
     });
+  }
+
+  // Show message if no tickers have updates today
+  if (tickersAdded === 0) {
+    tickerGrid.innerHTML = `
+      <div class="no-updates-message" style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-secondary);">
+        <p style="font-size: 1rem; margin-bottom: 0.5rem;">No ticker updates for ${today}</p>
+        <p style="font-size: 0.875rem;">Run the daily pipeline to fetch new data.</p>
+      </div>
+    `;
   }
 }
 
