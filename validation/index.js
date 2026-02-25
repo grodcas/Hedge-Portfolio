@@ -11,3 +11,4 @@ export * as policyChecker from "./lib/policy-checker.js";
 export * as calendar from "./lib/calendar.js";
 export * as aiValidator from "./lib/ai-validator.js";
 export { runValidation } from "./runner.js";
+export * as factChecker from "./agents/index.js";

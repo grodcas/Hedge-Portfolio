@@ -8,3 +8,4 @@ export { ingestMacro } from "./ingest-macro.js";
 export { ingestSentiment } from "./ingest-sentiment.js";
 export { upload } from "./upload.js";
 export { summarize } from "./summarize.js";
+export { verifyFacts, verifySummary, uploadFactRecords, generateFactReport } from "./verify-facts.js";

@@ -27,7 +27,8 @@
     "dashboard": "node dashboard/server.js",
     "validate": "node validation/runner.js",
     "pipeline": "node src/pipeline.js",
-    "ingest": "node src/pipeline.js"
+    "ingest": "node src/pipeline.js",
+    "verify": "node src/verify.js"
   },
 
 

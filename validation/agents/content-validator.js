@@ -2,8 +2,8 @@
 // Orchestrates Fact Extractor + Source Verifier for content validation
 // Validates that AI summaries don't invent data
 
-import { extractFacts, quickExtractFacts } from "./fact_extractor.js";
-import { verifyAllFacts, quickVerify, generateValidationReport } from "./source_verifier.js";
+import { extractFacts, quickExtractFacts } from "./fact-extractor.js";
+import { verifyAllFacts, quickVerify, generateValidationReport } from "./source-verifier.js";
 
 /**
  * Validate content by extracting facts and verifying against sources
