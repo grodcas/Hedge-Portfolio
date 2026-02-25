@@ -142,7 +142,7 @@ async function main() {
     logger.log("WH", "Fetching White House news...");
 
     if (!CONFIG.skipIngestion) {
-      await importScript("./whitehouse/whitehouse_summary.js", logger, "WH");
+      await importScript("./whitehouse/index.js", logger, "WH");
     }
 
     // Validate White House/FOMC
@@ -174,7 +174,7 @@ async function main() {
     logger.log("NEWS", "Processing news files...");
 
     if (!CONFIG.skipIngestion) {
-      await importScript("./news/news_summary.js", logger, "NEWS");
+      await importScript("./news/index.js", logger, "NEWS");
     }
 
     // Validate news
@@ -216,7 +216,7 @@ async function main() {
     logger.log("SEC", "Fetching SEC filings...");
 
     if (!CONFIG.skipIngestion) {
-      await importScript("./edgar/AA_EDGAR_SHORT_TERM.js", logger, "SEC");
+      await importScript("./edgar/fetch.js", logger, "SEC");
     }
 
     // Run SEC validation checker
@@ -266,7 +266,7 @@ async function main() {
     logger.log("MACRO", "Fetching macro indicators...");
 
     if (!CONFIG.skipIngestion) {
-      await importScript("./macro/macro_summary.js", logger, "MACRO");
+      await importScript("./macro/index.js", logger, "MACRO");
     }
 
     // Validate macro
@@ -309,7 +309,7 @@ async function main() {
     logger.log("SENTIMENT", "Fetching sentiment indicators...");
 
     if (!CONFIG.skipIngestion) {
-      await importScript("./sentiment/sentiment_summary.js", logger, "SENTIMENT");
+      await importScript("./sentiment/index.js", logger, "SENTIMENT");
     }
 
     // Validate sentiment
