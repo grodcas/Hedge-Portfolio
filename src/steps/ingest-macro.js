@@ -2,7 +2,7 @@
 
 import fs from "fs";
 import path from "path";
-import * as macroChecker from "../../validation/lib/macro_checker.js";
+import * as macroChecker from "../../validation/lib/macro-checker.js";
 import * as calendar from "../../validation/lib/calendar.js";
 import { importScript } from "../lib/utils.js";
 import { BASE_DIR } from "../lib/config.js";

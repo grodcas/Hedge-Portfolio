@@ -2,7 +2,7 @@
 
 import fs from "fs";
 import path from "path";
-import * as newsChecker from "../../validation/lib/news_checker.js";
+import * as newsChecker from "../../validation/lib/news-checker.js";
 import * as calendar from "../../validation/lib/calendar.js";
 import { BASE_DIR } from "../lib/config.js";
 

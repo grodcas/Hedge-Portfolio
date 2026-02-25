@@ -2,7 +2,7 @@
 
 import fs from "fs";
 import path from "path";
-import * as policyChecker from "../../validation/lib/policy_checker.js";
+import * as policyChecker from "../../validation/lib/policy-checker.js";
 import { importScript } from "../lib/utils.js";
 import { BASE_DIR } from "../lib/config.js";
 

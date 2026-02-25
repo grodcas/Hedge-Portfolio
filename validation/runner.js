@@ -6,13 +6,13 @@ import fs from "fs";
 import path from "path";
 
 import PipelineLogger from "./lib/logger.js";
-import * as secChecker from "./lib/sec_checker.js";
-import * as secScanner from "./lib/sec_ingest_scanner.js";
-import * as macroChecker from "./lib/macro_checker.js";
-import * as sentimentChecker from "./lib/sentiment_checker.js";
-import * as pressChecker from "./lib/press_checker.js";
-import * as newsChecker from "./lib/news_checker.js";
-import * as policyChecker from "./lib/policy_checker.js";
+import * as secChecker from "./lib/sec-checker.js";
+import * as secScanner from "./lib/sec-ingest-scanner.js";
+import * as macroChecker from "./lib/macro-checker.js";
+import * as sentimentChecker from "./lib/sentiment-checker.js";
+import * as pressChecker from "./lib/press-checker.js";
+import * as newsChecker from "./lib/news-checker.js";
+import * as policyChecker from "./lib/policy-checker.js";
 import * as calendar from "./lib/calendar.js";
 
 /**

@@ -2,7 +2,7 @@
 
 import fs from "fs";
 import path from "path";
-import * as pressChecker from "../../validation/lib/press_checker.js";
+import * as pressChecker from "../../validation/lib/press-checker.js";
 import { importScript } from "../lib/utils.js";
 import { BASE_DIR } from "../lib/config.js";
 

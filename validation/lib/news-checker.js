@@ -5,7 +5,7 @@ import fs from "fs";
 import path from "path";
 import * as cheerio from "cheerio";
 import { NEWS_SOURCES, VALIDATION_THRESHOLDS, PORTFOLIO_TICKERS } from "../config.js";
-import { validateArticleWithAI, quickValidate } from "./ai_validator.js";
+import { validateArticleWithAI, quickValidate } from "./ai-validator.js";
 
 /**
  * Check if HTML file exists and is valid

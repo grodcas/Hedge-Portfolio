@@ -2,7 +2,7 @@
 
 import fs from "fs";
 import path from "path";
-import * as sentimentChecker from "../../validation/lib/sentiment_checker.js";
+import * as sentimentChecker from "../../validation/lib/sentiment-checker.js";
 import { importScript } from "../lib/utils.js";
 import { BASE_DIR } from "../lib/config.js";
 

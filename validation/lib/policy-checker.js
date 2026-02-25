@@ -4,7 +4,7 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
 import { POLICY_SOURCES, VALIDATION_THRESHOLDS } from "../config.js";
-import { validateArticleWithAI, quickValidate } from "./ai_validator.js";
+import { validateArticleWithAI, quickValidate } from "./ai-validator.js";
 import { hasIndicatorRelease } from "./calendar.js";
 
 /**
