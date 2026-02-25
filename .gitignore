@@ -17,3 +17,13 @@ news/BLOOMBERG/files/
 news/REUTERS/files/
 news/WSJ/files/
 
+# Debug artifacts
+**/debug_*.html
+**/cat_debug.html
+*_debug.js
+nul
+
+# Logs (keep structure, ignore content)
+logs/*.json
+logs/*.log
+!logs/.gitkeep
