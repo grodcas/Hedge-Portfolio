@@ -29,11 +29,11 @@ const base = JSON.parse(
 const tickers = Object.keys(base);
 
 // ----------------------
-// RUN TICKER_2 SCRAPER
+// RUN ARTICLE SCRAPER
 // ----------------------
 function runArticleScraper(ticker, url) {
   return new Promise((resolve) => {
-    const file = path.join(__dirname, `${ticker}_2.js`);
+    const file = path.join(__dirname, "articles", `${ticker}.js`);
     const child = spawn("node", [file, url], {
       cwd: __dirname,
       stdio: ["ignore", "pipe", "pipe"],

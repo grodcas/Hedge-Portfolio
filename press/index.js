@@ -71,12 +71,12 @@ async function warmPuppeteer() {
 
 // ---- TICKERS ----
 const TICKERS = {
-  AAPL: "AAPL.js", MSFT: "MSFT.js", GOOGL: "GOOGL.js", AMZN: "AMZN.js",
-  NVDA: "NVDA.js", META: "META.js", BRKB: "BRK.js", JPM: "JPM.js",
-  GS: "GS.js", BAC: "BAC.js", XOM: "XOM.js", CVX: "CVX.js",
-  UNH: "UNH.js", LLY: "LLY.js", JNJ: "JNJ.js", PG: "PG.js",
-  KO: "KO.js", HD: "HD.js", CAT: "CAT.js", BA: "BA.js",
-  INTC: "INTC.js", AMD: "AMD.js", NFLX: "NFLX.js", MS: "MS.js"
+  AAPL: "feeds/AAPL.js", MSFT: "feeds/MSFT.js", GOOGL: "feeds/GOOGL.js", AMZN: "feeds/AMZN.js",
+  NVDA: "feeds/NVDA.js", META: "feeds/META.js", BRKB: "feeds/BRK.js", JPM: "feeds/JPM.js",
+  GS: "feeds/GS.js", BAC: "feeds/BAC.js", XOM: "feeds/XOM.js", CVX: "feeds/CVX.js",
+  UNH: "feeds/UNH.js", LLY: "feeds/LLY.js", JNJ: "feeds/JNJ.js", PG: "feeds/PG.js",
+  KO: "feeds/KO.js", HD: "feeds/HD.js", CAT: "feeds/CAT.js", BA: "feeds/BA.js",
+  INTC: "feeds/INTC.js", AMD: "feeds/AMD.js", NFLX: "feeds/NFLX.js", MS: "feeds/MS.js"
 };
 
 // ---- RUN TICKER (DISCOVERY) ----
@@ -106,7 +106,7 @@ function runTicker(fileName) {
 // ---- RUN ARTICLE SCRAPER (CONTENT) ----
 function runArticleScraper(ticker, url) {
   return new Promise(resolve => {
-    const file = path.join(__dirname, `${ticker}_2.js`);
+    const file = path.join(__dirname, "articles", `${ticker}.js`);
     const child = spawn("node", [file, url], { stdio: ["ignore","pipe","pipe"] });
 
     let out = "";
