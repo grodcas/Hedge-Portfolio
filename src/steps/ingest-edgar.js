@@ -33,16 +33,22 @@ export async function ingestEdgar(config, logger, results) {
   });
 
   // Load ingested SEC data for comparison
+  // Filename format: TICKER_TYPE_DATE_clustered.json (e.g., AAPL_10-K_2025-10-31_clustered.json)
   let ingestedSEC = {};
   try {
     const edgarDir = path.join(BASE_DIR, "edgar/edgar_clustered_json");
     if (fs.existsSync(edgarDir)) {
       const files = fs.readdirSync(edgarDir).filter(f => f.endsWith(".json"));
       for (const file of files) {
-        const data = JSON.parse(fs.readFileSync(path.join(edgarDir, file), "utf8"));
-        const ticker = data.ticker || file.split("_")[0];
-        if (!ingestedSEC[ticker]) ingestedSEC[ticker] = [];
-        ingestedSEC[ticker].push({ type: data.type, date: data.date });
+        // Parse filename: TICKER_TYPE_DATE_clustered.json
+        const parts = file.replace("_clustered.json", "").split("_");
+        if (parts.length >= 3) {
+          const ticker = parts[0];
+          const type = parts[1]; // e.g., "10-K", "8-K", "4"
+          const date = parts[2]; // e.g., "2025-10-31"
+          if (!ingestedSEC[ticker]) ingestedSEC[ticker] = [];
+          ingestedSEC[ticker].push({ type, date });
+        }
       }
     }
   } catch (err) {

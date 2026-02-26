@@ -112,11 +112,11 @@
           <div class="verification-header">
             <div class="verification-title">
               <h2>AI Summary Verification</h2>
-              <p>Fact-checking AI-generated summaries against source documents</p>
+              <p>Fact-checking AI-generated summaries against source documents (runs automatically in pipeline)</p>
             </div>
             <div class="verification-controls">
-              <button id="runContentValidation" class="btn btn-primary btn-large">
-                <span class="btn-icon">▶</span> Run Verification
+              <button id="runContentValidation" class="btn btn-secondary">
+                <span class="btn-icon">↻</span> Refresh
               </button>
               <span id="contentValStatus" class="status-text"></span>
             </div>
@@ -152,10 +152,10 @@
 
           <!-- Items Grid - Each Processed Element -->
           <div class="verification-items-grid" id="verificationItemsGrid">
-            <!-- Placeholder before validation runs -->
+            <!-- Placeholder when no data -->
             <div class="verification-placeholder">
-              <p>Click <strong>Run Verification</strong> to analyze today's AI-generated summaries.</p>
-              <p class="placeholder-sub">This will extract facts from each summary and verify them against source documents.</p>
+              <p>AI fact verification runs automatically at the end of the daily pipeline.</p>
+              <p class="placeholder-sub">Run the pipeline to generate verification results, or click Refresh to reload.</p>
             </div>
           </div>
         </div>

@@ -15,6 +15,7 @@ import { ingestMacro } from "./steps/ingest-macro.js";
 import { ingestSentiment } from "./steps/ingest-sentiment.js";
 import { upload } from "./steps/upload.js";
 import { summarize } from "./steps/summarize.js";
+import { verifyFacts, generateFactReport, uploadVerificationResults } from "./steps/verify-facts.js";
 import { syncDashboard } from "./steps/sync-dashboard.js";
 
 /**
@@ -35,6 +36,7 @@ async function main(options = {}) {
     "Sentiment",
     "Upload + Workflow",
     "Validation",
+    "Fact Verification",
     "Sync Dashboard"
   ];
 
@@ -99,7 +101,40 @@ async function main(options = {}) {
     results.summary = summaryResult.summary;
     results.logFile = summaryResult.logFile;
 
-    // Step 9: Sync Dashboard (poll workflow completion and cache data)
+    // Step 9: Fact Verification
+    logger.startStep(8);
+    logger.log("VERIFY", "Running AI fact verification on summaries...");
+    try {
+      const verifyResult = await verifyFacts(config, logger);
+      results.factVerification = generateFactReport([verifyResult]);
+
+      // Save verification results locally for dashboard
+      const fs = await import("fs");
+      const path = await import("path");
+      const verifyPath = path.default.join(config.logDir, `verification_${calendar.todayISO()}.json`);
+      fs.default.writeFileSync(verifyPath, JSON.stringify(results.factVerification, null, 2));
+
+      // Upload individual verification results to D1 (per ticker, not aggregated)
+      if (verifyResult.results && verifyResult.results.length > 0) {
+        const uploadRes = await uploadVerificationResults(verifyResult.results);
+        if (uploadRes.success) {
+          logger.log("VERIFY", `Verification uploaded to D1 (${verifyResult.results.length} items)`, "ok");
+        } else {
+          logger.log("VERIFY", `D1 upload failed: ${uploadRes.error}`, "warn");
+        }
+      } else {
+        logger.log("VERIFY", `No verification results to upload`, "warn");
+      }
+
+      logger.log("VERIFY", `Verification saved: ${verifyPath}`, "ok");
+      logger.completeStep(8, verifyResult.totalChecked || 0,
+        verifyResult.failed > 0 ? "warning" : "done");
+    } catch (err) {
+      logger.log("VERIFY", `Verification error: ${err.message}`, "fail");
+      logger.completeStep(8, 0, "warning");
+    }
+
+    // Step 10: Sync Dashboard (poll workflow completion and cache data)
     if (!config.skipIngestion && uploadResult.workflowId) {
       const syncResult = await syncDashboard(config, logger, uploadResult.workflowId);
       results.dashboardSynced = syncResult.synced;

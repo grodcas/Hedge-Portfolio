@@ -41,12 +41,14 @@ export async function ingestPress(config, logger, results) {
     let pressOk = 0;
     for (const r of pressResults) {
       logger.logPressValidation(r.ticker, r.checks, r.latest);
-      if (r.checks.url && r.checks.format && r.checks.text) {
+      if (r.checks.discovery && r.checks.content) {
         pressOk++;
       } else {
         stepResult.hasWarnings = true;
-        if (!r.checks.format) {
-          stepResult.actionRequired.push(`${r.ticker}: Press page format changed`);
+        if (!r.checks.discovery) {
+          stepResult.actionRequired.push(`${r.ticker}: Press discovery failed`);
+        } else if (!r.checks.content) {
+          stepResult.actionRequired.push(`${r.ticker}: Press content extraction failed`);
         }
       }
     }

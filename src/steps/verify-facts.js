@@ -1,162 +1,119 @@
-// src/steps/verify-facts.js - Fact verification step
-// Runs AI fact-checking on summaries and prepares results for database storage
+// src/steps/verify-facts.js - Hallucination verification step
+// Uses simple hallucination checker to verify summaries against their source content
+// IMPORTANT: Uses the SAME content that the summarization agent used
 
 import fs from "fs";
 import path from "path";
-import { validateContent, getValidationTargets } from "../../validation/agents/index.js";
+import { checkHallucination } from "../../validation/agents/hallucination-checker.js";
 import { BASE_DIR, INGEST_BASE } from "../lib/config.js";
 
 /**
- * Format fact verification result for database storage
- * Output: "claim : source_location : status"
- */
-function formatFactForDB(fact, verification) {
-  return {
-    fact_claim: fact.claim,
-    fact_type: fact.type || "qualitative",
-    source_id: verification.source?.documentId || null,
-    source_location: verification.source?.quote
-      ? `chars:0-${verification.source.quote.length}`
-      : null,
-    source_quote: verification.source?.quote || null,
-    status: verification.status,
-    confidence: verification.confidence || 0
-  };
-}
-
-/**
- * Run fact verification on a single summary
- * @param {Object} options
- * @param {string} options.summaryId - ID of the summary
- * @param {string} options.summaryTable - Table name (ALPHA_01_Reports, etc.)
- * @param {string} options.summaryText - The summary text to verify
- * @param {Array} options.sources - Array of {id, text} source documents
- * @param {boolean} options.useAI - Use AI verification (true) or quick rules (false)
- * @returns {Promise<Object>} - Verification results ready for DB
- */
-export async function verifySummary(options) {
-  const {
-    summaryId,
-    summaryTable,
-    summaryText,
-    sources = [],
-    useAI = true
-  } = options;
-
-  const result = await validateContent({
-    summary: summaryText,
-    summaryId,
-    summaryType: summaryTable,
-    sources,
-    useAI
-  });
-
-  // Format for database storage
-  const dbRecords = [];
-
-  if (result.extractedFacts?.facts && result.verification?.verificationResults) {
-    const facts = result.extractedFacts.facts;
-    const verifications = result.verification.verificationResults;
-
-    for (let i = 0; i < facts.length; i++) {
-      const fact = facts[i];
-      const verification = verifications[i] || { status: "ERROR", confidence: 0 };
-
-      dbRecords.push({
-        summary_id: summaryId,
-        summary_table: summaryTable,
-        ...formatFactForDB(fact, verification)
-      });
-    }
-  }
-
-  return {
-    summaryId,
-    summaryTable,
-    status: result.status,
-    score: result.verification?.summaryScore?.verificationRate || 0,
-    totalFacts: result.extractedFacts?.facts?.length || 0,
-    verified: result.verification?.summaryScore?.verified || 0,
-    notFound: result.verification?.summaryScore?.notFound || 0,
-    contradicted: result.verification?.summaryScore?.contradicted || 0,
-    records: dbRecords,
-    issues: result.verification?.issues || []
-  };
-}
-
-/**
- * Run fact verification on today's summaries
+ * Run hallucination check on today's summaries
+ * Compares each summary against the SAME raw content used for summarization
  * @param {Object} config - Pipeline configuration
  * @param {Object} logger - Pipeline logger instance
  * @returns {Promise<Object>} - Verification results
  */
 export async function verifyFacts(config, logger) {
   const stepResult = {
-    verified: 0,
+    passed: 0,
     failed: 0,
-    records: [],
+    errors: 0,
+    totalChecked: 0,
+    averageScore: 0,
+    results: [], // Individual verification results for D1 upload
     hasWarnings: false
   };
 
-  logger.log("VERIFY", "Starting fact verification...");
-
-  // Load today's summaries that need verification
-  // For now, we'll verify press summaries as an example
+  logger.log("VERIFY", "Starting hallucination check...");
 
   try {
     const pressPath = path.join(BASE_DIR, "press/AA_press_summary.json");
-    if (fs.existsSync(pressPath)) {
-      const pressSummaries = JSON.parse(fs.readFileSync(pressPath, "utf8"));
+    if (!fs.existsSync(pressPath)) {
+      logger.log("VERIFY", "No press summaries found", "warn");
+      return stepResult;
+    }
 
-      for (const [ticker, articles] of Object.entries(pressSummaries)) {
-        for (const article of articles) {
-          if (!article.summary) continue;
+    const pressSummaries = JSON.parse(fs.readFileSync(pressPath, "utf8"));
+    let totalScore = 0;
 
-          const result = await verifySummary({
-            summaryId: `${ticker}-${article.date}-press`,
-            summaryTable: "ALPHA_03_Press",
-            summaryText: article.summary,
-            sources: [{ id: "article", text: article.heading }],
-            useAI: config.useAI
-          });
+    for (const [ticker, articles] of Object.entries(pressSummaries)) {
+      for (const article of articles) {
+        if (!article.summary) continue;
 
-          stepResult.records.push(...result.records);
+        // Check if we have raw content (same content summarizer used)
+        if (!article.rawContent) {
+          logger.log("VERIFY", `${ticker}: No raw content available (run press summary first)`, "warn");
+          stepResult.errors++;
+          continue;
+        }
 
-          if (result.score >= 0.7) {
-            stepResult.verified++;
-          } else {
-            stepResult.failed++;
-            stepResult.hasWarnings = true;
-          }
+        // Run hallucination check - comparing summary vs SAME source content
+        const result = await checkHallucination(
+          article.summary,
+          article.rawContent,
+          ticker
+        );
 
-          logger.log("VERIFY", `${ticker}: ${result.totalFacts} facts, ${Math.round(result.score * 100)}% verified`);
+        stepResult.totalChecked++;
+        totalScore += result.score || 0;
+
+        // Store result for D1 upload
+        stepResult.results.push({
+          summaryId: ticker,
+          summaryType: "press",
+          totalFacts: result.issues?.length || 0,
+          verified: result.status === "PASS" ? 1 : 0,
+          notFound: 0,
+          contradicted: result.issues?.length || 0,
+          score: result.score / 100, // Convert 0-100 to 0-1
+          issues: result.issues || []
+        });
+
+        if (result.status === "PASS") {
+          stepResult.passed++;
+          logger.log("VERIFY", `${ticker}: PASS (score: ${result.score}%)`);
+        } else if (result.status === "FAIL") {
+          stepResult.failed++;
+          stepResult.hasWarnings = true;
+          const issueCount = result.issues?.length || 0;
+          logger.log("VERIFY", `${ticker}: FAIL (score: ${result.score}%, ${issueCount} issues)`, "warn");
+        } else {
+          stepResult.errors++;
+          logger.log("VERIFY", `${ticker}: ERROR - ${result.error}`, "fail");
         }
       }
     }
+
+    stepResult.averageScore = stepResult.totalChecked > 0
+      ? Math.round(totalScore / stepResult.totalChecked)
+      : 0;
+
   } catch (err) {
     logger.log("VERIFY", `Error: ${err.message}`, "fail");
   }
 
-  logger.log("VERIFY", `Complete: ${stepResult.verified} passed, ${stepResult.failed} warnings`);
+  logger.log("VERIFY", `Complete: ${stepResult.passed} passed, ${stepResult.failed} failed, avg score: ${stepResult.averageScore}%`);
 
   return stepResult;
 }
 
 /**
- * Upload fact verification records to database
+ * Upload verification results to D1 database
  */
-export async function uploadFactRecords(records) {
-  if (!records || records.length === 0) return { success: true, count: 0 };
+export async function uploadVerificationResults(results) {
+  if (!results || results.length === 0) return { success: true, count: 0 };
 
   try {
-    const response = await fetch(`${INGEST_BASE}/ingest/facts`, {
+    const response = await fetch(`${INGEST_BASE}/ingest/verification`, {
       method: "POST",
-      body: JSON.stringify({ facts: records }),
+      body: JSON.stringify({ results }),
       headers: { "Content-Type": "application/json" }
     });
 
     if (response.ok) {
-      return { success: true, count: records.length };
+      const data = await response.json();
+      return { success: true, count: data.inserted || results.length };
     } else {
       return { success: false, error: `HTTP ${response.status}` };
     }
@@ -166,19 +123,32 @@ export async function uploadFactRecords(records) {
 }
 
 /**
- * Generate fact verification report for display
+ * Generate verification report for display
  */
 export function generateFactReport(results) {
   const report = {
-    totalSummaries: results.length,
+    totalSummaries: results.length || 0,
     totalFacts: 0,
     verified: 0,
     partiallyVerified: 0,
     notFound: 0,
     contradicted: 0,
-    issues: []
+    issues: [],
+    verificationRate: 0
   };
 
+  // Handle both old format and new stepResult format
+  if (results.length === 1 && results[0].totalChecked !== undefined) {
+    // New format from verifyFacts
+    const r = results[0];
+    report.totalSummaries = r.totalChecked || 0;
+    report.verified = r.passed || 0;
+    report.contradicted = r.failed || 0;
+    report.verificationRate = r.averageScore || 0;
+    return report;
+  }
+
+  // Old format
   for (const result of results) {
     report.totalFacts += result.totalFacts || 0;
     report.verified += result.verified || 0;
@@ -190,14 +160,14 @@ export function generateFactReport(results) {
         summaryId: result.summaryId,
         issues: result.issues.map(i => ({
           claim: i.claim,
-          status: i.status
+          problem: i.problem || i.status
         }))
       });
     }
   }
 
-  report.verificationRate = report.totalFacts > 0
-    ? Math.round((report.verified / report.totalFacts) * 100)
+  report.verificationRate = report.totalSummaries > 0
+    ? Math.round((report.verified / report.totalSummaries) * 100)
     : 100;
 
   return report;

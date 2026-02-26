@@ -41,8 +41,10 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePortfolioTab(e.target.value);
   });
 
-  // Content validation handler
-  document.getElementById('runContentValidation')?.addEventListener('click', runContentValidation);
+  // Content validation handler - now just refreshes from D1
+  document.getElementById('runContentValidation')?.addEventListener('click', () => {
+    loadData(currentDate); // Refresh to get latest verification from D1
+  });
 });
 
 // ============ TABS ============
@@ -114,7 +116,7 @@ async function loadData(date) {
     updateMacroTab();
     updatePortfolioTab();
     updateMonthlyCheck();
-    detectTodayUpdates(); // Detect what was updated for content validation
+    updateVerificationFromD1(); // Load AI verification results from D1
 
     document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
     document.getElementById('logFile').textContent = dashboardData.validation?.logFile || '--';
@@ -1045,21 +1047,69 @@ let validationResults = [];
 
 // Initialize verification section on load
 function initVerificationSection() {
-  // Load any cached results
-  loadCachedValidationResults();
+  // Results will be loaded automatically when dashboard data loads
+  // via updateVerificationFromD1()
 }
 
-async function loadCachedValidationResults() {
-  try {
-    const res = await fetch('/api/content-validation/results');
-    const data = await res.json();
-    if (data.results && data.results.length > 0) {
-      validationResults = data.results;
-      renderVerificationResults();
+// Load verification results from D1 data (called after dashboard data loads)
+function updateVerificationFromD1() {
+  const verificationData = dashboardData.verification_ai;
+
+  if (!verificationData || !verificationData.results || verificationData.results.length === 0) {
+    // No verification data - show message
+    const statusEl = document.getElementById('contentValStatus');
+    if (statusEl) {
+      statusEl.className = 'status-text';
+      statusEl.textContent = 'No verification data available for this date';
     }
-  } catch (err) {
-    console.log('No cached validation results');
+    const itemsGrid = document.getElementById('verificationItemsGrid');
+    if (itemsGrid) {
+      itemsGrid.innerHTML = `
+        <div class="verification-placeholder">
+          <p>AI fact verification runs automatically at the end of the daily pipeline.</p>
+          <p style="color: var(--text-secondary); font-size: 0.875rem;">Run the pipeline to generate verification results.</p>
+        </div>
+      `;
+    }
+    return;
   }
+
+  // Transform D1 results into the expected format
+  validationResults = verificationData.results.map(r => ({
+    itemName: r.summaryId || r.summary_id || 'Unknown',
+    itemType: r.summaryType || r.summary_type || 'press',
+    status: r.contradicted > 0 ? 'FAIL' : (r.notFound > 0 ? 'WARNING' : 'PASS'),
+    verification: {
+      summaryScore: {
+        totalFacts: r.totalFacts || r.total_facts || 0,
+        verified: r.verified || 0,
+        notFound: r.notFound || r.not_found || 0,
+        contradicted: r.contradicted || 0,
+        verificationRate: (r.score || 0) / 100
+      },
+      issues: r.issues || [],
+      verificationResults: (r.issues || []).map(issue => ({
+        claim: issue.claim,
+        status: issue.status,
+        confidence: 0.5,
+        source: issue.source || {}
+      }))
+    }
+  }));
+
+  // Update status
+  const statusEl = document.getElementById('contentValStatus');
+  if (statusEl) {
+    const passed = validationResults.filter(r => r.status === 'PASS').length;
+    const warnings = validationResults.filter(r => r.status === 'WARNING').length;
+    const failed = validationResults.filter(r => r.status === 'FAIL').length;
+
+    statusEl.className = failed > 0 ? 'status-text error' : (warnings > 0 ? 'status-text' : 'status-text success');
+    statusEl.textContent = `Last run: ${verificationData.date || currentDate} | ${passed} passed, ${warnings} warnings, ${failed} failed`;
+  }
+
+  // Render the results
+  renderVerificationResults();
 }
 
 function detectTodayUpdates() {

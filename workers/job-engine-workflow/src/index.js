@@ -18,6 +18,14 @@ var JobWorkflow = class extends WorkflowEntrypoint {
       });
       if (!job) {
         console.log("QUEUE EMPTY - FINISHING");
+        // Write completion timestamp to DB for dashboard polling
+        await step.do("write-completion-flag", async () => {
+          await this.env.DB.prepare(`
+            INSERT INTO PROC_02_Workflow_status (id, status, completed_at)
+            VALUES ('latest', 'done', datetime('now'))
+            ON CONFLICT(id) DO UPDATE SET status='done', completed_at=datetime('now')
+          `).run();
+        });
         break;
       }
       await step.do(`execute-${job.worker}-${job.id}`, async () => {
@@ -124,6 +132,12 @@ var index_default = {
     if (action === "daily_news") {
       const tickersToProcess = body.ticker ? [body.ticker.toUpperCase()] : TICKERS;
       const now = new Date().toISOString();
+
+      // Clear pending/running jobs before starting fresh
+      await this_env.DB.prepare(`
+        DELETE FROM PROC_01_Job_queue WHERE status IN ('pending', 'running')
+      `).run();
+
       for (const t of tickersToProcess) {
         await this_env.DB.prepare(`
           INSERT INTO PROC_01_Job_queue (date, worker, input, status)
@@ -158,6 +172,11 @@ var index_default = {
     if (action === "daily_update") {
       const now = new Date().toISOString();
       const inputDate = body.date || now.slice(0, 10);
+
+      // Clear pending/running jobs before starting fresh
+      await this_env.DB.prepare(`
+        DELETE FROM PROC_01_Job_queue WHERE status IN ('pending', 'running')
+      `).run();
 
       // 1) Queue daily_news (news-orchestrator for all tickers)
       for (const t of TICKERS) {

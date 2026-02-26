@@ -89,6 +89,7 @@ async function main() {
         heading: art.title,
         date: art.norm,
         summary: summary,
+        rawContent: text,  // Save raw content for verification
       });
     }
   }

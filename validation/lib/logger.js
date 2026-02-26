@@ -396,6 +396,11 @@ class PipelineLogger {
     return this.logFile;
   }
 
+  // Get logs array for D1 upload
+  getLogs() {
+    return this.logs.slice(-50); // Return last 50 log entries
+  }
+
   // Cleanup terminal
   cleanup() {
     process.stdout.write(RESET_SCROLL);

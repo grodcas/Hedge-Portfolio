@@ -16,7 +16,7 @@ export async function syncDashboard(config, logger, workflowId) {
     data: {}
   };
 
-  logger.startStep(8);
+  logger.startStep(9);
   logger.log("SYNC", "Waiting for workflow completion...");
 
   // Ensure data directory exists
@@ -30,7 +30,7 @@ export async function syncDashboard(config, logger, workflowId) {
 
   for (let i = 0; i < maxAttempts; i++) {
     stepResult.pollAttempts = i + 1;
-    logger.updateStep(8, Math.round((i / maxAttempts) * 50));
+    logger.updateStep(9, Math.round((i / maxAttempts) * 50));
 
     try {
       const statusRes = await fetch(`${INGEST_BASE}/query/workflow-status`);
@@ -56,7 +56,7 @@ export async function syncDashboard(config, logger, workflowId) {
 
   // Fetch and cache dashboard data
   logger.log("SYNC", "Fetching processed data from D1...");
-  logger.updateStep(8, 60);
+  logger.updateStep(9, 60);
 
   const endpoints = [
     { name: "daily_macro", path: "/query/daily-macro", file: "daily_macro.json" },
@@ -64,7 +64,8 @@ export async function syncDashboard(config, logger, workflowId) {
     { name: "ticker_trends", path: "/query/ticker-trends", file: "ticker_trends.json" },
     { name: "daily_news", path: "/query/daily-news", file: "daily_news.json" },
     { name: "reports", path: "/query/reports", file: "reports.json" },
-    { name: "earnings_calendar", path: "/query/earnings-calendar", file: "earnings_calendar.json" }
+    { name: "earnings_calendar", path: "/query/earnings-calendar", file: "earnings_calendar.json" },
+    { name: "verification", path: "/query/verification", file: "verification.json" }
   ];
 
   let synced = 0;
@@ -84,11 +85,11 @@ export async function syncDashboard(config, logger, workflowId) {
     } catch (err) {
       logger.log("SYNC", `${ep.name}: ${err.message}`, "fail");
     }
-    logger.updateStep(8, 60 + Math.round((synced / endpoints.length) * 40));
+    logger.updateStep(9, 60 + Math.round((synced / endpoints.length) * 40));
   }
 
   stepResult.synced = synced > 0;
-  logger.completeStep(8, synced);
+  logger.completeStep(9, synced);
   logger.log("SYNC", `Dashboard data synced (${synced}/${endpoints.length} endpoints)`, synced > 0 ? "ok" : "warn");
 
   return stepResult;

@@ -255,7 +255,7 @@ app.get("/api/fomc-calendar", (req, res) => {
   });
 });
 
-// Get all data for dashboard (combined endpoint)
+// Get all data for dashboard (combined endpoint) - ALL DATA FROM D1
 app.get("/api/dashboard/:date", async (req, res) => {
   const { date } = req.params;
 
@@ -267,95 +267,115 @@ app.get("/api/dashboard/:date", async (req, res) => {
     news: null,
     press: null,
     whitehouse: null,
-    // New fields for redesigned dashboard
     dailyMacro: null,
     dailyNews: {},
     macroTrend: null,
     tickerTrends: {},
     reports: {},
     earningsCalendar: {},
-    calendar: { nextFOMC: { date: "2026-03-18" } }
+    calendar: { nextFOMC: { date: "2026-03-18" } },
+    verification_ai: null
   };
 
-  // Load validation log (always from local files)
-  const logDir = path.join(ROOT_DIR, "logs");
-  if (fs.existsSync(logDir)) {
-    const files = fs.readdirSync(logDir)
-      .filter(f => f.startsWith(`ingest_${date}`) && f.endsWith(".json"))
-      .sort()
-      .reverse();
+  // FETCH ALL DATA FROM D1 DATABASE
 
-    if (files.length > 0) {
-      result.validation = JSON.parse(fs.readFileSync(path.join(logDir, files[0]), "utf8"));
-    }
+  // 1. Fetch validation/pipeline logs from D1
+  const pipelineData = await fetchFromWorker(`/query/pipeline-validation?date=${date}`);
+  if (pipelineData && pipelineData.summary) {
+    result.validation = {
+      summary: pipelineData.summary,
+      validations: pipelineData.validations,
+      logs: pipelineData.logs,
+      logFile: `D1:${date}`
+    };
+    console.log(`[Dashboard] Loaded pipeline validation from D1`);
   }
 
-  // Always load local ingested files for validation tab (news/press/whitehouse)
-  const localPaths = {
-    news: "news/news_summary.json",
-    press: "press/AA_press_summary.json",
-    whitehouse: "whitehouse/whitehouse_summary.json"
-  };
-
-  for (const [key, relPath] of Object.entries(localPaths)) {
-    const fullPath = path.join(ROOT_DIR, relPath);
-    if (fs.existsSync(fullPath)) {
-      try {
-        result[key] = JSON.parse(fs.readFileSync(fullPath, "utf8"));
-      } catch (err) {
-        result[key] = { error: err.message };
-      }
-    }
-  }
-
-  // Try to fetch data from worker API for Daily/Macro/Portfolio tabs
+  // 2. Fetch combined data (macro, sentiment, trends, etc.)
   const workerData = await fetchFromWorker("/query/all");
-
   if (workerData) {
-    // Use worker data for new dashboard tabs
     result.dailyMacro = workerData.dailyMacro;
     result.macroTrend = workerData.macroTrend;
     result.tickerTrends = workerData.tickerTrends || {};
     result.dailyNews = workerData.dailyNews || {};
-    // Override macro/sentiment with DB data if available
     if (workerData.macro) result.macro = workerData.macro;
     if (workerData.sentiment) result.sentiment = workerData.sentiment;
-    console.log("[Dashboard] Loaded data from worker API");
-  } else {
-    console.log("[Dashboard] Worker API unavailable, using local files only");
+    console.log("[Dashboard] Loaded combined data from D1");
+  }
 
-    // Fallback: Load macro/sentiment from local files
-    const macroPath = path.join(ROOT_DIR, "macro/macro_summary.json");
-    if (fs.existsSync(macroPath)) {
-      try {
-        result.macro = JSON.parse(fs.readFileSync(macroPath, "utf8"));
-      } catch (err) {}
+  // 3. Fetch press releases from D1
+  const pressData = await fetchFromWorker(`/query/press?date=${date}`);
+  if (pressData && Object.keys(pressData).length > 0) {
+    result.press = pressData;
+    console.log(`[Dashboard] Loaded ${Object.keys(pressData).length} tickers press from D1`);
+  }
+
+  // 4. Fetch whitehouse from D1
+  const whData = await fetchFromWorker("/query/whitehouse");
+  if (whData && whData.WhiteHouse) {
+    result.whitehouse = whData;
+    console.log(`[Dashboard] Loaded ${whData.WhiteHouse.length} whitehouse items from D1`);
+  }
+
+  // 5. Fetch news from D1
+  const newsData = await fetchFromWorker("/query/news");
+  if (newsData && Object.keys(newsData).length > 0) {
+    result.news = newsData;
+    console.log(`[Dashboard] Loaded news from D1`);
+  }
+
+  // 6. Fetch AI verification from D1
+  const verificationData = await fetchFromWorker(`/query/verification?date=${date}`);
+  if (verificationData && verificationData.results) {
+    result.verification_ai = verificationData;
+    console.log(`[Dashboard] Loaded ${verificationData.results.length} AI verification results from D1`);
+  }
+
+  // 7. Fetch reports from D1
+  const reportsData = await fetchFromWorker("/query/reports");
+  if (reportsData && Object.keys(reportsData).length > 0) {
+    result.reports = reportsData;
+  }
+
+  // 8. Fetch earnings calendar from D1
+  const calendarData = await fetchFromWorker("/query/earnings-calendar");
+  if (calendarData) {
+    result.earningsCalendar = calendarData;
+  }
+
+  // FALLBACK: Only if D1 is completely unavailable, use local files
+  if (!result.validation && !result.macro) {
+    console.log("[Dashboard] D1 unavailable, falling back to local files");
+
+    // Load validation from local log
+    const logDir = path.join(ROOT_DIR, "logs");
+    if (fs.existsSync(logDir)) {
+      const files = fs.readdirSync(logDir)
+        .filter(f => f.startsWith(`ingest_${date}`) && f.endsWith(".json"))
+        .sort()
+        .reverse();
+
+      if (files.length > 0) {
+        result.validation = JSON.parse(fs.readFileSync(path.join(logDir, files[0]), "utf8"));
+      }
     }
 
-    const sentPath = path.join(ROOT_DIR, "sentiment/sentiment_summary.json");
-    if (fs.existsSync(sentPath)) {
-      try {
-        result.sentiment = JSON.parse(fs.readFileSync(sentPath, "utf8"));
-      } catch (err) {}
-    }
-
-    // Fallback: Load from data/ directory if cached
-    const fallbackPaths = {
-      dailyMacro: "data/daily_macro.json",
-      macroTrend: "data/macro_trend.json",
-      tickerTrends: "data/ticker_trends.json",
-      dailyNews: "data/daily_news.json",
-      reports: "data/reports.json",
-      earningsCalendar: "data/earnings_calendar.json"
+    // Load from local summary files
+    const localPaths = {
+      macro: "macro/macro_summary.json",
+      sentiment: "sentiment/sentiment_summary.json",
+      news: "news/news_summary.json",
+      press: "press/AA_press_summary.json",
+      whitehouse: "whitehouse/whitehouse_summary.json"
     };
 
-    for (const [key, relPath] of Object.entries(fallbackPaths)) {
-      const fullPath = path.join(ROOT_DIR, relPath);
-      if (fs.existsSync(fullPath)) {
-        try {
-          result[key] = JSON.parse(fs.readFileSync(fullPath, "utf8"));
-        } catch (err) {
-          // Silently ignore
+    for (const [key, relPath] of Object.entries(localPaths)) {
+      if (!result[key]) {
+        const fullPath = path.join(ROOT_DIR, relPath);
+        if (fs.existsSync(fullPath)) {
+          try {
+            result[key] = JSON.parse(fs.readFileSync(fullPath, "utf8"));
+          } catch (err) {}
         }
       }
     }
@@ -492,13 +512,28 @@ app.post("/api/content-validation/validate-local", async (req, res) => {
   }
 });
 
-// Get latest validation results (cached)
+// Get latest validation results (cached or from pipeline)
 app.get("/api/content-validation/results", (req, res) => {
+  // First try the manual results
   const resultsPath = path.join(ROOT_DIR, "data/validation_results.json");
   if (fs.existsSync(resultsPath)) {
     const data = JSON.parse(fs.readFileSync(resultsPath, "utf8"));
     return res.json(data);
   }
+
+  // Try to load from pipeline verification log (today's date)
+  const today = new Date().toISOString().slice(0, 10);
+  const logPath = path.join(ROOT_DIR, `logs/verification_${today}.json`);
+  if (fs.existsSync(logPath)) {
+    const pipelineData = JSON.parse(fs.readFileSync(logPath, "utf8"));
+    return res.json({
+      results: pipelineData.issues || [],
+      summary: pipelineData,
+      lastRun: today,
+      source: "pipeline"
+    });
+  }
+
   res.json({ results: [], lastRun: null });
 });
 
