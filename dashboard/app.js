@@ -1075,23 +1075,26 @@ function updateVerificationFromD1() {
   }
 
   // Transform D1 results into the expected format
+  // Score is already 0-100 percentage from hallucination checker
   validationResults = verificationData.results.map(r => ({
     itemName: r.summaryId || r.summary_id || 'Unknown',
     itemType: r.summaryType || r.summary_type || 'press',
-    status: r.contradicted > 0 ? 'FAIL' : (r.notFound > 0 ? 'WARNING' : 'PASS'),
+    status: (r.contradicted > 0 || r.score < 80) ? 'FAIL' : 'PASS',
     verification: {
       summaryScore: {
-        totalFacts: r.totalFacts || r.total_facts || 0,
-        verified: r.verified || 0,
+        totalFacts: r.totalFacts || r.total_facts || 1,
+        verified: r.verified || (r.score >= 80 ? 1 : 0),
         notFound: r.notFound || r.not_found || 0,
-        contradicted: r.contradicted || 0,
-        verificationRate: (r.score || 0) / 100
+        contradicted: r.contradicted || (r.score < 80 ? 1 : 0),
+        verificationRate: (r.score || 0) / 100 // Convert 0-100 to 0-1 for percentage display
       },
+      analysis: r.analysis || '',
       issues: r.issues || [],
       verificationResults: (r.issues || []).map(issue => ({
         claim: issue.claim,
-        status: issue.status,
-        confidence: 0.5,
+        problem: issue.problem,
+        status: 'CONTRADICTED',
+        confidence: 0.9,
         source: issue.source || {}
       }))
     }
@@ -1302,14 +1305,21 @@ function renderVerificationResults() {
     }
   });
 
-  // Update stats bar
-  document.getElementById('statTotalItems').textContent = validationResults.length;
-  document.getElementById('statTotalFacts').textContent = totalFacts;
-  document.getElementById('statVerified').textContent = verifiedFacts;
-  document.getElementById('statNotFound').textContent = notFoundFacts;
-  document.getElementById('statContradicted').textContent = contradictedFacts;
+  // Update stats bar - for hallucination checking, show pass/fail counts
+  const passedCount = validationResults.filter(r => r.status === 'PASS').length;
+  const failedCount = validationResults.filter(r => r.status === 'FAIL').length;
 
-  const overallScore = totalFacts > 0 ? Math.round((verifiedFacts / totalFacts) * 100) : 0;
+  document.getElementById('statTotalItems').textContent = validationResults.length;
+  document.getElementById('statTotalFacts').textContent = `${passedCount} passed`;
+  document.getElementById('statVerified').textContent = passedCount;
+  document.getElementById('statNotFound').textContent = '0';
+  document.getElementById('statContradicted').textContent = failedCount;
+
+  // Calculate overall score from individual scores
+  const totalScore = validationResults.reduce((sum, r) => {
+    return sum + (r.verification?.summaryScore?.verificationRate || 0) * 100;
+  }, 0);
+  const overallScore = validationResults.length > 0 ? Math.round(totalScore / validationResults.length) : 0;
   const overallScoreEl = document.getElementById('overallScore');
   overallScoreEl.textContent = `${overallScore}%`;
   overallScoreEl.style.color = overallScore >= 90 ? 'var(--accent-green)' : (overallScore >= 70 ? 'var(--accent-yellow)' : 'var(--accent-red)');
@@ -1372,18 +1382,21 @@ function renderItemsGrid() {
     card.className = `verification-item-card ${hasIssues ? 'has-issues' : ''} ${hasCritical ? 'has-critical' : ''}`;
     card.dataset.idx = idx;
 
+    // For hallucination checking, show simpler display
+    const statusText = result.status === 'PASS' ? 'No hallucinations detected' :
+                       result.status === 'FAIL' ? 'Issues detected' : 'Error';
+    const statusIcon = result.status === 'PASS' ? '✓' : result.status === 'FAIL' ? '⚠' : '✗';
+
     card.innerHTML = `
       <div class="item-card-header" onclick="toggleItemCard(${idx})">
         <div class="item-type-indicator type-${result.itemType || 'macro'}"></div>
         <div class="item-info">
           <div class="item-name">${result.itemName || result.summaryId || 'Unknown'}</div>
-          <div class="item-meta">${result.itemType || 'summary'} • ${score?.totalFacts || 0} facts extracted</div>
+          <div class="item-meta">${result.itemType || 'summary'} • Hallucination Check</div>
         </div>
         <div class="item-score-display">
           <div class="fact-counts">
-            <div class="fact-count"><span class="count-dot verified"></span> ${score?.verified || 0} verified</div>
-            <div class="fact-count"><span class="count-dot not-found"></span> ${score?.notFound || 0} not found</div>
-            <div class="fact-count"><span class="count-dot contradicted"></span> ${score?.contradicted || 0} contradicted</div>
+            <div class="fact-count">${statusIcon} ${statusText}</div>
           </div>
           <div class="score-circle ${scoreClass}">${result.status === 'ERROR' ? 'ERR' : scorePercent + '%'}</div>
         </div>
@@ -1400,36 +1413,68 @@ function renderItemsGrid() {
   });
 }
 
-// Render the facts list for an item
+// Render the facts list for an item (hallucination check results)
 function renderFactsList(result) {
-  const verificationResults = result.verification?.verificationResults || [];
+  const analysis = result.verification?.analysis || '';
+  const issues = result.verification?.issues || [];
+  const score = result.verification?.summaryScore;
+  const scorePercent = score ? Math.round(score.verificationRate * 100) : 0;
 
-  if (verificationResults.length === 0) {
-    if (result.error) {
-      return `<div class="fact-item"><span class="fact-status-icon">⚠</span><div class="fact-content"><div class="fact-claim-text">Error: ${result.error}</div></div></div>`;
-    }
-    return '<div class="fact-item"><span class="fact-status-icon">ℹ</span><div class="fact-content"><div class="fact-claim-text">No facts extracted</div></div></div>';
+  // Show analysis from hallucination checker
+  let html = '';
+
+  if (result.error) {
+    return `<div class="fact-item"><span class="fact-status-icon">⚠</span><div class="fact-content"><div class="fact-claim-text">Error: ${result.error}</div></div></div>`;
   }
 
-  return verificationResults.map(v => {
-    const statusIcon = v.status === 'VERIFIED' ? '✓' : (v.status === 'NOT_FOUND' ? '?' : '✗');
-    const statusClass = v.status?.toLowerCase().replace('_', '_');
-    const confidence = v.confidence ? Math.round(v.confidence * 100) : 0;
+  // Show accuracy score prominently
+  html += `
+    <div class="fact-item verified">
+      <span class="fact-status-icon">📊</span>
+      <div class="fact-content">
+        <div class="fact-claim-text"><strong>Accuracy Score: ${scorePercent}%</strong></div>
+        <div class="fact-source-info">Summary compared against source content</div>
+      </div>
+    </div>
+  `;
 
-    return `
-      <div class="fact-item ${statusClass}">
-        <span class="fact-status-icon">${statusIcon}</span>
+  // Show analysis if available
+  if (analysis) {
+    html += `
+      <div class="fact-item">
+        <span class="fact-status-icon">📝</span>
         <div class="fact-content">
-          <div class="fact-claim-text">${v.claim || 'No claim'}</div>
-          <div class="fact-source-info">
-            ${v.source?.quote ? `<span class="source-quote">"${truncate(v.source.quote, 150)}"</span>` : ''}
-            ${v.source?.document ? `<span>Source: ${v.source.document}</span>` : ''}
-          </div>
+          <div class="fact-claim-text">${analysis}</div>
         </div>
-        <span class="fact-confidence">${confidence}%</span>
       </div>
     `;
-  }).join('');
+  }
+
+  // Show any issues found
+  if (issues.length > 0) {
+    issues.forEach(issue => {
+      html += `
+        <div class="fact-item contradicted">
+          <span class="fact-status-icon">⚠</span>
+          <div class="fact-content">
+            <div class="fact-claim-text">${issue.claim || issue.problem || 'Issue detected'}</div>
+            ${issue.problem ? `<div class="fact-source-info">${issue.problem}</div>` : ''}
+          </div>
+        </div>
+      `;
+    });
+  } else if (scorePercent >= 80) {
+    html += `
+      <div class="fact-item verified">
+        <span class="fact-status-icon">✓</span>
+        <div class="fact-content">
+          <div class="fact-claim-text">All claims in the summary are supported by the source content</div>
+        </div>
+      </div>
+    `;
+  }
+
+  return html;
 }
 
 // Toggle item card expansion
