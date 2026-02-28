@@ -5,7 +5,7 @@ import "dotenv/config";
 import { fileURLToPath } from "url";
 import { execSync } from "child_process";
 
-console.log("→ AA_EDGAR_SHORT_TERM STARTING");
+console.log("→ EDGAR FETCH STARTING");
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -15,11 +15,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const END = new Date().toISOString().slice(0, 10);
 
+// Use 2 days lookback to match SEC checker
 const d = new Date();
-d.setDate(d.getDate() - 1);
+d.setDate(d.getDate() - 2);
 const START = d.toISOString().slice(0, 10);
-//const START = "2026-01-17";
-//const END = "2025-10-1";
 
 const START_DATE = new Date(START);
 
@@ -104,9 +103,9 @@ await main();
 
 
 console.log("→ Parsing downloaded HTMLs");
-execSync(`node edgar/edgar_dispatch.js ${START} ${END}`, { stdio: "inherit" });
+execSync(`node edgar/dispatch.js ${START} ${END}`, { stdio: "inherit" });
 
 console.log("→ Clustering parsed JSONs");
-execSync(`node edgar/edgar_dispatch_cluster.js ${START} ${END}`, { stdio: "inherit" });
+execSync(`node edgar/dispatch-cluster.js ${START} ${END}`, { stdio: "inherit" });
 
-console.log("→ AA_EDGAR_SHORT_TERM DONE");
+console.log("→ EDGAR FETCH DONE");

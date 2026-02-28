@@ -32,11 +32,11 @@ export async function ingestEdgar(config, logger, results) {
     logger.updateStep(3, Math.round((i / total) * 100), ticker);
   });
 
-  // Load ingested SEC data for comparison - ONLY TODAY's filings
+  // Load ingested SEC data for comparison - last 2 days (matching SEC checker lookback)
   // Filename format: TICKER_TYPE_DATE_clustered.json (e.g., AAPL_10-K_2025-10-31_clustered.json)
   let ingestedSEC = {};
   const today = new Date().toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
 
   try {
     const edgarDir = path.join(BASE_DIR, "edgar/edgar_clustered_json");
@@ -50,8 +50,8 @@ export async function ingestEdgar(config, logger, results) {
           const type = parts[1]; // e.g., "10-K", "8-K", "4"
           const date = parts[2]; // e.g., "2025-10-31"
 
-          // Only include files from today or yesterday (matching SEC API lookback)
-          if (date !== today && date !== yesterday) continue;
+          // Only include files from last 2 days (matching SEC API lookback)
+          if (date < twoDaysAgo) continue;
 
           if (!ingestedSEC[ticker]) ingestedSEC[ticker] = [];
           ingestedSEC[ticker].push({ type, date });
