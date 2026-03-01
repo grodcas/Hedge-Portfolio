@@ -858,7 +858,14 @@ function updateMonthlyCheck() {
   const macroTable = document.querySelector('#monthlyMacroTable tbody');
   macroTable.innerHTML = '';
   if (dashboardData.macro?.Macro) {
-    dashboardData.macro.Macro.forEach((item, i) => {
+    // Keep only the latest entry per heading
+    const latestByHeading = {};
+    dashboardData.macro.Macro.forEach(item => {
+      if (!latestByHeading[item.heading] || item.date > latestByHeading[item.heading].date) {
+        latestByHeading[item.heading] = item;
+      }
+    });
+    Object.values(latestByHeading).forEach((item, i) => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${item.heading}</td>
@@ -894,24 +901,53 @@ function updateMonthlyCheck() {
     pressTable.appendChild(tr);
   });
 
-  // FOMC table
+  // FOMC / Policy table
   const fomcTable = document.querySelector('#monthlyFomcTable tbody');
   fomcTable.innerHTML = '';
-  if (dashboardData.whitehouse?.WhiteHouse) {
-    dashboardData.whitehouse.WhiteHouse.slice(0, 5).forEach((item, i) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>White House</td>
-        <td>${item.title?.substring(0, 40)}...</td>
-        <td>${item.date}</td>
-        <td>
-          <button class="btn btn-secondary verify-btn" data-type="wh" data-idx="${i}">✓</button>
-          <button class="btn btn-secondary verify-btn" data-type="wh" data-idx="${i}" data-wrong="true">✗</button>
-        </td>
-      `;
-      fomcTable.appendChild(tr);
-    });
+
+  // Latest White House item only
+  if (dashboardData.whitehouse?.WhiteHouse?.length) {
+    const latest = dashboardData.whitehouse.WhiteHouse.reduce((a, b) => a.date > b.date ? a : b);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>White House</td>
+      <td><a href="https://www.whitehouse.gov/news/" target="_blank" class="url-link">${latest.title?.substring(0, 50) || 'Latest article'}...</a></td>
+      <td>${latest.date}</td>
+      <td>
+        <button class="btn btn-secondary verify-btn" data-type="wh" data-idx="0">✓</button>
+        <button class="btn btn-secondary verify-btn" data-type="wh" data-idx="0" data-wrong="true">✗</button>
+      </td>
+    `;
+    fomcTable.appendChild(tr);
   }
+
+  // FOMC Statement — extract first substantive paragraph from macro FOMC data
+  const fomcMacro = (dashboardData.macro?.Macro || []).filter(x => x.heading === 'FOMC').reduce((a, b) => (!a || b.date > a.date) ? b : a, null);
+  const fomcSnippet = fomcMacro?.summary?.paragraphs?.find(p => p.length > 60 && !p.includes('media inquiries') && !p.includes('For release')) || '-';
+  const fomcRow = document.createElement('tr');
+  fomcRow.innerHTML = `
+    <td><a href="https://www.federalreserve.gov/monetarypolicy.htm" target="_blank" class="url-link">FOMC Statement</a></td>
+    <td style="font-size:0.8rem;font-style:italic">${fomcSnippet.substring(0, 150)}${fomcSnippet.length > 150 ? '...' : ''}</td>
+    <td>${fomcMacro?.date || '-'}</td>
+    <td>
+      <button class="btn btn-secondary verify-btn" data-type="wh" data-idx="1">✓</button>
+      <button class="btn btn-secondary verify-btn" data-type="wh" data-idx="1" data-wrong="true">✗</button>
+    </td>
+  `;
+  fomcTable.appendChild(fomcRow);
+
+  // Fed Minutes — link to calendar page, show FOMC title as reference
+  const minRow = document.createElement('tr');
+  minRow.innerHTML = `
+    <td><a href="https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" target="_blank" class="url-link">Fed Minutes</a></td>
+    <td style="font-size:0.8rem;font-style:italic">${fomcMacro?.summary?.title || '-'}</td>
+    <td>${fomcMacro?.date || '-'}</td>
+    <td>
+      <button class="btn btn-secondary verify-btn" data-type="wh" data-idx="2">✓</button>
+      <button class="btn btn-secondary verify-btn" data-type="wh" data-idx="2" data-wrong="true">✗</button>
+    </td>
+  `;
+  fomcTable.appendChild(minRow);
 
   // Add click handlers
   document.querySelectorAll('.verify-btn').forEach(btn => {
