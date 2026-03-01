@@ -1,3 +1,5 @@
+> [STRUCTURE](../STRUCTURE.md) · [Conventions](CONVENTIONS.md) · [Mistakes](MISTAKES.md) · [Diary](DIARY.md)
+
 # Mistakes Log
 
 Solved bugs and lessons learned. Each entry documents the problem, root cause, and the general principle to prevent recurrence.
@@ -126,4 +128,4 @@ For validation displays, always show something from the **actual content** — n
 
 ---
 
-[Back to STRUCTURE](STRUCTURE.md)
+> [STRUCTURE](../STRUCTURE.md) · [Conventions](CONVENTIONS.md) · [Mistakes](MISTAKES.md) · [Diary](DIARY.md)

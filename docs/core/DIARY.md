@@ -1,3 +1,5 @@
+> [STRUCTURE](../STRUCTURE.md) · [Conventions](CONVENTIONS.md) · [Mistakes](MISTAKES.md) · [Diary](DIARY.md)
+
 # Development Diary
 
 Chronological log of changes. Append-only — never edit past entries.
@@ -77,4 +79,4 @@ Chronological log of changes. Append-only — never edit past entries.
 
 ---
 
-[Back to STRUCTURE](STRUCTURE.md)
+> [STRUCTURE](../STRUCTURE.md) · [Conventions](CONVENTIONS.md) · [Mistakes](MISTAKES.md) · [Diary](DIARY.md)

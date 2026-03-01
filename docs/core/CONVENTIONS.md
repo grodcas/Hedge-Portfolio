@@ -1,3 +1,5 @@
+> [STRUCTURE](../STRUCTURE.md) · [Conventions](CONVENTIONS.md) · [Mistakes](MISTAKES.md) · [Diary](DIARY.md)
+
 # Conventions
 
 **Last updated**: 2026-03-01
@@ -165,4 +167,4 @@ Each checker exports `checkAllXxx()` returning an array of results with consiste
 
 ---
 
-[Back to STRUCTURE](STRUCTURE.md)
+> [STRUCTURE](../STRUCTURE.md) · [Conventions](CONVENTIONS.md) · [Mistakes](MISTAKES.md) · [Diary](DIARY.md)

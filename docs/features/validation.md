@@ -1,3 +1,5 @@
+> [STRUCTURE](../STRUCTURE.md) · [Pipeline](pipeline.md) · [Data Sources](data-sources.md) · [Validation](validation.md) · [Worker & D1](worker-d1.md) · [Dashboard](dashboard.md)
+
 # Validation System
 
 The validation system independently verifies every data source in the pipeline. It has two layers: **parser health checks** (are the scrapers working?) and **AI fact verification** (are the AI summaries truthful?).
@@ -176,4 +178,4 @@ Key methods:
 
 ---
 
-[Back to STRUCTURE](../STRUCTURE.md)
+> [STRUCTURE](../STRUCTURE.md) · [Pipeline](pipeline.md) · [Data Sources](data-sources.md) · [Validation](validation.md) · [Worker & D1](worker-d1.md) · [Dashboard](dashboard.md)

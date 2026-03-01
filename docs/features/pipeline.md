@@ -1,3 +1,5 @@
+> [STRUCTURE](../STRUCTURE.md) · [Pipeline](pipeline.md) · [Data Sources](data-sources.md) · [Validation](validation.md) · [Worker & D1](worker-d1.md) · [Dashboard](dashboard.md)
+
 # Pipeline
 
 **Entry point**: `src/pipeline.js`
@@ -133,4 +135,4 @@ The pipeline accumulates results into a single object:
 
 ---
 
-[Back to STRUCTURE](../STRUCTURE.md)
+> [STRUCTURE](../STRUCTURE.md) · [Pipeline](pipeline.md) · [Data Sources](data-sources.md) · [Validation](validation.md) · [Worker & D1](worker-d1.md) · [Dashboard](dashboard.md)

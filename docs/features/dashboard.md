@@ -1,3 +1,5 @@
+> [STRUCTURE](../STRUCTURE.md) · [Pipeline](pipeline.md) · [Data Sources](data-sources.md) · [Validation](validation.md) · [Worker & D1](worker-d1.md) · [Dashboard](dashboard.md)
+
 # Dashboard
 
 **Server**: `dashboard/server.js` (Express, port 4200)
@@ -197,4 +199,4 @@ All rendering is imperative DOM manipulation — no framework, no virtual DOM.
 
 ---
 
-[Back to STRUCTURE](../STRUCTURE.md)
+> [STRUCTURE](../STRUCTURE.md) · [Pipeline](pipeline.md) · [Data Sources](data-sources.md) · [Validation](validation.md) · [Worker & D1](worker-d1.md) · [Dashboard](dashboard.md)

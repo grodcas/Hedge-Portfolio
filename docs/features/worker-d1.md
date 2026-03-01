@@ -1,3 +1,5 @@
+> [STRUCTURE](../STRUCTURE.md) · [Pipeline](pipeline.md) · [Data Sources](data-sources.md) · [Validation](validation.md) · [Worker & D1](worker-d1.md) · [Dashboard](dashboard.md)
+
 # Cloudflare Worker & D1 Database
 
 **Worker**: `portfolio-ingestor`
@@ -45,7 +47,7 @@ The worker serves as the central data API — all data flows through it via POST
 | `PROC_01_Pipeline_logs` | Daily validation summary + logs | `/ingest/pipeline-validation` |
 | `PROC_02_Workflow_status` | Workflow completion tracking | `job-engine-workflow` worker |
 
-Full SQL definitions: see [DATABASE_SCHEMA.md](../DATABASE_SCHEMA.md)
+Full SQL definitions: see [DATABASE_SCHEMA.md](../reference/DATABASE_SCHEMA.md)
 
 ---
 
@@ -133,7 +135,7 @@ job-engine-workflow
   └── ... (20 workers total)
 ```
 
-These workers write **directly to D1** (not through the portfolio-ingestor API). The full worker taxonomy is documented in [WORKER_TAXONOMY.md](../WORKER_TAXONOMY.md).
+These workers write **directly to D1** (not through the portfolio-ingestor API). The full worker taxonomy is documented in [WORKER_TAXONOMY.md](../reference/WORKER_TAXONOMY.md).
 
 ---
 
@@ -144,4 +146,4 @@ These workers write **directly to D1** (not through the portfolio-ingestor API).
 
 ---
 
-[Back to STRUCTURE](../STRUCTURE.md)
+> [STRUCTURE](../STRUCTURE.md) · [Pipeline](pipeline.md) · [Data Sources](data-sources.md) · [Validation](validation.md) · [Worker & D1](worker-d1.md) · [Dashboard](dashboard.md)

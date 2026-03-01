@@ -1,3 +1,5 @@
+> [STRUCTURE](../STRUCTURE.md) · [Doc Guidelines](DOC_GUIDELINES.md)
+
 # Documentation Guidelines
 
 **Last updated**: 2026-03-01
@@ -8,12 +10,16 @@ Rules for writing and maintaining documentation in this repository.
 
 ## Organization
 
-1. **STRUCTURE.md is the single entry point.** Every document must be linked from it. If a doc is not reachable from STRUCTURE.md, it does not exist.
-2. **Feature docs** go in `docs/features/` — one file per major subsystem.
-3. **Guidelines** go in `docs/guidelines/` — process and how-to instructions.
-4. **Reports** go in `docs/reports/` — one file per analysis or test session.
-5. **DIARY.md** is append-only. Never edit past entries.
-6. **MISTAKES.md** only records **solved** problems with root cause and lesson learned. Do not log open issues here.
+1. **STRUCTURE.md is the single entry point** and the only file at `docs/` root. Every document must be linked from it. If a doc is not reachable from STRUCTURE.md, it does not exist.
+2. **Core docs** go in `docs/core/` — CONVENTIONS, MISTAKES, DIARY.
+3. **Feature docs** go in `docs/features/` — one file per major subsystem.
+4. **Reference docs** go in `docs/reference/` — DATABASE_SCHEMA, WORKER_TAXONOMY, KEY_COMMANDS.
+5. **Guidelines** go in `docs/guidelines/` — process and how-to instructions.
+6. **Archive** goes in `docs/archive/` — superseded docs kept for reference.
+7. **Reports** go in `docs/reports/` — one file per analysis or test session.
+8. **DIARY.md** is append-only. Never edit past entries.
+9. **MISTAKES.md** only records **solved** problems with root cause and lesson learned. Do not log open issues here.
+10. **Every doc** must have a navigation bar at top and bottom linking back to STRUCTURE.md and to sibling docs in the same folder.
 
 ---
 
@@ -44,9 +50,13 @@ Use triple-backtick fenced blocks for: code snippets, shell commands, data struc
 ### Status Labels
 Always bold: `**Solved**`, `**Active**`, `**Outdated**`, `**Archived**`.
 
+### Navigation Bars
+- Every doc has a blockquote nav bar at top and bottom: `> [STRUCTURE](../STRUCTURE.md) · [Sibling 1](sibling.md) · [Sibling 2](sibling.md)`
+- The nav bar links to STRUCTURE.md and all sibling docs in the same folder
+
 ### Cross-References
-- Inline: `(see [feature name](features/feature.md))`
-- Back-links: every document must end with `[Back to STRUCTURE](../STRUCTURE.md)` or `[Back to STRUCTURE](STRUCTURE.md)`
+- Inline: `(see [feature name](../features/feature.md))`
+- Reference docs: `(see [DATABASE_SCHEMA](../reference/DATABASE_SCHEMA.md))`
 
 ### Diagrams
 - Mermaid diagrams live **only** in STRUCTURE.md.
@@ -101,4 +111,4 @@ The general principle to avoid this class of bug.
 
 ---
 
-[Back to STRUCTURE](../STRUCTURE.md)
+> [STRUCTURE](../STRUCTURE.md) · [Doc Guidelines](DOC_GUIDELINES.md)

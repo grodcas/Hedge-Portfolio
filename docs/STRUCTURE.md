@@ -178,53 +178,58 @@ HF/
 ├── data/                         # Local D1 cache (from sync-dashboard)
 ├── logs/                         # Pipeline run logs
 └── docs/                         # Documentation (you are here)
+    ├── STRUCTURE.md              # Hub — single entry point (this file)
+    ├── core/                     # Conventions, Mistakes, Diary
+    ├── features/                 # Per-subsystem docs (pipeline, data-sources, etc.)
+    ├── reference/                # DB schema, worker taxonomy, commands
+    ├── guidelines/               # Doc guidelines
+    └── archive/                  # Superseded docs
 ```
 
 ---
 
 ## Documentation Index
 
-### Core Architecture
+### Reference
 
 | Document | Purpose |
 |----------|---------|
-| **[STRUCTURE.md](STRUCTURE.md)** | This file — system hub, architecture diagrams, directory map |
-| **[DATABASE_SCHEMA.md](DATABASE_SCHEMA.md)** | Complete D1 table definitions, indexes, ID generation |
-| **[WORKER_TAXONOMY.md](WORKER_TAXONOMY.md)** | 20 Cloudflare Workers: categories, AI models, bindings |
-| **[KEY_COMMANDS.md](KEY_COMMANDS.md)** | CLI commands, curl endpoints, workflow actions |
+| **[DATABASE_SCHEMA.md](reference/DATABASE_SCHEMA.md)** | Complete D1 table definitions, indexes, ID generation |
+| **[WORKER_TAXONOMY.md](reference/WORKER_TAXONOMY.md)** | 20 Cloudflare Workers: categories, AI models, bindings |
+| **[KEY_COMMANDS.md](reference/KEY_COMMANDS.md)** | CLI commands, curl endpoints, workflow actions |
 
-### Feature Documentation
+### Features
 
 | Document | Purpose |
 |----------|---------|
-| **[features/pipeline.md](features/pipeline.md)** | 10-step pipeline orchestration, step I/O, error handling |
-| **[features/data-sources.md](features/data-sources.md)** | 6 scrapers: what they fetch, how they parse, output formats |
-| **[features/validation.md](features/validation.md)** | 6 checkers + AI hallucination detection, check tiers |
-| **[features/worker-d1.md](features/worker-d1.md)** | Worker API reference, all routes, data transformations |
-| **[features/dashboard.md](features/dashboard.md)** | 6 tabs, data flow from D1 to UI, auto-refresh mechanism |
+| **[Pipeline](features/pipeline.md)** | 10-step pipeline orchestration, step I/O, error handling |
+| **[Data Sources](features/data-sources.md)** | 6 scrapers: what they fetch, how they parse, output formats |
+| **[Validation](features/validation.md)** | 6 checkers + AI hallucination detection, check tiers |
+| **[Worker & D1](features/worker-d1.md)** | Worker API reference, all routes, data transformations |
+| **[Dashboard](features/dashboard.md)** | 6 tabs, data flow from D1 to UI, auto-refresh mechanism |
 
 ### Process & History
 
 | Document | Purpose |
 |----------|---------|
-| **[CONVENTIONS.md](CONVENTIONS.md)** | Naming standards for files, data, models, IDs |
-| **[MISTAKES.md](MISTAKES.md)** | Solved bugs with root cause and lesson learned |
-| **[DIARY.md](DIARY.md)** | Chronological development log |
+| **[Conventions](core/CONVENTIONS.md)** | Naming standards for files, data, models, IDs |
+| **[Mistakes](core/MISTAKES.md)** | Solved bugs with root cause and lesson learned |
+| **[Diary](core/DIARY.md)** | Chronological development log |
 
 ### Guidelines
 
 | Document | Purpose |
 |----------|---------|
-| **[guidelines/DOC_GUIDELINES.md](guidelines/DOC_GUIDELINES.md)** | How to write and organize documentation |
+| **[Doc Guidelines](guidelines/DOC_GUIDELINES.md)** | How to write and organize documentation |
 
 ### Archive (Historical)
 
 | Document | Status |
 |----------|--------|
-| **[ARCHITECTURE.md](ARCHITECTURE.md)** | Superseded by STRUCTURE.md — kept for reference |
-| **[PIPELINE.md](PIPELINE.md)** | Superseded by features/pipeline.md |
-| **[REFACTORING_PLAN.md](REFACTORING_PLAN.md)** | Completed Feb 2026 — phases 1-8 done |
-| **[VALIDATION_SYSTEM_SPEC.md](VALIDATION_SYSTEM_SPEC.md)** | Original spec — phases 1-2 implemented, 3-5 aspirational |
+| **[ARCHITECTURE.md](archive/ARCHITECTURE.md)** | Superseded by STRUCTURE.md — kept for reference |
+| **[PIPELINE.md](archive/PIPELINE.md)** | Superseded by features/pipeline.md |
+| **[REFACTORING_PLAN.md](archive/REFACTORING_PLAN.md)** | Completed Feb 2026 — phases 1-8 done |
+| **[VALIDATION_SYSTEM_SPEC.md](archive/VALIDATION_SYSTEM_SPEC.md)** | Original spec — phases 1-2 implemented, 3-5 aspirational |
 
 ---
 
