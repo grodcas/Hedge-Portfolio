@@ -26,27 +26,47 @@ async function scrapeArticle(url) {
   const paragraphs = [];
   let stop = false;
 
-  // Netflix uses <div class="module_body"> or <div class="module_item"> blocks
-  const container = $(".module_body, .full-news-article, .articleBody, .xn-content");
+  // Netflix uses multiple container structures
+  const containers = [
+    ".module_body",
+    ".full-news-article",
+    ".articleBody",
+    ".xn-content",
+    ".wd_body",
+    "article",
+    ".ModuleBody",
+    "main"
+  ];
 
-  container.find("p, li, h2, h3, strong").each((_, el) => {
-    if (stop) return;
-
-    const t = $(el).text().trim();
-    if (!t) return;
-
-    // stop before “About Netflix”
-    if (/about netflix/i.test(t)) {
-      stop = true;
-      return;
+  let container = null;
+  for (const sel of containers) {
+    const el = $(sel);
+    if (el.length > 0 && el.text().trim().length > 50) {
+      container = el;
+      break;
     }
+  }
 
-    if (el.name === "li") {
-      paragraphs.push(`- ${t}`);
-    } else {
-      paragraphs.push(t);
-    }
-  });
+  if (container) {
+    container.find("p, li").each((_, el) => {
+      if (stop) return;
+
+      const t = $(el).text().trim();
+      if (!t || t.length < 10) return;
+
+      // stop before "About Netflix"
+      if (/about netflix/i.test(t)) {
+        stop = true;
+        return;
+      }
+
+      if (el.name === "li") {
+        paragraphs.push(`- ${t}`);
+      } else {
+        paragraphs.push(t);
+      }
+    });
+  }
 
   return paragraphs.join("\n\n");
 }

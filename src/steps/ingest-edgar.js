@@ -43,12 +43,19 @@ export async function ingestEdgar(config, logger, results) {
     if (fs.existsSync(edgarDir)) {
       const files = fs.readdirSync(edgarDir).filter(f => f.endsWith(".json"));
       for (const file of files) {
-        // Parse filename: TICKER_TYPE_DATE_clustered.json
+        // Only process properly named clustered files
+        if (!file.endsWith("_clustered.json")) continue;
+
+        // Parse filename: TICKER_TYPE_DATE_clustered.json or TICKER_TYPE_DATE_ACCESSION_clustered.json
         const parts = file.replace("_clustered.json", "").split("_");
         if (parts.length >= 3) {
           const ticker = parts[0];
           const type = parts[1]; // e.g., "10-K", "8-K", "4"
           const date = parts[2]; // e.g., "2025-10-31"
+          // parts[3] is optional accession suffix
+
+          // Validate date format (YYYY-MM-DD)
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
 
           // Only include files from last 2 days (matching SEC API lookback)
           if (date < twoDaysAgo) continue;

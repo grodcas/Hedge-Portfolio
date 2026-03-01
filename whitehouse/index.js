@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import dotenv from "dotenv";
 import OpenAI from "openai";
-import { scrapeWhiteHouseArticle } from "./WHparser2.js";
+import { scrapeWhiteHouseArticle } from "./parser.js";
 import { fileURLToPath } from "url";
 import * as cheerio from "cheerio";
 

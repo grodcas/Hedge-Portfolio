@@ -230,6 +230,53 @@ function extractLatest(html, source) {
 }
 
 /**
+ * Fetch the first paragraph from the actual FOMC statement or minutes page
+ */
+async function extractFOMCSnippet(indexHtml, sourceKey) {
+  const $ = cheerio.load(indexHtml);
+  let docUrl = null;
+
+  if (sourceKey === "FOMC") {
+    // Find the HTML link for the FOMC Statement on monetarypolicy.htm
+    $("a").each((_, el) => {
+      const href = $(el).attr("href") || "";
+      const text = $(el).text().trim();
+      if (text === "HTML" && href.includes("monetary20")) {
+        docUrl = href.startsWith("http") ? href : `https://www.federalreserve.gov${href}`;
+        return false;
+      }
+    });
+  } else if (sourceKey === "FedMinutes") {
+    // Find the HTML link for the latest Minutes on fomccalendars.htm
+    $("a").each((_, el) => {
+      const href = $(el).attr("href") || "";
+      if (href.includes("fomcminutes") && href.endsWith(".htm")) {
+        docUrl = href.startsWith("http") ? href : `https://www.federalreserve.gov${href}`;
+        return false;
+      }
+    });
+  }
+
+  if (!docUrl) return null;
+
+  const res = await checkUrl(docUrl, { timeout: 10000 });
+  if (!res.valid || !res.data) return null;
+
+  const $doc = cheerio.load(res.data);
+  // Get the first substantial paragraph from the article content
+  let snippet = null;
+  $doc("#article p, .col-xs-12 p").each((_, el) => {
+    const text = $doc(el).text().trim();
+    if (!snippet && text.length > 60 && !text.includes("media inquiries")) {
+      snippet = text.substring(0, 200) + (text.length > 200 ? "..." : "");
+      return false;
+    }
+  });
+
+  return snippet;
+}
+
+/**
  * Check a single policy source
  */
 async function checkSource(sourceKey, useAI = true) {
@@ -278,6 +325,25 @@ async function checkSource(sourceKey, useAI = true) {
 
   // Extract latest
   const latest = formatResult.valid ? extractLatest(urlResult.data, sourceKey) : null;
+
+  // For FOMC sources, fetch the actual statement/minutes page to get the first sentence
+  if (latest && (sourceKey === "FOMC" || sourceKey === "FedMinutes")) {
+    try {
+      const snippet = await extractFOMCSnippet(urlResult.data, sourceKey);
+      if (snippet) latest.snippet = snippet;
+    } catch (e) {
+      // Snippet extraction is best-effort, don't fail the check
+    }
+  } else if (latest && textResult.valid && textResult.text) {
+    // For non-FOMC sources, use extracted text
+    const sentences = textResult.text
+      .split(/[.!?]\s+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 30 && !s.startsWith("http") && !s.includes(".gov"));
+    if (sentences.length > 0) {
+      latest.snippet = sentences[0].substring(0, 150) + (sentences[0].length > 150 ? "..." : ".");
+    }
+  }
 
   return {
     source: config.name,

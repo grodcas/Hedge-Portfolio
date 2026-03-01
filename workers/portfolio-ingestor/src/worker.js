@@ -333,18 +333,25 @@ export default {
 
           return Response.json({
             date: targetDate,
-            results: (results.results || []).map(r => ({
-              id: r.id,
-              summaryId: r.summary_id,
-              summaryType: r.summary_type,
-              totalFacts: r.total_facts,
-              verified: r.verified,
-              notFound: r.not_found,
-              contradicted: r.contradicted,
-              score: r.score,
-              issues: r.issues ? JSON.parse(r.issues) : [],
-              createdAt: r.created_at
-            }))
+            results: (results.results || []).map(r => {
+              const parsed = r.issues ? JSON.parse(r.issues) : [];
+              // Handle both old format (array of issues) and new format (object with problems/verifiedFacts/analysis)
+              const isNewFormat = parsed && !Array.isArray(parsed) && typeof parsed === "object";
+              return {
+                id: r.id,
+                summaryId: r.summary_id,
+                summaryType: r.summary_type,
+                totalFacts: r.total_facts,
+                verified: r.verified,
+                notFound: r.not_found,
+                contradicted: r.contradicted,
+                score: r.score,
+                issues: isNewFormat ? (parsed.problems || []) : parsed,
+                verifiedFacts: isNewFormat ? (parsed.verifiedFacts || []) : [],
+                analysis: isNewFormat ? (parsed.analysis || "") : "",
+                createdAt: r.created_at
+              };
+            })
           }, { headers: corsHeaders });
         }
 
@@ -428,6 +435,25 @@ export default {
 
         return new Response("Not found", { status: 404, headers: corsHeaders });
 
+      } catch (err) {
+        return Response.json({ error: err.message }, { status: 500, headers: corsHeaders });
+      }
+    }
+
+    /* =========================
+       ADMIN ENDPOINTS
+    ========================= */
+    if (request.method === "POST" && path === "/admin/delete-rows") {
+      try {
+        const body = await request.json();
+        const { table, where_column, where_value } = body;
+        const allowed = ["BETA_03_Macro", "BETA_04_Sentiment", "GAMMA_01_Verification"];
+        if (!allowed.includes(table)) {
+          return Response.json({ error: "Table not allowed" }, { status: 400, headers: corsHeaders });
+        }
+        const result = await db.prepare(`DELETE FROM ${table} WHERE ${where_column} = ?`)
+          .bind(where_value).run();
+        return Response.json({ ok: true, deleted: result.meta?.changes || 0 }, { headers: corsHeaders });
       } catch (err) {
         return Response.json({ error: err.message }, { status: 500, headers: corsHeaders });
       }
@@ -592,7 +618,9 @@ export default {
     // -------- BETA_03_Macro --------
     if (which === "macro") {
       for (const x of body.Macro) {
-        const id = await shortHash(`${x.heading}|${x.date}`);
+        // Gamma Regime uses fixed ID so it overwrites (single row, not daily accumulation)
+        const idInput = x.heading === "Gamma Regime (VIX)" ? x.heading : `${x.heading}|${x.date}`;
+        const id = await shortHash(idInput);
         const summary_json = x.summary ? JSON.stringify(x.summary) : null;
 
         await db.prepare(`

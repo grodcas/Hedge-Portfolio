@@ -655,7 +655,7 @@ select {
   border-radius: 8px;
   padding: 1rem;
   border-left: 4px solid var(--accent-blue);
-  height: 220px;
+  height: 300px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1586,4 +1586,109 @@ select {
     width: 100%;
     justify-content: center;
   }
+}
+
+/* ============ D1 DATABASE STATUS ============ */
+
+.d1-error-banner {
+  background: linear-gradient(135deg, rgba(248, 81, 73, 0.15) 0%, rgba(248, 81, 73, 0.05) 100%);
+  border: 1px solid var(--accent-red);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.d1-error-banner h3 {
+  color: var(--accent-red);
+  font-size: 1.125rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.d1-error-banner h3::before {
+  content: "!";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: var(--accent-red);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.d1-error-banner p {
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.d1-error-banner code {
+  background: var(--bg-tertiary);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'SF Mono', Consolas, monospace;
+  font-size: 0.875rem;
+  color: var(--accent-blue);
+}
+
+.d1-warning-banner {
+  background: linear-gradient(135deg, rgba(210, 153, 34, 0.15) 0%, rgba(210, 153, 34, 0.05) 100%);
+  border: 1px solid var(--accent-yellow);
+  border-radius: 0;
+  padding: 0.75rem 2rem;
+  color: var(--accent-yellow);
+  font-size: 0.875rem;
+}
+
+/* Data source badge */
+.source-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.source-badge.d1 {
+  background: linear-gradient(135deg, var(--accent-green) 0%, #2ea043 100%);
+  color: #000;
+}
+
+.source-badge.d1::before {
+  content: "DB ";
+}
+
+.source-badge.local {
+  background: var(--accent-yellow);
+  color: #000;
+}
+
+.source-badge.error {
+  background: var(--accent-red);
+  color: #fff;
+}
+
+/* Log file / source indicator in header */
+.header-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.header-info .label {
+  color: var(--text-muted);
+}
+
+.header-info .value {
+  color: var(--text-primary);
+  font-family: 'SF Mono', Consolas, monospace;
 }

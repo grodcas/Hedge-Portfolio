@@ -125,19 +125,21 @@ function compareWithIngested(secResults, ingestedData) {
     const secFilings = secResults.results[ticker] || [];
     const ingested = ingestedData[ticker] || [];
 
-    // Normalize for comparison
-    const secTypes = secFilings.map(f => f.type).sort().join(",") || "-";
-    const ingestedTypes = ingested.map(f => f.type).sort().join(",") || "-";
+    // Compare by UNIQUE filing types (not individual filing counts)
+    // Multiple Form 4s on the same day are normal insider transactions
+    const secUniqueTypes = [...new Set(secFilings.map(f => f.type))].sort();
+    const ingestedUniqueTypes = [...new Set(ingested.map(f => f.type))].sort();
 
-    const match = secTypes === ingestedTypes;
-    const newFilings = secFilings.length > 0 ? secFilings.map(f => f.type).join(",") : "-";
+    const secDisplay = secUniqueTypes.join(",") || "-";
+    const ingestedDisplay = ingestedUniqueTypes.join(",") || "-";
+    const match = secDisplay === ingestedDisplay;
 
     comparison.push({
       ticker,
-      secCheck: secTypes,
-      ingestor: ingestedTypes,
+      secCheck: secDisplay,
+      ingestor: ingestedDisplay,
       match,
-      newFilings,
+      newFilings: secDisplay,
       secFilings,
       ingestedFilings: ingested
     });

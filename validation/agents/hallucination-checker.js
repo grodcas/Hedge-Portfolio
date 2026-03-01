@@ -33,7 +33,7 @@ export async function checkHallucination(summary, sourceContent, summaryId) {
     ? sourceContent.substring(0, 12000) + "...[truncated]"
     : sourceContent;
 
-  const prompt = `You are a fact-checking agent. Compare the SUMMARY against the SOURCE CONTENT and identify any hallucinations.
+  const prompt = `You are a fact-checking agent. Compare the SUMMARY against the SOURCE CONTENT. Extract the key factual claims from the summary and verify each one against the source.
 
 A hallucination is when the summary contains information that is NOT present in or supported by the source content.
 
@@ -51,6 +51,12 @@ Analyze the summary and respond with ONLY valid JSON (no markdown):
 {
   "hasHallucinations": true/false,
   "score": 0-100,  // 100 = no hallucinations, 0 = entirely hallucinated
+  "verifiedFacts": [
+    {
+      "fact": "a specific factual claim from the summary that IS supported by source",
+      "evidence": "brief quote or reference from source that confirms this fact"
+    }
+  ],
   "issues": [
     {
       "claim": "the specific claim from the summary",
@@ -60,7 +66,7 @@ Analyze the summary and respond with ONLY valid JSON (no markdown):
   "analysis": "Brief overall assessment"
 }
 
-If the summary accurately reflects the source content, return score: 100 and empty issues array.`;
+IMPORTANT: Always populate "verifiedFacts" with the key claims you checked and confirmed, even when there are no hallucinations. This provides proof of what was validated.`;
 
   try {
     const response = await openai.chat.completions.create({
@@ -80,6 +86,7 @@ If the summary accurately reflects the source content, return score: 100 and emp
       score: result.score || 0,
       hasHallucinations: result.hasHallucinations || false,
       issues: result.issues || [],
+      verifiedFacts: result.verifiedFacts || [],
       analysis: result.analysis || "",
       tokensUsed: response.usage?.total_tokens || 0
     };

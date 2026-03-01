@@ -1,9 +1,9 @@
 import fs from "fs";
 import path from "path";
 
-import cluster4 from "./cluster_4.js";
-import cluster8K from "./cluster_8K.js";
-import clusterKQ from "./cluster_K_Q.js";
+import cluster4 from "./cluster-form4.js";
+import cluster8K from "./cluster-8k.js";
+import clusterKQ from "./cluster-10k.js";
 
 const INPUT_DIR = "edgar/edgar_parsed_json";
 const OUTPUT_DIR = "edgar/edgar_clustered_json";
@@ -20,7 +20,8 @@ const files = fs.readdirSync(INPUT_DIR).filter(f => f.endsWith(".json"));
 for (const file of files) {
 
   const base = file.replace("_parsed.json", "");
-  const [, , date] = base.split("_");
+  const parts = base.split("_");
+  const date = parts[2]; // TICKER_TYPE_DATE or TICKER_TYPE_DATE_ACCESSION
   const fileDate = new Date(date);
 
   if (fileDate < startDate || fileDate > endDate) continue;

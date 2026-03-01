@@ -20,11 +20,39 @@ async function scrapeArticle(url) {
   const $ = load(html);
   const paragraphs = [];
 
-  // GOOGL articles use main p structure
-  $("main p, .layout_content p").each((_, el) => {
-    const txt = $(el).text().trim();
-    if (txt && txt.length > 20) paragraphs.push(txt);
-  });
+  // GOOGL/Alphabet articles use various structures
+  const containers = [
+    "main",
+    ".layout_content",
+    ".article-content",
+    ".ModuleBody",
+    "article",
+    ".wd_body"
+  ];
+
+  let container = null;
+  for (const sel of containers) {
+    const el = $(sel);
+    if (el.length > 0 && el.text().trim().length > 50) {
+      container = el;
+      break;
+    }
+  }
+
+  if (container) {
+    container.find("p").each((_, el) => {
+      const txt = $(el).text().trim();
+      if (txt && txt.length > 15) paragraphs.push(txt);
+    });
+  }
+
+  // Fallback: get all paragraphs if nothing found
+  if (paragraphs.length === 0) {
+    $("p").each((_, el) => {
+      const txt = $(el).text().trim();
+      if (txt && txt.length > 30) paragraphs.push(txt);
+    });
+  }
 
   return paragraphs.join("\n\n");
 }

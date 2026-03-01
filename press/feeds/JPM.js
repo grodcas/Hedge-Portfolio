@@ -3,7 +3,7 @@ import { load } from "cheerio";
 
 async function scrapeJPM(url) {
   const browser = await puppeteer.launch({
-        headless: false,
+        headless: true,
     args: ["--no-sandbox"]
     });
 

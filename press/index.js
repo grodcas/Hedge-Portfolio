@@ -89,7 +89,7 @@ function runTicker(fileName) {
     const timer = setTimeout(() => {
       child.kill("SIGKILL");
       resolve({ items: null, error: "TIMEOUT" });
-    }, 30000);
+    }, 60000);
 
     child.stdout.on("data", d => out += d);
     child.on("close", () => {
@@ -126,10 +126,9 @@ function runArticleScraper(ticker, url) {
 // ---- ARTICLE TEXT VALIDATION ----
 function isValidArticleText(text) {
   if (!text) return false;
-  if (text.length < 800) return false;
+  if (text.length < 200) return false;  // Lowered: short announcements are valid
   if (text.includes("undefined")) return false;
   if (text.includes("Error")) return false;
-  if (text.split("\n").length < 3) return false;
   return true;
 }
 

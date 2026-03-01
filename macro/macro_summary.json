@@ -2,56 +2,56 @@
   "Macro": [
     {
       "heading": "CPI",
-      "date": "2025-12-01",
+      "date": "2026-01-01",
       "summary": {
-        "previous CPI Headline": 324.122,
-        "current CPI Headline": 324.054,
-        "pct_change CPI Headline": -0.020979754536884405,
-        "previous CPI Core": 330.425,
-        "current CPI Core": 330.506,
-        "pct_change CPI Core": 0.024513883634700896,
-        "previous CPI Food": 347.565,
-        "current CPI Food": 346.815,
-        "pct_change CPI Food": -0.21578697509818306,
-        "previous CPI Shelter": 418.593,
-        "current CPI Shelter": 420.134,
-        "pct_change CPI Shelter": 0.36813802428611964
+        "previous CPI Headline": 324.054,
+        "current CPI Headline": 325.252,
+        "pct_change CPI Headline": 0.36969147117456846,
+        "previous CPI Core": 330.506,
+        "current CPI Core": 331.95,
+        "pct_change CPI Core": 0.43690583529497706,
+        "previous CPI Food": 346.815,
+        "current CPI Food": 346.613,
+        "pct_change CPI Food": -0.05824430892550732,
+        "previous CPI Shelter": 420.134,
+        "current CPI Shelter": 421.526,
+        "pct_change CPI Shelter": 0.3313228636577844
       }
     },
     {
       "heading": "PPI",
-      "date": "2025-12-01",
+      "date": "2026-01-01",
       "summary": {
-        "previous PPI Final Demand": 150.733,
-        "current PPI Final Demand": 151.472,
-        "pct_change PPI Final Demand": 0.4902708763177302,
-        "previous PPI Goods": 150.332,
-        "current PPI Goods": 150.552,
-        "pct_change PPI Goods": 0.14634276135486715,
-        "previous PPI Services": 149.032,
-        "current PPI Services": 149.751,
-        "pct_change PPI Services": 0.4824467228514641
+        "previous PPI Final Demand": 151.446,
+        "current PPI Final Demand": 152.174,
+        "pct_change PPI Final Demand": 0.48069939120215033,
+        "previous PPI Goods": 150.629,
+        "current PPI Goods": 151.853,
+        "pct_change PPI Goods": 0.8125925286631512,
+        "previous PPI Services": 149.797,
+        "current PPI Services": 151.351,
+        "pct_change PPI Services": 1.037403953350202
       }
     },
     {
       "heading": "Employment",
-      "date": "2025-12-01",
+      "date": "2026-01-01",
       "summary": {
-        "previous Nonfarm Payrolls": 159476,
-        "current Nonfarm Payrolls": 159526,
-        "pct_change Nonfarm Payrolls": 0.031352680027088714,
-        "previous Unemployment Rate": 4.5,
-        "current Unemployment Rate": 4.4,
-        "pct_change Unemployment Rate": -2.2222222222222143
+        "previous Nonfarm Payrolls": 158497,
+        "current Nonfarm Payrolls": 158627,
+        "pct_change Nonfarm Payrolls": 0.0820204798829,
+        "previous Unemployment Rate": 4.4,
+        "current Unemployment Rate": 4.3,
+        "pct_change Unemployment Rate": -2.2727272727272845
       }
     },
     {
       "heading": "Bank Reserves",
-      "date": "2026-02-04",
+      "date": "2026-02-25",
       "summary": {
-        "previous Bank Reserves": 2901600,
-        "current Bank Reserves": 2925170,
-        "pct_change Bank Reserves": 0.8123104494072235
+        "previous Bank Reserves": 2949804,
+        "current Bank Reserves": 2965765,
+        "pct_change Bank Reserves": 0.5410867976313003
       }
     },
     {
@@ -59,8 +59,8 @@
       "date": "2026-02-01",
       "summary": {
         "previous Consumer Sentiment": 56.4,
-        "current Consumer Sentiment": 57.3,
-        "pct_change Consumer Sentiment": 1.5957446808510614
+        "current Consumer Sentiment": 56.6,
+        "pct_change Consumer Sentiment": 0.35460992907801925
       }
     },
     {
@@ -68,20 +68,20 @@
       "date": "2026-02-01",
       "summary": {
         "previous 1Y Inflation Expectations": 4,
-        "current 1Y Inflation Expectations": 3.5,
-        "pct_change 1Y Inflation Expectations": -12.5,
+        "current 1Y Inflation Expectations": 3.4,
+        "pct_change 1Y Inflation Expectations": -15.000000000000002,
         "previous 5Y Inflation Expectations": 3.3,
-        "current 5Y Inflation Expectations": 3.4,
-        "pct_change 5Y Inflation Expectations": 3.030303030303033
+        "current 5Y Inflation Expectations": 3.3,
+        "pct_change 5Y Inflation Expectations": 0
       }
     },
     {
       "heading": "Gamma Regime (VIX)",
-      "date": "2026-02-09",
+      "date": "2026-02-27",
       "summary": {
-        "VIX9D": 14.34000015258789,
-        "VIX": 17.09000015258789,
-        "VIX3M": 20.030000686645508,
+        "VIX9D": 18.59000015258789,
+        "VIX": 19.860000610351562,
+        "VIX3M": 21.559999465942383,
         "Gamma Regime": "POSITIVE"
       }
     },

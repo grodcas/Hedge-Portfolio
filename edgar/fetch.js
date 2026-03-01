@@ -75,7 +75,9 @@ async function main() {
 
       const safeType = type.replace(/[^A-Za-z0-9-]/g, "");
       const safeDate = f.filingDate[i];
-      const filename = `${ticker}_${safeType}_${safeDate}.html`;
+      // Use accession suffix to make filenames unique (multiple Form 4s on same date)
+      const accSuffix = accession.split("-").pop();
+      const filename = `${ticker}_${safeType}_${safeDate}_${accSuffix}.html`;
       const outPath = path.join(OUT_DIR, filename);
 
       // skip if already downloaded

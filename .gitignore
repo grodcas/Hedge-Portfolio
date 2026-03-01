@@ -27,3 +27,8 @@ nul
 logs/*.json
 logs/*.log
 !logs/.gitkeep
+
+# Runtime artifacts
+data/
+server.log
+.claude/

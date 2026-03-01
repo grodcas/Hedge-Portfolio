@@ -13,9 +13,13 @@ const endDate = new Date(END);
   for (const f of fs.readdirSync(RAW_DIR)) {
     if (!f.endsWith(".html")) continue;
 
-  // --- parse filename: TICKER_TYPE_DATE.html ---
+  // --- parse filename: TICKER_TYPE_DATE_ACCESSION.html or TICKER_TYPE_DATE.html ---
   const base = f.replace(".html", "");
-  const [ticker, type, date] = base.split("_");
+  const parts = base.split("_");
+  const ticker = parts[0];
+  const type = parts[1];
+  const date = parts[2];
+  // parts[3] is optional accession suffix (for unique Form 4 filenames)
   const fileDate = new Date(date);
   if (fileDate < startDate || fileDate > endDate) continue;
 

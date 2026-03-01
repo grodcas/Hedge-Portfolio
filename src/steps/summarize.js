@@ -111,6 +111,8 @@ export async function summarize(config, logger, stepResults) {
     const validationsForD1 = {
       SEC: {},
       MACRO: {},
+      SENTIMENT: {},
+      POLICY: {},
       PRESS: {}
     };
 
@@ -132,8 +134,30 @@ export async function summarize(config, logger, stepResults) {
       for (const item of macro.validation) {
         validationsForD1.MACRO[item.indicator] = {
           checks: item.checks,
-          value: item.latest?.value || item.latest || null,
+          value: item.value || null,
           calendarFlag: item.calendarFlag || false
+        };
+      }
+    }
+
+    // Sentiment validations
+    if (sentiment?.validation) {
+      for (const item of sentiment.validation) {
+        validationsForD1.SENTIMENT[item.indicator] = {
+          checks: item.checks,
+          value: item.value || null
+        };
+      }
+    }
+
+    // Policy/WH validations
+    if (whitehouse?.validation) {
+      for (const item of whitehouse.validation) {
+        validationsForD1.POLICY[item.source] = {
+          checks: item.checks,
+          latest: item.latest?.title?.substring(0, 50) || null,
+          snippet: item.latest?.snippet || null,
+          date: item.latest?.date || null
         };
       }
     }
@@ -146,9 +170,9 @@ export async function summarize(config, logger, stepResults) {
             url: item.checks.discovery,
             format: item.checks.content,
             text: item.checks.content,
-            ai: null
+            ai: item.checks.ai
           },
-          latest: item.latest?.title?.substring(0, 50) || null
+          latest: item.latest || null
         };
       }
     }
@@ -157,11 +181,11 @@ export async function summarize(config, logger, stepResults) {
       summary: {
         ...summary,
         steps: {
-          "Press Releases": { items: press?.data?.length || 0 },
-          "White House": { items: whitehouse?.data?.length || 0 },
-          "News": { items: news?.data?.length || 0 },
-          "SEC Edgar": { items: edgar?.data?.length || 0 },
-          "Macro Indicators": { items: macro?.data?.length || 0 }
+          "Press Releases": { items: Object.values(press?.data || {}).flat().length },
+          "White House": { items: whitehouse?.data?.WhiteHouse?.length || 0 },
+          "News": { items: Object.values(news?.data || {}).flat().length },
+          "SEC Edgar": { items: Object.values(edgar?.data || {}).flat().length },
+          "Macro Indicators": { items: macro?.data?.Macro?.length || 0 }
         }
       },
       validations: validationsForD1,

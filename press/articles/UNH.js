@@ -21,21 +21,39 @@ async function scrapeArticle(url) {
   const paragraphs = [];
   let stop = false;
 
-  $(".cmp-text-uhg.ojp-body-copy-component").children().each((_, el) => {
-    const tag = el.tagName?.toLowerCase();
+  // Try multiple selectors for UNH articles
+  const containers = [
+    ".cmp-text-uhg.ojp-body-copy-component",
+    ".cmp-text-uhg",
+    ".newsroom-content",
+    "article",
+    ".content-body",
+    "main"
+  ];
 
-    // STOP when we hit the footer intro
-    if (tag === "h3") {
-      stop = true;
-      return false; // break
+  let container = null;
+  for (const sel of containers) {
+    const el = $(sel);
+    if (el.length > 0) {
+      container = el;
+      break;
     }
+  }
 
-    if (tag === "p") {
+  if (container) {
+    container.find("p").each((_, el) => {
+      if (stop) return;
       const txt = $(el).text().trim();
-      if (!txt || txt === " ") return; // skip &nbsp;
-      if (!stop) paragraphs.push(txt);
-    }
-  });
+      if (!txt || txt === " " || txt.length < 10) return;
+
+      // Stop at boilerplate
+      if (/about unitedhealth/i.test(txt)) {
+        stop = true;
+        return;
+      }
+      paragraphs.push(txt);
+    });
+  }
 
   return paragraphs.join("\n\n");
 }

@@ -59,17 +59,22 @@ export async function verifyFacts(config, logger) {
         totalScore += result.score || 0;
 
         // Store result for D1 upload
-        // New hallucination checker approach: score is 0-100 (accuracy percentage)
+        // Pack issues, verifiedFacts, and analysis into the issues JSON field
+        const issuesPayload = {
+          problems: result.issues || [],
+          verifiedFacts: result.verifiedFacts || [],
+          analysis: result.analysis || ""
+        };
+
         stepResult.results.push({
           summaryId: ticker,
           summaryType: "press",
-          totalFacts: 1, // Each summary is treated as 1 item to verify
+          totalFacts: (result.verifiedFacts || []).length + (result.issues || []).length || 1,
           verified: result.status === "PASS" ? 1 : 0,
           notFound: 0,
           contradicted: result.status === "FAIL" ? 1 : 0,
           score: result.score, // Keep as 0-100 percentage
-          issues: result.issues || [],
-          analysis: result.analysis || ""
+          issues: issuesPayload
         });
 
         if (result.status === "PASS") {

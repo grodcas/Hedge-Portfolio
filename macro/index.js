@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import process from "process";
-import { getFOMCStatement } from "./macro_scrap.js";
+import { getFOMCStatement } from "./scraper.js";
 
 import {
   getCPI,
@@ -14,7 +14,7 @@ import {
   getConsumerSentimentUMich,
   getInflationExpectations,
   getVIXTermStructure
-} from "./macro_scrap.js";
+} from "./scraper.js";
 
 console.log("→ MACRO SUMMARY STARTING");
 

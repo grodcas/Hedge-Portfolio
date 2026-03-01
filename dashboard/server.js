@@ -1,266 +1,339 @@
-// dashboard/server.js - Local dashboard server
+// dashboard/server.js - Local dashboard server (D1 DATABASE ONLY - NO LOCAL FILES)
 import "dotenv/config";
 import express from "express";
-import fs from "fs";
-import path from "path";
 import { fileURLToPath } from "url";
+import path from "path";
 import open from "open";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const ROOT_DIR = path.join(__dirname, "..");
 
 const app = express();
 const PORT = 4200;
 
-// Worker API base URL
+// Worker API base URL - ALL DATA COMES FROM HERE
 const WORKER_API = "https://portfolio-ingestor.gines-rodriguez-castro.workers.dev";
 
-// Helper to fetch from worker with fallback to local files
+// Helper to fetch from worker - throws error if fails (NO FALLBACK)
 async function fetchFromWorker(endpoint) {
-  try {
-    const res = await fetch(`${WORKER_API}${endpoint}`);
-    if (!res.ok) throw new Error(`Worker returned ${res.status}`);
-    return await res.json();
-  } catch (err) {
-    console.log(`Worker fetch failed for ${endpoint}: ${err.message}`);
-    return null;
+  const url = `${WORKER_API}${endpoint}`;
+  console.log(`[D1] Fetching: ${url}`);
+
+  const res = await fetch(url);
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => 'Unknown error');
+    throw new Error(`D1 API Error (${res.status}): ${errorText}`);
   }
+  return await res.json();
+}
+
+// Helper to handle D1 fetch errors consistently
+function handleD1Error(res, endpoint, error) {
+  console.error(`[D1 ERROR] ${endpoint}: ${error.message}`);
+  res.status(503).json({
+    error: `Database unavailable: ${error.message}`,
+    endpoint,
+    source: "D1",
+    hint: "Ensure the pipeline has been run to populate the database"
+  });
 }
 
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// ============ API ENDPOINTS ============
+// ============ API ENDPOINTS (ALL FROM D1 DATABASE) ============
 
-// Get list of available log dates
-app.get("/api/dates", (req, res) => {
-  const logDir = path.join(ROOT_DIR, "logs");
-  if (!fs.existsSync(logDir)) {
-    return res.json({ dates: [] });
+// Get list of available dates from pipeline logs
+app.get("/api/dates", async (req, res) => {
+  try {
+    // The D1 database stores data with dates - we fetch pipeline validation to get available dates
+    // Current limitation: D1 doesn't have a dedicated "list all dates" endpoint
+    // So we return the current date and any date from pipeline validation
+    const data = await fetchFromWorker("/query/pipeline-validation");
+
+    let dates = [];
+    if (data.date) {
+      dates.push(data.date);
+    }
+
+    // Also try to get today's date if different
+    const today = new Date().toISOString().slice(0, 10);
+    if (!dates.includes(today)) {
+      dates.push(today);
+    }
+
+    // Sort descending (most recent first)
+    dates = [...new Set(dates)].sort().reverse();
+
+    res.json({ dates, source: "D1", note: "Dates with pipeline data" });
+  } catch (error) {
+    // Return today's date - data may not exist yet
+    const today = new Date().toISOString().slice(0, 10);
+    res.json({
+      dates: [today],
+      source: "D1",
+      note: "Run pipeline to populate data",
+      error: error.message
+    });
   }
-
-  const files = fs.readdirSync(logDir)
-    .filter(f => f.startsWith("ingest_") && f.endsWith(".json"))
-    .map(f => {
-      const match = f.match(/ingest_(\d{4}-\d{2}-\d{2})/);
-      return match ? match[1] : null;
-    })
-    .filter(Boolean)
-    .sort()
-    .reverse();
-
-  const uniqueDates = [...new Set(files)];
-  res.json({ dates: uniqueDates });
 });
 
 // Get validation data for a specific date
-app.get("/api/validation/:date", (req, res) => {
-  const { date } = req.params;
-  const logDir = path.join(ROOT_DIR, "logs");
+app.get("/api/validation/:date", async (req, res) => {
+  try {
+    const { date } = req.params;
+    const data = await fetchFromWorker(`/query/pipeline-validation?date=${date}`);
 
-  const files = fs.readdirSync(logDir)
-    .filter(f => f.startsWith(`ingest_${date}`) && f.endsWith(".json"))
-    .sort()
-    .reverse();
-
-  if (files.length === 0) {
-    return res.status(404).json({ error: "No data for this date" });
-  }
-
-  const data = JSON.parse(fs.readFileSync(path.join(logDir, files[0]), "utf8"));
-  res.json(data);
-});
-
-// Get macro summary
-app.get("/api/macro/:date", (req, res) => {
-  const macroPath = path.join(ROOT_DIR, "macro/macro_summary.json");
-  if (!fs.existsSync(macroPath)) {
-    return res.status(404).json({ error: "Macro data not found" });
-  }
-
-  const data = JSON.parse(fs.readFileSync(macroPath, "utf8"));
-  res.json(data);
-});
-
-// Get sentiment summary
-app.get("/api/sentiment/:date", (req, res) => {
-  const sentPath = path.join(ROOT_DIR, "sentiment/sentiment_summary.json");
-  if (!fs.existsSync(sentPath)) {
-    return res.status(404).json({ error: "Sentiment data not found" });
-  }
-
-  const data = JSON.parse(fs.readFileSync(sentPath, "utf8"));
-  res.json(data);
-});
-
-// Get news summary
-app.get("/api/news/:date", (req, res) => {
-  const newsPath = path.join(ROOT_DIR, "news/news_summary.json");
-  if (!fs.existsSync(newsPath)) {
-    return res.status(404).json({ error: "News data not found" });
-  }
-
-  const data = JSON.parse(fs.readFileSync(newsPath, "utf8"));
-  res.json(data);
-});
-
-// Get press releases
-app.get("/api/press/:date", (req, res) => {
-  const pressPath = path.join(ROOT_DIR, "press/AA_press_summary.json");
-  if (!fs.existsSync(pressPath)) {
-    return res.status(404).json({ error: "Press data not found" });
-  }
-
-  const data = JSON.parse(fs.readFileSync(pressPath, "utf8"));
-  res.json(data);
-});
-
-// Get whitehouse news
-app.get("/api/whitehouse/:date", (req, res) => {
-  const whPath = path.join(ROOT_DIR, "whitehouse/whitehouse_summary.json");
-  if (!fs.existsSync(whPath)) {
-    return res.status(404).json({ error: "Whitehouse data not found" });
-  }
-
-  const data = JSON.parse(fs.readFileSync(whPath, "utf8"));
-  res.json(data);
-});
-
-// ============ NEW: Daily Macro (BETA_10_Daily_macro) ============
-app.get("/api/daily-macro/:date", (req, res) => {
-  // Try to load from local cache first
-  const dailyMacroPath = path.join(ROOT_DIR, "data/daily_macro.json");
-  if (fs.existsSync(dailyMacroPath)) {
-    const data = JSON.parse(fs.readFileSync(dailyMacroPath, "utf8"));
-    return res.json(data);
-  }
-
-  // Return mock data structure matching BETA_10_Daily_macro schema
-  res.json({
-    id: `daily-macro-${req.params.date}`,
-    creation_date: req.params.date,
-    structure: [
-      { type: "CPI", date: req.params.date, source: "BLS" },
-      { type: "Employment", date: req.params.date, source: "BLS" }
-    ],
-    summary: "No daily macro summary cached locally. Connect to Cloudflare D1 to fetch BETA_10_Daily_macro data."
-  });
-});
-
-// ============ NEW: Daily News per Ticker (ALPHA_05_Daily_news) ============
-app.get("/api/daily-news/:date", (req, res) => {
-  const dailyNewsPath = path.join(ROOT_DIR, "data/daily_news.json");
-  if (fs.existsSync(dailyNewsPath)) {
-    const data = JSON.parse(fs.readFileSync(dailyNewsPath, "utf8"));
-    return res.json(data);
-  }
-
-  // Return empty structure - will be populated from D1
-  res.json({});
-});
-
-// ============ NEW: Macro Trend (BETA_09_Trend) ============
-app.get("/api/macro-trend/:date", (req, res) => {
-  const macroTrendPath = path.join(ROOT_DIR, "data/macro_trend.json");
-  if (fs.existsSync(macroTrendPath)) {
-    const data = JSON.parse(fs.readFileSync(macroTrendPath, "utf8"));
-    return res.json(data);
-  }
-
-  res.json({
-    id: `trend-${req.params.date}`,
-    date: req.params.date,
-    summary: "No weekly macro trend cached locally. Connect to Cloudflare D1 to fetch BETA_09_Trend data."
-  });
-});
-
-// ============ NEW: Ticker Trends (ALPHA_04_Trends) ============
-app.get("/api/ticker-trends", (req, res) => {
-  const trendsPath = path.join(ROOT_DIR, "data/ticker_trends.json");
-  if (fs.existsSync(trendsPath)) {
-    const data = JSON.parse(fs.readFileSync(trendsPath, "utf8"));
-    return res.json(data);
-  }
-
-  // Return empty structure - will be populated from D1
-  res.json({});
-});
-
-// ============ NEW: Reports (ALPHA_01_REPORTS) ============
-app.get("/api/reports/:ticker", (req, res) => {
-  const reportsPath = path.join(ROOT_DIR, "data/reports.json");
-  if (fs.existsSync(reportsPath)) {
-    const data = JSON.parse(fs.readFileSync(reportsPath, "utf8"));
-    const tickerReports = data[req.params.ticker];
-    if (tickerReports) {
-      return res.json(tickerReports);
+    if (!data || (!data.summary && !data.validations)) {
+      return res.status(404).json({
+        error: "No validation data for this date",
+        date,
+        source: "D1"
+      });
     }
-  }
 
-  res.json({ summary: "No report data cached locally." });
+    res.json({ ...data, source: "D1" });
+  } catch (error) {
+    handleD1Error(res, `/api/validation/${req.params.date}`, error);
+  }
 });
 
-// ============ NEW: Earnings Calendar ============
-app.get("/api/earnings-calendar", (req, res) => {
-  const calPath = path.join(ROOT_DIR, "data/earnings_calendar.json");
-  if (fs.existsSync(calPath)) {
-    const data = JSON.parse(fs.readFileSync(calPath, "utf8"));
-    return res.json(data);
-  }
+// Get macro data from D1
+app.get("/api/macro/:date", async (req, res) => {
+  try {
+    const data = await fetchFromWorker("/query/macro");
 
-  // Return estimated earnings dates
-  res.json({
-    AAPL: { nextEarnings: "2026-04-30", type: "10-Q" },
-    MSFT: { nextEarnings: "2026-04-22", type: "10-Q" },
-    GOOGL: { nextEarnings: "2026-04-25", type: "10-Q" },
-    AMZN: { nextEarnings: "2026-04-28", type: "10-Q" },
-    NVDA: { nextEarnings: "2026-05-21", type: "10-Q" },
-    META: { nextEarnings: "2026-04-23", type: "10-Q" },
-    TSLA: { nextEarnings: "2026-04-19", type: "10-Q" },
-    "BRK.B": { nextEarnings: "2026-05-03", type: "10-Q" },
-    JPM: { nextEarnings: "2026-04-11", type: "10-Q" },
-    GS: { nextEarnings: "2026-04-14", type: "10-Q" },
-    BAC: { nextEarnings: "2026-04-15", type: "10-Q" },
-    XOM: { nextEarnings: "2026-04-25", type: "10-Q" },
-    CVX: { nextEarnings: "2026-04-25", type: "10-Q" },
-    UNH: { nextEarnings: "2026-04-15", type: "10-Q" },
-    LLY: { nextEarnings: "2026-04-24", type: "10-Q" },
-    JNJ: { nextEarnings: "2026-04-15", type: "10-Q" },
-    PG: { nextEarnings: "2026-04-18", type: "10-Q" },
-    KO: { nextEarnings: "2026-04-22", type: "10-Q" },
-    HD: { nextEarnings: "2026-05-13", type: "10-Q" },
-    CAT: { nextEarnings: "2026-04-24", type: "10-Q" },
-    BA: { nextEarnings: "2026-04-23", type: "10-Q" },
-    INTC: { nextEarnings: "2026-04-24", type: "10-Q" },
-    AMD: { nextEarnings: "2026-04-29", type: "10-Q" },
-    NFLX: { nextEarnings: "2026-04-17", type: "10-Q" },
-    MS: { nextEarnings: "2026-04-16", type: "10-Q" }
-  });
+    if (!data || !data.Macro || data.Macro.length === 0) {
+      return res.status(404).json({
+        error: "No macro data available",
+        source: "D1",
+        hint: "Run the pipeline to ingest macro data"
+      });
+    }
+
+    res.json({ ...data, source: "D1" });
+  } catch (error) {
+    handleD1Error(res, `/api/macro/${req.params.date}`, error);
+  }
 });
 
-// ============ NEW: FOMC Calendar ============
+// Get sentiment data from D1
+app.get("/api/sentiment/:date", async (req, res) => {
+  try {
+    const data = await fetchFromWorker("/query/sentiment");
+
+    if (!data || !data.Sentiment || data.Sentiment.length === 0) {
+      return res.status(404).json({
+        error: "No sentiment data available",
+        source: "D1",
+        hint: "Run the pipeline to ingest sentiment data"
+      });
+    }
+
+    res.json({ ...data, source: "D1" });
+  } catch (error) {
+    handleD1Error(res, `/api/sentiment/${req.params.date}`, error);
+  }
+});
+
+// Get news data from D1
+app.get("/api/news/:date", async (req, res) => {
+  try {
+    const data = await fetchFromWorker("/query/news");
+
+    if (!data || Object.keys(data).length === 0) {
+      return res.status(404).json({
+        error: "No news data available",
+        source: "D1",
+        hint: "Run the pipeline to ingest news data"
+      });
+    }
+
+    res.json({ ...data, source: "D1" });
+  } catch (error) {
+    handleD1Error(res, `/api/news/${req.params.date}`, error);
+  }
+});
+
+// Get press releases from D1
+app.get("/api/press/:date", async (req, res) => {
+  try {
+    const { date } = req.params;
+    const data = await fetchFromWorker(`/query/press?date=${date}`);
+
+    if (!data || Object.keys(data).length === 0) {
+      return res.status(404).json({
+        error: "No press data available for this date",
+        date,
+        source: "D1",
+        hint: "Run the pipeline to ingest press releases"
+      });
+    }
+
+    res.json({ ...data, source: "D1" });
+  } catch (error) {
+    handleD1Error(res, `/api/press/${req.params.date}`, error);
+  }
+});
+
+// Get whitehouse data from D1
+app.get("/api/whitehouse/:date", async (req, res) => {
+  try {
+    const data = await fetchFromWorker("/query/whitehouse");
+
+    if (!data || !data.WhiteHouse || data.WhiteHouse.length === 0) {
+      return res.status(404).json({
+        error: "No whitehouse data available",
+        source: "D1",
+        hint: "Run the pipeline to ingest whitehouse data"
+      });
+    }
+
+    res.json({ ...data, source: "D1" });
+  } catch (error) {
+    handleD1Error(res, `/api/whitehouse/${req.params.date}`, error);
+  }
+});
+
+// Get daily macro from D1 (BETA_10_Daily_macro)
+app.get("/api/daily-macro/:date", async (req, res) => {
+  try {
+    const data = await fetchFromWorker("/query/daily-macro");
+
+    if (!data || !data.summary) {
+      return res.status(404).json({
+        error: "No daily macro summary available",
+        source: "D1",
+        hint: "Run the daily-macro-summarizer worker to generate"
+      });
+    }
+
+    res.json({ ...data, source: "D1" });
+  } catch (error) {
+    handleD1Error(res, `/api/daily-macro/${req.params.date}`, error);
+  }
+});
+
+// Get daily news from D1 (ALPHA_05_Daily_news)
+app.get("/api/daily-news/:date", async (req, res) => {
+  try {
+    const data = await fetchFromWorker("/query/daily-news");
+
+    if (!data || Object.keys(data).length === 0) {
+      return res.status(404).json({
+        error: "No daily news available",
+        source: "D1",
+        hint: "Run the pipeline to populate daily news"
+      });
+    }
+
+    res.json({ ...data, source: "D1" });
+  } catch (error) {
+    handleD1Error(res, `/api/daily-news/${req.params.date}`, error);
+  }
+});
+
+// Get macro trend from D1 (BETA_09_Trend)
+app.get("/api/macro-trend/:date", async (req, res) => {
+  try {
+    const data = await fetchFromWorker("/query/macro-trend");
+
+    if (!data || !data.summary) {
+      return res.status(404).json({
+        error: "No macro trend available",
+        source: "D1",
+        hint: "Run the beta-trend-builder worker to generate"
+      });
+    }
+
+    res.json({ ...data, source: "D1" });
+  } catch (error) {
+    handleD1Error(res, `/api/macro-trend/${req.params.date}`, error);
+  }
+});
+
+// Get ticker trends from D1 (ALPHA_04_Trends)
+app.get("/api/ticker-trends", async (req, res) => {
+  try {
+    const data = await fetchFromWorker("/query/ticker-trends");
+
+    if (!data || Object.keys(data).length === 0) {
+      return res.status(404).json({
+        error: "No ticker trends available",
+        source: "D1",
+        hint: "Run the pipeline to populate ticker trends"
+      });
+    }
+
+    res.json({ ...data, source: "D1" });
+  } catch (error) {
+    handleD1Error(res, "/api/ticker-trends", error);
+  }
+});
+
+// Get reports from D1 (ALPHA_01_REPORTS)
+app.get("/api/reports/:ticker", async (req, res) => {
+  try {
+    const { ticker } = req.params;
+    const data = await fetchFromWorker(`/query/reports?ticker=${ticker}`);
+
+    if (!data || !data[ticker]) {
+      return res.status(404).json({
+        error: `No reports available for ${ticker}`,
+        source: "D1",
+        hint: "Run the pipeline to ingest SEC filings"
+      });
+    }
+
+    res.json({ ...data[ticker], source: "D1" });
+  } catch (error) {
+    handleD1Error(res, `/api/reports/${req.params.ticker}`, error);
+  }
+});
+
+// Get earnings calendar from D1 (inferred from ALPHA_01_Reports)
+app.get("/api/earnings-calendar", async (req, res) => {
+  try {
+    const data = await fetchFromWorker("/query/earnings-calendar");
+
+    if (!data || Object.keys(data).length === 0) {
+      return res.status(404).json({
+        error: "No earnings calendar available",
+        source: "D1",
+        hint: "Earnings calendar is inferred from SEC filings"
+      });
+    }
+
+    res.json({ ...data, source: "D1" });
+  } catch (error) {
+    handleD1Error(res, "/api/earnings-calendar", error);
+  }
+});
+
+// Get FOMC calendar - this can be static since FOMC dates are public
 app.get("/api/fomc-calendar", (req, res) => {
+  // FOMC dates are public and pre-announced
   res.json({
-    nextFOMC: {
-      date: "2026-03-18",
-      type: "Meeting"
-    },
+    nextFOMC: { date: "2026-03-18", type: "Meeting" },
     upcoming: [
       { date: "2026-03-18", type: "Meeting" },
       { date: "2026-05-06", type: "Meeting" },
       { date: "2026-06-17", type: "Meeting" },
       { date: "2026-07-29", type: "Meeting" }
-    ]
+    ],
+    source: "static"
   });
 });
 
-// Get all data for dashboard (combined endpoint) - ALL DATA FROM D1
+// ============ MAIN DASHBOARD ENDPOINT (ALL DATA FROM D1) ============
+
 app.get("/api/dashboard/:date", async (req, res) => {
   const { date } = req.params;
+  console.log(`[Dashboard] Loading data for ${date} from D1...`);
 
   const result = {
     date,
+    source: "D1",
     validation: null,
     macro: null,
     sentiment: null,
@@ -274,144 +347,170 @@ app.get("/api/dashboard/:date", async (req, res) => {
     reports: {},
     earningsCalendar: {},
     calendar: { nextFOMC: { date: "2026-03-18" } },
-    verification_ai: null
+    verification_ai: null,
+    errors: [] // Track any fetch errors
   };
 
-  // FETCH ALL DATA FROM D1 DATABASE
-
-  // 1. Fetch validation/pipeline logs from D1
-  const pipelineData = await fetchFromWorker(`/query/pipeline-validation?date=${date}`);
-  if (pipelineData && pipelineData.summary) {
-    result.validation = {
-      summary: pipelineData.summary,
-      validations: pipelineData.validations,
-      logs: pipelineData.logs,
-      logFile: `D1:${date}`
-    };
-    console.log(`[Dashboard] Loaded pipeline validation from D1`);
-  }
-
-  // 2. Fetch combined data (macro, sentiment, trends, etc.)
-  const workerData = await fetchFromWorker("/query/all");
-  if (workerData) {
-    result.dailyMacro = workerData.dailyMacro;
-    result.macroTrend = workerData.macroTrend;
-    result.tickerTrends = workerData.tickerTrends || {};
-    result.dailyNews = workerData.dailyNews || {};
-    if (workerData.macro) result.macro = workerData.macro;
-    if (workerData.sentiment) result.sentiment = workerData.sentiment;
-    console.log("[Dashboard] Loaded combined data from D1");
-  }
-
-  // 3. Fetch press releases from D1
-  const pressData = await fetchFromWorker(`/query/press?date=${date}`);
-  if (pressData && Object.keys(pressData).length > 0) {
-    result.press = pressData;
-    console.log(`[Dashboard] Loaded ${Object.keys(pressData).length} tickers press from D1`);
-  }
-
-  // 4. Fetch whitehouse from D1
-  const whData = await fetchFromWorker("/query/whitehouse");
-  if (whData && whData.WhiteHouse) {
-    result.whitehouse = whData;
-    console.log(`[Dashboard] Loaded ${whData.WhiteHouse.length} whitehouse items from D1`);
-  }
-
-  // 5. Fetch news from D1
-  const newsData = await fetchFromWorker("/query/news");
-  if (newsData && Object.keys(newsData).length > 0) {
-    result.news = newsData;
-    console.log(`[Dashboard] Loaded news from D1`);
-  }
-
-  // 6. Fetch AI verification from D1
-  const verificationData = await fetchFromWorker(`/query/verification?date=${date}`);
-  if (verificationData && verificationData.results) {
-    result.verification_ai = verificationData;
-    console.log(`[Dashboard] Loaded ${verificationData.results.length} AI verification results from D1`);
-  }
-
-  // 7. Fetch reports from D1
-  const reportsData = await fetchFromWorker("/query/reports");
-  if (reportsData && Object.keys(reportsData).length > 0) {
-    result.reports = reportsData;
-  }
-
-  // 8. Fetch earnings calendar from D1
-  const calendarData = await fetchFromWorker("/query/earnings-calendar");
-  if (calendarData) {
-    result.earningsCalendar = calendarData;
-  }
-
-  // FALLBACK: Only if D1 is completely unavailable, use local files
-  if (!result.validation && !result.macro) {
-    console.log("[Dashboard] D1 unavailable, falling back to local files");
-
-    // Load validation from local log
-    const logDir = path.join(ROOT_DIR, "logs");
-    if (fs.existsSync(logDir)) {
-      const files = fs.readdirSync(logDir)
-        .filter(f => f.startsWith(`ingest_${date}`) && f.endsWith(".json"))
-        .sort()
-        .reverse();
-
-      if (files.length > 0) {
-        result.validation = JSON.parse(fs.readFileSync(path.join(logDir, files[0]), "utf8"));
-      }
-    }
-
-    // Load from local summary files
-    const localPaths = {
-      macro: "macro/macro_summary.json",
-      sentiment: "sentiment/sentiment_summary.json",
-      news: "news/news_summary.json",
-      press: "press/AA_press_summary.json",
-      whitehouse: "whitehouse/whitehouse_summary.json"
-    };
-
-    for (const [key, relPath] of Object.entries(localPaths)) {
-      if (!result[key]) {
-        const fullPath = path.join(ROOT_DIR, relPath);
-        if (fs.existsSync(fullPath)) {
-          try {
-            result[key] = JSON.parse(fs.readFileSync(fullPath, "utf8"));
-          } catch (err) {}
+  // Fetch all data from D1 in parallel
+  const fetches = [
+    // 1. Pipeline validation
+    fetchFromWorker(`/query/pipeline-validation?date=${date}`)
+      .then(data => {
+        if (data && (data.summary || data.validations)) {
+          result.validation = {
+            summary: data.summary,
+            validations: data.validations,
+            logs: data.logs,
+            logFile: `D1:${date}`
+          };
+          console.log(`[D1] Loaded pipeline validation`);
         }
-      }
-    }
+      })
+      .catch(err => {
+        result.errors.push({ endpoint: "pipeline-validation", error: err.message });
+        console.error(`[D1 ERROR] pipeline-validation: ${err.message}`);
+      }),
+
+    // 2. Combined data (macro, sentiment, trends, etc.)
+    fetchFromWorker("/query/all")
+      .then(data => {
+        if (data) {
+          result.dailyMacro = data.dailyMacro || null;
+          result.macroTrend = data.macroTrend || null;
+          result.tickerTrends = data.tickerTrends || {};
+          result.dailyNews = data.dailyNews || {};
+          if (data.macro) result.macro = data.macro;
+          if (data.sentiment) result.sentiment = data.sentiment;
+          console.log("[D1] Loaded combined data");
+        }
+      })
+      .catch(err => {
+        result.errors.push({ endpoint: "all", error: err.message });
+        console.error(`[D1 ERROR] all: ${err.message}`);
+      }),
+
+    // 3. Press releases
+    fetchFromWorker(`/query/press?date=${date}`)
+      .then(data => {
+        if (data && Object.keys(data).length > 0) {
+          result.press = data;
+          console.log(`[D1] Loaded ${Object.keys(data).length} tickers press`);
+        }
+      })
+      .catch(err => {
+        result.errors.push({ endpoint: "press", error: err.message });
+        console.error(`[D1 ERROR] press: ${err.message}`);
+      }),
+
+    // 4. Whitehouse
+    fetchFromWorker("/query/whitehouse")
+      .then(data => {
+        if (data && data.WhiteHouse) {
+          result.whitehouse = data;
+          console.log(`[D1] Loaded ${data.WhiteHouse.length} whitehouse items`);
+        }
+      })
+      .catch(err => {
+        result.errors.push({ endpoint: "whitehouse", error: err.message });
+        console.error(`[D1 ERROR] whitehouse: ${err.message}`);
+      }),
+
+    // 5. News
+    fetchFromWorker("/query/news")
+      .then(data => {
+        if (data && Object.keys(data).length > 0) {
+          result.news = data;
+          console.log(`[D1] Loaded news`);
+        }
+      })
+      .catch(err => {
+        result.errors.push({ endpoint: "news", error: err.message });
+        console.error(`[D1 ERROR] news: ${err.message}`);
+      }),
+
+    // 6. AI verification
+    fetchFromWorker(`/query/verification?date=${date}`)
+      .then(data => {
+        if (data && data.results) {
+          result.verification_ai = data;
+          console.log(`[D1] Loaded ${data.results.length} AI verification results`);
+        }
+      })
+      .catch(err => {
+        result.errors.push({ endpoint: "verification", error: err.message });
+        console.error(`[D1 ERROR] verification: ${err.message}`);
+      }),
+
+    // 7. Reports
+    fetchFromWorker("/query/reports")
+      .then(data => {
+        if (data && Object.keys(data).length > 0) {
+          result.reports = data;
+          console.log(`[D1] Loaded reports for ${Object.keys(data).length} tickers`);
+        }
+      })
+      .catch(err => {
+        result.errors.push({ endpoint: "reports", error: err.message });
+        console.error(`[D1 ERROR] reports: ${err.message}`);
+      }),
+
+    // 8. Earnings calendar
+    fetchFromWorker("/query/earnings-calendar")
+      .then(data => {
+        if (data) {
+          result.earningsCalendar = data;
+          console.log(`[D1] Loaded earnings calendar`);
+        }
+      })
+      .catch(err => {
+        result.errors.push({ endpoint: "earnings-calendar", error: err.message });
+        console.error(`[D1 ERROR] earnings-calendar: ${err.message}`);
+      })
+  ];
+
+  // Wait for all fetches to complete
+  await Promise.all(fetches);
+
+  // Check if we got any data at all
+  const hasData = result.validation || result.macro || result.press ||
+                  result.news || result.dailyMacro || Object.keys(result.tickerTrends).length > 0;
+
+  if (!hasData && result.errors.length > 0) {
+    console.error(`[Dashboard] NO DATA AVAILABLE - All D1 fetches failed`);
+    return res.status(503).json({
+      error: "Database unavailable or empty",
+      date,
+      errors: result.errors,
+      hint: "Run the pipeline to populate the database with data"
+    });
+  }
+
+  // Log summary
+  console.log(`[Dashboard] Loaded for ${date}: validation=${!!result.validation}, macro=${!!result.macro}, press=${!!result.press}, news=${!!result.news}, verification=${!!result.verification_ai}`);
+  if (result.errors.length > 0) {
+    console.log(`[Dashboard] Partial errors: ${result.errors.map(e => e.endpoint).join(', ')}`);
   }
 
   res.json(result);
 });
 
-// Run validation check
-app.post("/api/run-validation", async (req, res) => {
-  try {
-    const { runValidation } = await import("../validation/runner.js");
-    const results = await runValidation({
-      useAI: true,
-      skipPress: false,
-      skipNews: true
-    });
-    res.json({ success: true, results });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+// ============ AI CONTENT VALIDATION ENDPOINTS ============
+
+// Get validation targets (static list of what can be validated)
+app.get("/api/content-validation/targets", (req, res) => {
+  res.json({
+    targets: [
+      { type: "daily-macro", name: "Daily Macro Summary" },
+      { type: "macro-trend", name: "Weekly Macro Trend" },
+      { type: "ticker-trend", name: "Ticker Trends", perTicker: true },
+      { type: "report", name: "SEC Reports", perTicker: true },
+      { type: "daily-news", name: "Daily News", perTicker: true }
+    ],
+    source: "static"
+  });
 });
 
-// ============ AI CONTENT VALIDATION (Phase 4) ============
-
-// Get validation targets (what can be validated)
-app.get("/api/content-validation/targets", async (req, res) => {
-  try {
-    const { getValidationTargets } = await import("../validation/agents/content_validator.js");
-    res.json({ targets: getValidationTargets() });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Validate specific content
+// Validate specific content using AI
 app.post("/api/content-validation/validate", async (req, res) => {
   try {
     const { validateContent } = await import("../validation/agents/content_validator.js");
@@ -435,48 +534,37 @@ app.post("/api/content-validation/validate", async (req, res) => {
   }
 });
 
-// Validate content from local data files
+// Validate content from D1 data
 app.post("/api/content-validation/validate-local", async (req, res) => {
   try {
     const { validateContent } = await import("../validation/agents/content_validator.js");
     const { targetType, ticker, useAI } = req.body;
 
-    // Load data based on target type
     let summary = "";
     let sources = [];
     let summaryId = "";
 
+    // Fetch data from D1 based on target type
     if (targetType === "ticker-trend" && ticker) {
-      // Load ticker trend from data/ticker_trends.json
-      const trendsPath = path.join(ROOT_DIR, "data/ticker_trends.json");
-      if (fs.existsSync(trendsPath)) {
-        const trends = JSON.parse(fs.readFileSync(trendsPath, "utf8"));
-        if (trends[ticker]) {
-          summary = trends[ticker].summary;
-          summaryId = `trend-${ticker}`;
-        }
+      const trends = await fetchFromWorker("/query/ticker-trends");
+      if (trends[ticker]) {
+        summary = trends[ticker].summary;
+        summaryId = `trend-${ticker}`;
       }
 
-      // Load reports as sources from data/reports.json
-      const reportsPath = path.join(ROOT_DIR, "data/reports.json");
-      if (fs.existsSync(reportsPath)) {
-        const reports = JSON.parse(fs.readFileSync(reportsPath, "utf8"));
-        if (reports[ticker]) {
-          const tickerReports = Array.isArray(reports[ticker]) ? reports[ticker] : [reports[ticker]];
-          sources = tickerReports.slice(0, 4).map((r, i) => ({
-            id: `report-${ticker}-${i}`,
-            text: r.summary || r.text || JSON.stringify(r)
-          }));
-        }
+      const reports = await fetchFromWorker(`/query/reports?ticker=${ticker}`);
+      if (reports[ticker]) {
+        const tickerReports = Array.isArray(reports[ticker]) ? reports[ticker] : [reports[ticker]];
+        sources = tickerReports.slice(0, 4).map((r, i) => ({
+          id: `report-${ticker}-${i}`,
+          text: r.summary || r.text || JSON.stringify(r)
+        }));
       }
     } else if (targetType === "daily-macro") {
-      // Load daily macro summary
-      const macroPath = path.join(ROOT_DIR, "data/daily_macro.json");
-      if (fs.existsSync(macroPath)) {
-        const macro = JSON.parse(fs.readFileSync(macroPath, "utf8"));
+      const macro = await fetchFromWorker("/query/daily-macro");
+      if (macro) {
         summary = macro.summary;
         summaryId = macro.id || "daily-macro";
-        // Source would be raw macro data
         if (macro.structure) {
           sources = macro.structure.map((s, i) => ({
             id: `macro-${s.type}-${i}`,
@@ -485,17 +573,18 @@ app.post("/api/content-validation/validate-local", async (req, res) => {
         }
       }
     } else if (targetType === "macro-trend") {
-      // Load macro trend summary
-      const trendPath = path.join(ROOT_DIR, "data/macro_trend.json");
-      if (fs.existsSync(trendPath)) {
-        const trend = JSON.parse(fs.readFileSync(trendPath, "utf8"));
+      const trend = await fetchFromWorker("/query/macro-trend");
+      if (trend) {
         summary = trend.summary;
         summaryId = trend.id || "macro-trend";
       }
     }
 
     if (!summary) {
-      return res.status(404).json({ error: `No data found for ${targetType}${ticker ? ` / ${ticker}` : ""}` });
+      return res.status(404).json({
+        error: `No data found for ${targetType}${ticker ? ` / ${ticker}` : ""}`,
+        source: "D1"
+      });
     }
 
     const result = await validateContent({
@@ -512,46 +601,63 @@ app.post("/api/content-validation/validate-local", async (req, res) => {
   }
 });
 
-// Get latest validation results (cached or from pipeline)
-app.get("/api/content-validation/results", (req, res) => {
-  // First try the manual results
-  const resultsPath = path.join(ROOT_DIR, "data/validation_results.json");
-  if (fs.existsSync(resultsPath)) {
-    const data = JSON.parse(fs.readFileSync(resultsPath, "utf8"));
-    return res.json(data);
-  }
+// Get latest validation results from D1
+app.get("/api/content-validation/results", async (req, res) => {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const data = await fetchFromWorker(`/query/verification?date=${today}`);
 
-  // Try to load from pipeline verification log (today's date)
-  const today = new Date().toISOString().slice(0, 10);
-  const logPath = path.join(ROOT_DIR, `logs/verification_${today}.json`);
-  if (fs.existsSync(logPath)) {
-    const pipelineData = JSON.parse(fs.readFileSync(logPath, "utf8"));
-    return res.json({
-      results: pipelineData.issues || [],
-      summary: pipelineData,
-      lastRun: today,
-      source: "pipeline"
+    if (data && data.results) {
+      res.json({
+        results: data.results,
+        summary: {
+          totalSummaries: data.results.length,
+          verified: data.results.filter(r => r.score >= 80).length,
+          contradicted: data.results.filter(r => r.score < 80).length,
+          verificationRate: data.results.length > 0
+            ? Math.round(data.results.reduce((sum, r) => sum + (r.score || 0), 0) / data.results.length)
+            : 0
+        },
+        lastRun: data.date || today,
+        source: "D1"
+      });
+    } else {
+      res.json({
+        results: [],
+        lastRun: null,
+        source: "D1",
+        note: "No verification results in database"
+      });
+    }
+  } catch (error) {
+    handleD1Error(res, "/api/content-validation/results", error);
+  }
+});
+
+// Save validation results - POST to D1
+app.post("/api/content-validation/save", async (req, res) => {
+  try {
+    const { results } = req.body;
+
+    // Post to D1 via worker
+    const response = await fetch(`${WORKER_API}/ingest/verification`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ results })
     });
+
+    if (!response.ok) {
+      throw new Error(`Failed to save to D1: ${response.status}`);
+    }
+
+    const data = await response.json();
+    res.json({ success: true, ...data, source: "D1" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-
-  res.json({ results: [], lastRun: null });
 });
 
-// Save validation results
-app.post("/api/content-validation/save", (req, res) => {
-  const { results } = req.body;
-  const resultsPath = path.join(ROOT_DIR, "data/validation_results.json");
-
-  const data = {
-    results,
-    lastRun: new Date().toISOString()
-  };
-
-  fs.writeFileSync(resultsPath, JSON.stringify(data, null, 2));
-  res.json({ success: true });
-});
-
-// Open URLs for monthly check
+// Open URLs for monthly check (client-side action)
 app.post("/api/open-urls", (req, res) => {
   const { urls } = req.body;
   if (!urls || !Array.isArray(urls)) {
@@ -566,8 +672,27 @@ app.post("/api/open-urls", (req, res) => {
   res.json({ opened: toOpen.length });
 });
 
+// Run validation check (triggers pipeline validation)
+app.post("/api/run-validation", async (req, res) => {
+  try {
+    const { runValidation } = await import("../validation/runner.js");
+    const results = await runValidation({
+      useAI: true,
+      skipPress: false,
+      skipNews: true
+    });
+    res.json({ success: true, results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ============ START SERVER ============
 app.listen(PORT, () => {
-  console.log(`Dashboard running at http://localhost:${PORT}`);
+  console.log(`\n========================================`);
+  console.log(`  Dashboard running at http://localhost:${PORT}`);
+  console.log(`  Data source: D1 DATABASE ONLY`);
+  console.log(`  Worker API: ${WORKER_API}`);
+  console.log(`========================================\n`);
   console.log("Press Ctrl+C to stop");
 });

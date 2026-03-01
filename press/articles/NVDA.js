@@ -21,7 +21,7 @@ async function scrapeArticle(url) {
   const $ = load(html);
   const paragraphs = [];
 
-  $("div.entry-content p").each((_, el) => {
+  $("div.full-width-layout__copy p, div.entry-content p").each((_, el) => {
     const txt = $(el).text().trim();
     if (txt) paragraphs.push(txt);
   });

@@ -32,6 +32,16 @@ function isCVXItem8Start(text) {
   return text.includes("We have served as the Company’s auditor since 1935.");
 }
 
+// Check if node is a title span (bold styled)
+function isTitleSpan(node, $) {
+  if (!node.tagName) return false;
+  const tag = node.tagName.toLowerCase();
+  if (tag !== "span" && tag !== "div") return false;
+
+  const style = ($(node).attr("style") || "").toLowerCase();
+  return style.includes("font-weight:700") || style.includes("font-weight:bold");
+}
+
 // End: first Note 1 + Summary of Significant Accounting Policies
 function isCVXItem8End(node, $, text) {
   if (text !== "Note 1") return false;

@@ -1,26 +1,290 @@
 {
+  "date": "2026-02-28",
   "results": {
-    "AAPL": [
+    "AMZN": [
       {
-        "title": "The biggest hits of Bad Bunny’s Apple Music Super Bowl LX Halftime Show",
-        "url": "https://www.apple.com/uk/newsroom/2026/02/the-biggest-hits-of-bad-bunnys-apple-music-super-bowl-lx-halftime-show/",
-        "norm": "2026-02-09"
+        "title": "OpenAI and Amazon Announce Strategic Partnership",
+        "url": "https://press.aboutamazon.com/2026/2/openai-and-amazon-announce-strategic-partnership",
+        "norm": "2026-02-27"
       }
     ],
     "LLY": [
       {
-        "title": "Lilly to acquire Orna Therapeutics to advance cell therapies",
-        "url": "https://investor.lilly.com/news-releases/news-release-details/lilly-acquire-orna-therapeutics-advance-cell-therapies",
-        "norm": "2026-02-09"
+        "title": "Lilly's Olumiant (baricitinib) recommended by CHMP for approval of expanded use in the European Union for adolescents with severe alopecia areata",
+        "url": "https://investor.lilly.com/news-releases/news-release-details/lillys-olumiant-baricitinib-recommended-chmp-approval-expanded",
+        "norm": "2026-02-27"
       }
     ],
     "PG": [
       {
-        "title": "Where Curiosity Meets Purpose: How Inventors Thrive at P&G",
-        "url": "https://us.pg.com/blogs/how-inventors-thrive-at-pg/",
-        "norm": "2026-02-09"
+        "title": "P&G Brands Recognized for Packaging That’s Accessible and Sustainable",
+        "url": "https://us.pg.com/blogs/accessible-and-sustainable-packaging/",
+        "norm": "2026-02-27"
       }
     ]
   },
-  "errors": {}
+  "errors": {
+    "JPM": "EMPTY"
+  },
+  "healthCheck": {
+    "AAPL": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "Major League Soccer kicks off 2026 season on Apple TV",
+        "url": "https://www.apple.com/uk/newsroom/2026/02/major-league-soccer-kicks-off-2026-season-on-apple-tv/",
+        "date": "2026-02-26"
+      },
+      "textLength": 7526
+    },
+    "MSFT": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "Microsoft and CrowdStrike announce the Falcon platform now available on Microsoft Marketplace",
+        "url": "https://news.microsoft.com/source/2026/02/18/microsoft-and-crowdstrike-announce-the-falcon-platform-now-available-on-microsoft-marketplace/",
+        "date": "2026-02-18"
+      },
+      "textLength": 5128
+    },
+    "GOOGL": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "Alphabet to Present at the Morgan Stanley Technology, Media & Telecom Conference",
+        "url": "https://abc.xyz/investor/news/news-details/2026/Alphabet-to-Present-at-the-Morgan-Stanley-Technology-Media--Telecom-Conference-2026-plCQ0gsQcD/default.aspx",
+        "date": "2026-02-12"
+      },
+      "textLength": 812
+    },
+    "AMZN": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "OpenAI and Amazon Announce Strategic Partnership",
+        "url": "https://press.aboutamazon.com/2026/2/openai-and-amazon-announce-strategic-partnership",
+        "date": "2026-02-27"
+      },
+      "textLength": 9875
+    },
+    "NVDA": {
+      "discovery": true,
+      "content": false,
+      "error": "BAD_CONTENT",
+      "latest": {
+        "title": "Now Live: The World’s Most Powerful AI Factory for Pharmaceutical Discovery and Development",
+        "url": "https://blogs.nvidia.com/blog/lilly-ai-factory-live/",
+        "date": "2026-02-26"
+      },
+      "textLength": 0
+    },
+    "META": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "Meta to Participate in the Morgan Stanley Technology, Media & Telecom Conference",
+        "url": "https://investor.atmeta.com/investor-news/press-release-details/2026/Meta-to-Participate-in-the-Morgan-Stanley-Technology-Media--Telecom-Conference/default.aspx",
+        "date": "2026-02-25"
+      },
+      "textLength": 1453
+    },
+    "BRKB": {
+      "discovery": true,
+      "content": false,
+      "error": "BAD_CONTENT",
+      "latest": {
+        "title": "Berkshire Hathaway Announces Leadership Appointments",
+        "url": "https://www.berkshirehathaway.com/news/dec0825.pdf",
+        "date": "2025-12-08"
+      },
+      "textLength": 0
+    },
+    "JPM": {
+      "discovery": false,
+      "content": false,
+      "error": "EMPTY",
+      "latest": null
+    },
+    "GS": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "Goldman Sachs Announces Agreement to Transition Apple Card Program to Chase",
+        "url": "https://www.goldmansachs.com/pressroom/press-releases/2026/goldman-sachs-announces-agreement-to-transition-apple-card-program-to-chase",
+        "date": "2026-01-07"
+      },
+      "textLength": 3701
+    },
+    "BAC": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "BofA Invests Nearly $40 Million into American Workforce Skills in 2025",
+        "url": "https://newsroom.bankofamerica.com/content/newsroom/press-releases/2026/02/bofa-invests-nearly--40-million-into-american-workforce-skills-i.html",
+        "date": "2026-02-26"
+      },
+      "textLength": 8062
+    },
+    "XOM": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "ExxonMobil announces 2025 results",
+        "url": "https://corporate.exxonmobil.com/news/news-releases/2026/0130-exxonmobil-announces-2025-results",
+        "date": "2026-01-30"
+      },
+      "textLength": 24591
+    },
+    "CVX": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "Chevron Awarded Four Offshore Leases for Greece Exploration Blocks",
+        "url": "https://chevroncorp.gcs-web.com/news-releases/news-release-details/chevron-awarded-four-offshore-leases-greece-exploration-blocks",
+        "date": "2026-02-16"
+      },
+      "textLength": 10407
+    },
+    "UNH": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "UnitedHealth Group Board Authorizes Payment of Quarterly Dividend",
+        "url": "https://www.unitedhealthgroup.com/newsroom/2026/2026-02-25-uhg-authorizes-payment-quarterly-dividend.html",
+        "date": "2026-02-25"
+      },
+      "textLength": 892
+    },
+    "LLY": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "Lilly's Olumiant (baricitinib) recommended by CHMP for approval of expanded use in the European Union for adolescents with severe alopecia areata",
+        "url": "https://investor.lilly.com/news-releases/news-release-details/lillys-olumiant-baricitinib-recommended-chmp-approval-expanded",
+        "date": "2026-02-27"
+      },
+      "textLength": 9420
+    },
+    "JNJ": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "Early study results from Johnson & Johnson show promising antitumor activity with combination of pasritamig and docetaxel in advanced prostate cancer",
+        "url": "https://www.jnj.com/media-center/press-releases/early-study-results-from-johnson-johnson-show-promising-antitumor-activity-with-combination-of-pasritamig-and-docetaxel-in-advanced-prostate-cancer",
+        "date": "2026-02-26"
+      },
+      "textLength": 7944
+    },
+    "PG": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "P&G Brands Recognized for Packaging That’s Accessible and Sustainable",
+        "url": "https://us.pg.com/blogs/accessible-and-sustainable-packaging/",
+        "date": "2026-02-27"
+      },
+      "textLength": 3828
+    },
+    "KO": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "The Coca-Cola Company Announces Participation in Citi 2026 Global Consumer & Retail Conference",
+        "url": "https://investors.coca-colacompany.com/news-events/press-releases/detail/1153/the-coca-cola-company-announces-participation-in-citi-2026-global-consumer-retail-conference",
+        "date": "2026-02-25"
+      },
+      "textLength": 1854
+    },
+    "HD": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "New Home Depot Creator Portal Connects Influencers with Home Improvement Enthusiasts to Drive New Revenue Opportunities",
+        "url": "https://ir.homedepot.com/news-releases/2025/12-10-2025-140135946",
+        "date": "2025-12-10"
+      },
+      "textLength": 3112
+    },
+    "CAT": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "Caterpillar CEO Joe Creed and Group President Rod Shurman to Participate in Fireside Chat at CONEXPO",
+        "url": "https://www.caterpillar.com/content/caterpillarDotCom/en/news/corporate-press-releases/h/conexpo-fireside-chat-2026.html",
+        "date": "2026-02-19"
+      },
+      "textLength": 1084
+    },
+    "BA": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "Boeing to Release Fourth Quarter Results on January 27",
+        "url": "https://investors.boeing.com/investors/news/press-release-details/2026/Boeing-to-Release-Fourth-Quarter-Results-on-January-27/default.aspx",
+        "date": "2026-01-07"
+      },
+      "textLength": 916
+    },
+    "INTC": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "Intel, SambaNova Planning Multi-Year Collaboration for Xeon-Based AI Inference",
+        "url": "https://newsroom.intel.com/data-center/intel-and-sambanova-planning-multi-year-collaboration-for-xeon-based-ai-inference",
+        "date": "2026-02-24"
+      },
+      "textLength": 2140
+    },
+    "AMD": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "AMD and Nutanix Announce Strategic Partnership to Advance an Open and Scalable Platform for Enterprise AI",
+        "url": "https://ir.amd.com/news-events/press-releases/detail/1280/amd-and-nutanix-announce-strategic-partnership-to-advance-an-open-and-scalable-platform-for-enterprise-ai",
+        "date": "2026-02-25"
+      },
+      "textLength": 15765
+    },
+    "NFLX": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "Netflix Declines to Raise Offer for Warner Bros.",
+        "url": "https://ir.netflix.net/investor-news-and-events/financial-releases/press-release-details/2026/Netflix-Declines-to-Raise-Offer-for-Warner-Bros-/default.aspx",
+        "date": "2026-02-26"
+      },
+      "textLength": 1840
+    },
+    "MS": {
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "Graystone Consulting Named a Best Investment Consultant by Crisil Coalition Greenwich for Second Straight Year",
+        "url": "https://www.morganstanley.com/press-releases/graystone-consulting-named-a-best-investment-consultant0",
+        "date": "2026-02-24"
+      },
+      "textLength": 4823
+    }
+  }
 }

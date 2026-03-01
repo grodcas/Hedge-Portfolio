@@ -110,6 +110,19 @@ async function loadData(date) {
     const res = await fetch(`/api/dashboard/${date}`);
     dashboardData = await res.json();
 
+    // Check if D1 returned an error
+    if (dashboardData.error) {
+      console.error('[D1 ERROR]', dashboardData.error);
+      showD1Error(dashboardData);
+      return;
+    }
+
+    // Check for partial errors
+    if (dashboardData.errors && dashboardData.errors.length > 0) {
+      console.warn('[D1 WARNINGS]', dashboardData.errors);
+      showD1Warnings(dashboardData.errors);
+    }
+
     updateOverview();
     updateValidation();
     updateDailyOutput();
@@ -119,9 +132,62 @@ async function loadData(date) {
     updateVerificationFromD1(); // Load AI verification results from D1
 
     document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
-    document.getElementById('logFile').textContent = dashboardData.validation?.logFile || '--';
+    document.getElementById('logFile').textContent = dashboardData.validation?.logFile || `D1:${date}`;
+
+    // Show data source indicator
+    const sourceIndicator = document.getElementById('dataSource');
+    if (sourceIndicator) {
+      sourceIndicator.textContent = dashboardData.source || 'D1';
+      sourceIndicator.className = 'source-badge d1';
+    }
   } catch (err) {
     console.error('Error loading data:', err);
+    showD1Error({ error: err.message, hint: 'Check if the worker API is accessible' });
+  }
+}
+
+// Show D1 database error
+function showD1Error(errorData) {
+  const errorHtml = `
+    <div class="d1-error-banner">
+      <h3>Database Error</h3>
+      <p><strong>Error:</strong> ${errorData.error}</p>
+      ${errorData.hint ? `<p><strong>Hint:</strong> ${errorData.hint}</p>` : ''}
+      ${errorData.errors ? `<p><strong>Failed endpoints:</strong> ${errorData.errors.map(e => e.endpoint).join(', ')}</p>` : ''}
+      <p style="margin-top: 1rem; font-size: 0.875rem; color: var(--text-secondary);">
+        Run <code>npm run pipeline</code> to populate the database with data.
+      </p>
+    </div>
+  `;
+
+  // Show error in main content areas
+  const overviewTab = document.getElementById('overview');
+  if (overviewTab) {
+    overviewTab.innerHTML = errorHtml + overviewTab.innerHTML;
+  }
+
+  // Update health indicators to show error state
+  const healthEl = document.getElementById('ingestionHealth');
+  if (healthEl) {
+    healthEl.textContent = 'ERR';
+    healthEl.className = 'health-value error';
+  }
+
+  document.getElementById('processingHealth')?.setAttribute('textContent', 'ERR');
+  document.getElementById('freshness')?.setAttribute('textContent', '--');
+}
+
+// Show D1 partial warnings
+function showD1Warnings(errors) {
+  const warningHtml = `
+    <div class="d1-warning-banner">
+      <strong>Partial Data:</strong> Some endpoints failed: ${errors.map(e => e.endpoint).join(', ')}
+    </div>
+  `;
+
+  const header = document.querySelector('.header');
+  if (header && !document.querySelector('.d1-warning-banner')) {
+    header.insertAdjacentHTML('afterend', warningHtml);
   }
 }
 
@@ -205,14 +271,16 @@ function updateValidation() {
       `${summary?.passed || 0}/${summary?.total || 0} match | Issues: ${summary?.issues || 'None'}`;
 
     Object.entries(secData).forEach(([ticker, data]) => {
+      // Deduplicate filing types for clean display
+      const dedup = (str) => str && str !== '-' ? [...new Set(str.split(','))].join(',') : '-';
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="${data.calendar ? 'calendar-flag' : ''}">${data.calendar || ''}</td>
         <td>${ticker}</td>
-        <td>${data.ingestor || '-'}</td>
-        <td>${data.secCheck || '-'}</td>
+        <td>${dedup(data.ingestor)}</td>
+        <td>${dedup(data.secCheck)}</td>
         <td class="${data.match ? 'check-ok' : 'check-fail'}">${data.match ? '✓' : '✗'}</td>
-        <td>${data.newFilings || '-'}</td>
+        <td>${dedup(data.newFilings)}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -250,11 +318,11 @@ function updateValidation() {
   }
 
   // Sentiment Table
+  const sentData = val.validations.SENTIMENT;
   const sentTable = document.querySelector('#sentimentTable tbody');
   sentTable.innerHTML = '';
-  ['Put/Call Ratios', 'AAII Sentiment', 'COT Futures'].forEach(name => {
-    const data = macroData?.[name];
-    if (data) {
+  if (sentData) {
+    Object.entries(sentData).forEach(([name, data]) => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${name}</td>
@@ -264,26 +332,29 @@ function updateValidation() {
         <td>${data.value || '-'}</td>
       `;
       sentTable.appendChild(tr);
-    }
-  });
+    });
+  }
 
   // Policy Table
+  const policyData = val.validations.POLICY;
   const policyTable = document.querySelector('#policyTable tbody');
   policyTable.innerHTML = '';
-  val.logs?.filter(l => l.category === 'POLICY').forEach(log => {
-    const match = log.message.match(/(\w+\s*\w*)\s+url:(.)\s+fmt:(.)\s+txt:(.)\s+ai:(.)\s+(.*)/);
-    if (match) {
+  if (policyData) {
+    Object.entries(policyData).forEach(([name, data]) => {
       const tr = document.createElement('tr');
+      const latestInfo = data.snippet
+        ? `<strong>${data.latest || name}</strong>${data.date ? ` <span style="color:var(--text-secondary);font-size:0.75rem">(${data.date})</span>` : ''}<br><span style="font-size:0.8rem;color:var(--text-secondary);font-style:italic">${data.snippet}</span>`
+        : (data.latest || '-');
       tr.innerHTML = `
-        <td>${match[1].trim()}</td>
-        <td class="${match[2] === '✓' ? 'check-ok' : 'check-fail'}">${match[2]}</td>
-        <td class="${match[3] === '✓' ? 'check-ok' : 'check-fail'}">${match[3]}</td>
-        <td class="${match[4] === '✓' ? 'check-ok' : 'check-fail'}">${match[4]}</td>
-        <td>${match[6] || '-'}</td>
+        <td>${name}</td>
+        <td class="${data.checks?.url ? 'check-ok' : 'check-fail'}">${data.checks?.url ? '✓' : '✗'}</td>
+        <td class="${data.checks?.format ? 'check-ok' : 'check-fail'}">${data.checks?.format ? '✓' : '✗'}</td>
+        <td class="${data.checks?.text ? 'check-ok' : 'check-fail'}">${data.checks?.text ? '✓' : '✗'}</td>
+        <td>${latestInfo}</td>
       `;
       policyTable.appendChild(tr);
-    }
-  });
+    });
+  }
 
   // Press Releases Table
   const pressData = val.validations?.PRESS;
@@ -1090,6 +1161,7 @@ function updateVerificationFromD1() {
       },
       analysis: r.analysis || '',
       issues: r.issues || [],
+      verifiedFacts: r.verifiedFacts || [],
       verificationResults: (r.issues || []).map(issue => ({
         claim: issue.claim,
         problem: issue.problem,
@@ -1285,18 +1357,14 @@ async function runContentValidation() {
 function renderVerificationResults() {
   if (!validationResults || validationResults.length === 0) return;
 
-  // Collect all issues
+  // Collect all issues and count verified facts
   const allIssues = [];
-  let totalFacts = 0, verifiedFacts = 0, notFoundFacts = 0, contradictedFacts = 0;
+  let totalVerifiedFacts = 0;
+  let totalIssues = 0;
 
   validationResults.forEach(result => {
-    const score = result.verification?.summaryScore;
-    if (score) {
-      totalFacts += score.totalFacts || 0;
-      verifiedFacts += score.verified || 0;
-      notFoundFacts += score.notFound || 0;
-      contradictedFacts += score.contradicted || 0;
-    }
+    totalVerifiedFacts += (result.verification?.verifiedFacts || []).length;
+    totalIssues += (result.verification?.issues || []).length;
 
     if (result.verification?.issues) {
       result.verification.issues.forEach(issue => {
@@ -1305,12 +1373,13 @@ function renderVerificationResults() {
     }
   });
 
-  // Update stats bar - for hallucination checking, show pass/fail counts
+  // Update stats bar
   const passedCount = validationResults.filter(r => r.status === 'PASS').length;
   const failedCount = validationResults.filter(r => r.status === 'FAIL').length;
+  const factsLabel = totalVerifiedFacts > 0 ? `${totalVerifiedFacts} facts checked` : `${passedCount} passed`;
 
   document.getElementById('statTotalItems').textContent = validationResults.length;
-  document.getElementById('statTotalFacts').textContent = `${passedCount} passed`;
+  document.getElementById('statTotalFacts').textContent = factsLabel;
   document.getElementById('statVerified').textContent = passedCount;
   document.getElementById('statNotFound').textContent = '0';
   document.getElementById('statContradicted').textContent = failedCount;
@@ -1417,26 +1486,15 @@ function renderItemsGrid() {
 function renderFactsList(result) {
   const analysis = result.verification?.analysis || '';
   const issues = result.verification?.issues || [];
+  const verifiedFacts = result.verification?.verifiedFacts || [];
   const score = result.verification?.summaryScore;
   const scorePercent = score ? Math.round(score.verificationRate * 100) : 0;
 
-  // Show analysis from hallucination checker
   let html = '';
 
   if (result.error) {
     return `<div class="fact-item"><span class="fact-status-icon">⚠</span><div class="fact-content"><div class="fact-claim-text">Error: ${result.error}</div></div></div>`;
   }
-
-  // Show accuracy score prominently
-  html += `
-    <div class="fact-item verified">
-      <span class="fact-status-icon">📊</span>
-      <div class="fact-content">
-        <div class="fact-claim-text"><strong>Accuracy Score: ${scorePercent}%</strong></div>
-        <div class="fact-source-info">Summary compared against source content</div>
-      </div>
-    </div>
-  `;
 
   // Show analysis if available
   if (analysis) {
@@ -1448,6 +1506,21 @@ function renderFactsList(result) {
         </div>
       </div>
     `;
+  }
+
+  // Show verified facts with evidence
+  if (verifiedFacts.length > 0) {
+    verifiedFacts.forEach(vf => {
+      html += `
+        <div class="fact-item verified">
+          <span class="fact-status-icon">✓</span>
+          <div class="fact-content">
+            <div class="fact-claim-text">${vf.fact}</div>
+            ${vf.evidence ? `<div class="fact-source-info">Source: ${vf.evidence}</div>` : ''}
+          </div>
+        </div>
+      `;
+    });
   }
 
   // Show any issues found
@@ -1463,12 +1536,15 @@ function renderFactsList(result) {
         </div>
       `;
     });
-  } else if (scorePercent >= 80) {
+  }
+
+  // Fallback only if no verified facts AND no issues (old data without verifiedFacts)
+  if (verifiedFacts.length === 0 && issues.length === 0 && !analysis) {
     html += `
       <div class="fact-item verified">
         <span class="fact-status-icon">✓</span>
         <div class="fact-content">
-          <div class="fact-claim-text">All claims in the summary are supported by the source content</div>
+          <div class="fact-claim-text">Summary verified — re-run pipeline to see detailed fact breakdown</div>
         </div>
       </div>
     `;
