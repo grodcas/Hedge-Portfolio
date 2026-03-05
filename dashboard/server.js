@@ -664,7 +664,7 @@ app.post("/api/open-urls", (req, res) => {
     return res.status(400).json({ error: "URLs array required" });
   }
 
-  const toOpen = urls.slice(0, 10);
+  const toOpen = urls.slice(0, 30);
   for (const url of toOpen) {
     open(url).catch(() => {});
   }

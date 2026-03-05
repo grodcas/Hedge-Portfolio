@@ -2,28 +2,28 @@
   "Sentiment": [
     {
       "heading": "Put/Call Ratios (CBOE)",
-      "date": "2026-02-28",
+      "date": "2026-03-05",
       "summary": {
         "date": null,
-        "total_put_call_ratio": 0.84,
-        "index_put_call_ratio": 1,
-        "exchange_traded_products_put_call_ratio": 0.85,
-        "equity_put_call_ratio": 0.66,
-        "cboe_volatility_index_vix_put_call_ratio": 0.43,
-        "spx_spxw_put_call_ratio": 1.12,
-        "oex_put_call_ratio": 3,
-        "mrut_put_call_ratio": 1.32,
-        "mxea_put_call_ratio": 2.16,
-        "mxef_put_call_ratio": 6.75,
+        "total_put_call_ratio": 0.94,
+        "index_put_call_ratio": 1.04,
+        "exchange_traded_products_put_call_ratio": 1.18,
+        "equity_put_call_ratio": 0.65,
+        "cboe_volatility_index_vix_put_call_ratio": 0.51,
+        "spx_spxw_put_call_ratio": 1.25,
+        "oex_put_call_ratio": 1,
+        "mrut_put_call_ratio": 2.77,
+        "mxea_put_call_ratio": 0,
+        "mxef_put_call_ratio": 0.5,
         "mxacw_put_call_ratio": 0,
         "mxwld_put_call_ratio": 0,
         "mxusa_put_call_ratio": 0,
-        "cbtx_put_call_ratio": 0.04,
-        "mbtx_put_call_ratio": 1485,
+        "cbtx_put_call_ratio": 0.83,
+        "mbtx_put_call_ratio": 843.89,
         "speqx_put_call_ratio": 0,
         "speqw_put_call_ratio": 0,
-        "mgtn_put_call_ratio": 1,
-        "mgtnw_put_call_ratio": 290.91
+        "mgtn_put_call_ratio": 0,
+        "mgtnw_put_call_ratio": 3
       }
     },
     {
@@ -52,7 +52,7 @@
     },
     {
       "heading": "COT Futures (ES / NQ)",
-      "date": "2026-02-28",
+      "date": "2026-03-05",
       "summary": {
         "es": {
           "asset_managers_net": -21517,

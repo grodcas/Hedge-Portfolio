@@ -27,6 +27,12 @@ function yesterdayISO() {
   return d.toISOString().slice(0, 10);
 }
 
+function twoDaysAgoISO() {
+  const d = new Date();
+  d.setDate(d.getDate() - 2);
+  return d.toISOString().slice(0, 10);
+}
+
 
 const reportCounter = new Map();
 
@@ -39,8 +45,13 @@ function parseFilename(filename) {
   if (parts.length < 3) throw new Error(`Bad filename: ${filename}`);
 
   const ticker = parts[0];
-  const reportDate = parts[parts.length - 1];
-  const reportType = parts.slice(1, -1).join("_"); // handles 8-K, 10-Q, etc.
+
+  // Find the date part (YYYY-MM-DD) — accession suffix may follow it
+  const dateIdx = parts.findIndex((p, i) => i > 0 && /^\d{4}-\d{2}-\d{2}$/.test(p));
+  if (dateIdx === -1) throw new Error(`No date in filename: ${filename}`);
+
+  const reportType = parts.slice(1, dateIdx).join("_");
+  const reportDate = parts[dateIdx];
 
   return { ticker, reportType, reportDate };
 }
@@ -107,7 +118,7 @@ const MAX_CLUSTERS = 50;
 async function main() {
 
   const today = todayISO();
-  const yesterday = yesterdayISO();
+  const twoDaysAgo = twoDaysAgoISO();
 
   const files = fs.readdirSync(DIR)
     .filter(f => f.endsWith(".json"))
@@ -121,11 +132,10 @@ async function main() {
     .filter(Boolean);
 
 
-  // ---- 10-Q / 10-K: keep latest 4 per ticker ----
+  // ---- 10-Q / 10-K: use 2-day lookback (matching fetch.js) ----
   const longReports = files
     .filter(f => (f.reportType === "10-Q" || f.reportType === "10-K")
-     && (f.reportDate === today || f.reportDate === yesterday)
-    //&& f.reportDate >= "2026-01-17"
+     && f.reportDate >= twoDaysAgo && f.reportDate <= today
     );
 
     /*
@@ -133,7 +143,7 @@ async function main() {
     .sort((a, b) => b.reportDate.localeCompare(a.reportDate));
 
 
-    
+
   const latestLongReports = new Map(); // ticker → files[]
 
   for (const f of longReports) {
@@ -145,10 +155,10 @@ async function main() {
   }
     */
 
-  // ---- 8-K / FORM 4: today or yesterday ----
+  // ---- 8-K / FORM 4: use 2-day lookback (matching fetch.js) ----
   const shortReports = files.filter(f =>
     (f.reportType === "8-K" || f.reportType === "FORM4" || f.reportType === "Form4") &&
-    (f.reportDate === today || f.reportDate === yesterday)
+    f.reportDate >= twoDaysAgo && f.reportDate <= today
   );
 
   const filesToIngest = [

@@ -12,7 +12,7 @@ const baseFiles = [
 ];
 
 const tickers = [
-  "MSFT","GOOGL","AMZN","NVDA","META","TSLA","BRK","JPM","GS","BAC",
+  "MSFT","GOOGL","AMZN","NVDA","META","TSLA","BRK.B","JPM","GS","BAC",
   "XOM","CVX","UNH","LLY","JNJ","PG","KO","HD","CAT","BA","INTC",
   "AMD","NFLX","MS"
 ];

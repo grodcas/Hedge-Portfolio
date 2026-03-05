@@ -44,19 +44,19 @@ export default {
     `).bind(T, today).all();
 
     // --------------------------------------------
-    // Check for 10-K/10-Q filings (today or yesterday) - needed for early return decision
+    // Check for 10-K/10-Q filings (2-day lookback to match SEC fetch window)
     // --------------------------------------------
-    const yesterdayDate = new Date();
-    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-    const yesterday = yesterdayDate.toISOString().slice(0, 10);
+    const twoDaysAgoDate = new Date();
+    twoDaysAgoDate.setDate(twoDaysAgoDate.getDate() - 2);
+    const twoDaysAgo = twoDaysAgoDate.toISOString().slice(0, 10);
 
     const { results: secFilings } = await db.prepare(`
       SELECT id
       FROM ALPHA_01_Reports
       WHERE ticker = ?
         AND type IN ('10-Q', '10-K')
-        AND date IN (?, ?)
-    `).bind(T, today, yesterday).all();
+        AND date >= ? AND date <= ?
+    `).bind(T, twoDaysAgo, today).all();
 
     const hasNewsContent = news.results.length || press.results.length || filings.results.length;
 

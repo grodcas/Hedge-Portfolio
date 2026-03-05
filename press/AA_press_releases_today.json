@@ -1,42 +1,73 @@
 {
-  "date": "2026-02-28",
+  "date": "2026-03-05",
   "results": {
-    "AMZN": [
+    "AAPL": [
       {
-        "title": "OpenAI and Amazon Announce Strategic Partnership",
-        "url": "https://press.aboutamazon.com/2026/2/openai-and-amazon-announce-strategic-partnership",
-        "norm": "2026-02-27"
+        "title": "Say hello to MacBook Neo",
+        "url": "https://www.apple.com/uk/newsroom/2026/03/say-hello-to-macbook-neo/",
+        "norm": "2026-03-04"
+      }
+    ],
+    "NVDA": [
+      {
+        "title": "March Into the Cloud With 15 New Games Coming to GeForce NOW",
+        "url": "https://blogs.nvidia.com/blog/geforce-now-thursday-march-2026-games-list/",
+        "norm": "2026-03-05"
       }
     ],
     "LLY": [
       {
-        "title": "Lilly's Olumiant (baricitinib) recommended by CHMP for approval of expanded use in the European Union for adolescents with severe alopecia areata",
-        "url": "https://investor.lilly.com/news-releases/news-release-details/lillys-olumiant-baricitinib-recommended-chmp-approval-expanded",
-        "norm": "2026-02-27"
+        "title": "Lilly Employer Connect platform launches with over fifteen independent program administrators offering tailored obesity coverage options to expand access to patients",
+        "url": "https://investor.lilly.com/news-releases/news-release-details/lilly-employer-connect-platform-launches-over-fifteen",
+        "norm": "2026-03-05"
       }
     ],
-    "PG": [
+    "JNJ": [
       {
-        "title": "P&G Brands Recognized for Packaging That’s Accessible and Sustainable",
-        "url": "https://us.pg.com/blogs/accessible-and-sustainable-packaging/",
-        "norm": "2026-02-27"
+        "title": "Johnson & Johnson Announces U.S. FDA Approval of TECVAYLI® plus DARZALEX FASPRO® for Relapsed/Refractory Multiple Myeloma, Offering a Potential New Standard of Care as Early as Second Line",
+        "url": "https://www.jnj.com/media-center/press-releases/johnson-johnson-announces-u-s-fda-approval-of-tecvayli-plus-darzalex-faspro-for-relapsed-refractory-multiple-myeloma-offering-a-potential-new-standard-of-care-as-early-as-second-line",
+        "norm": "2026-03-05"
+      }
+    ],
+    "CAT": [
+      {
+        "title": "Caterpillar Elevates Skilled Trades Through Global Technician and Operator Challenges",
+        "url": "https://www.caterpillar.com/content/caterpillarDotCom/en/news/corporate-press-releases/h/gtgoc-operator-challenges.html",
+        "norm": "2026-03-04"
+      }
+    ],
+    "BA": [
+      {
+        "title": "Boeing CFO Jay Malave to Speak at Bank of America Global Industrials Conference March 17",
+        "url": "https://investors.boeing.com/investors/news/press-release-details/2026/Boeing-CFO-Jay-Malave-to-Speak-at-Bank-of-America-Global-Industrials-Conference-March-17/default.aspx",
+        "norm": "2026-03-04"
+      }
+    ],
+    "MS": [
+      {
+        "title": "Morgan Stanley Investment Management Launches Eaton Vance Preferred Securities and Income ETF",
+        "url": "https://www.morganstanley.com/press-releases/msim-launches-eaton-vance-preferred-securities-and-income-etf",
+        "norm": "2026-03-05"
+      },
+      {
+        "title": "Dan Simkowitz to Speak at the Annual Morgan Stanley European Financials Conference",
+        "url": "https://www.morganstanley.com/press-releases/Dan-Simkowitz-to-Speak-at-Morgan-Stanley-European-Financials-Conference",
+        "norm": "2026-03-04"
       }
     ]
   },
-  "errors": {
-    "JPM": "EMPTY"
-  },
+  "errors": {},
   "healthCheck": {
     "AAPL": {
       "discovery": true,
       "content": true,
       "error": null,
       "latest": {
-        "title": "Major League Soccer kicks off 2026 season on Apple TV",
-        "url": "https://www.apple.com/uk/newsroom/2026/02/major-league-soccer-kicks-off-2026-season-on-apple-tv/",
-        "date": "2026-02-26"
+        "title": "Say hello to MacBook Neo",
+        "url": "https://www.apple.com/uk/newsroom/2026/03/say-hello-to-macbook-neo/",
+        "date": "2026-03-04"
       },
-      "textLength": 7526
+      "textLength": 9560
     },
     "MSFT": {
       "discovery": true,
@@ -65,22 +96,22 @@
       "content": true,
       "error": null,
       "latest": {
-        "title": "OpenAI and Amazon Announce Strategic Partnership",
-        "url": "https://press.aboutamazon.com/2026/2/openai-and-amazon-announce-strategic-partnership",
-        "date": "2026-02-27"
+        "title": "O2 Telefónica brings 5G cloud core to own data center with Nokia and AWS Outposts",
+        "url": "https://press.aboutamazon.com/aws/2026/3/o2-telefonica-brings-5g-cloud-core-to-own-data-center-with-nokia-and-aws-outposts",
+        "date": "2026-03-03"
       },
-      "textLength": 9875
+      "textLength": 6893
     },
     "NVDA": {
       "discovery": true,
-      "content": false,
-      "error": "BAD_CONTENT",
+      "content": true,
+      "error": null,
       "latest": {
-        "title": "Now Live: The World’s Most Powerful AI Factory for Pharmaceutical Discovery and Development",
-        "url": "https://blogs.nvidia.com/blog/lilly-ai-factory-live/",
-        "date": "2026-02-26"
+        "title": "March Into the Cloud With 15 New Games Coming to GeForce NOW",
+        "url": "https://blogs.nvidia.com/blog/geforce-now-thursday-march-2026-games-list/",
+        "date": "2026-03-05"
       },
-      "textLength": 0
+      "textLength": 1329
     },
     "META": {
       "discovery": true,
@@ -93,7 +124,7 @@
       },
       "textLength": 1453
     },
-    "BRKB": {
+    "BRK.B": {
       "discovery": true,
       "content": false,
       "error": "BAD_CONTENT",
@@ -105,10 +136,15 @@
       "textLength": 0
     },
     "JPM": {
-      "discovery": false,
-      "content": false,
-      "error": "EMPTY",
-      "latest": null
+      "discovery": true,
+      "content": true,
+      "error": null,
+      "latest": {
+        "title": "JPMorganChase Expands Investment in Alabama’s Economic Future with New Philanthropic Commitment",
+        "url": "https://www.jpmorganchase.com/newsroom/press-releases/2026/alabama-workforce-philanthropic-commitment",
+        "date": "2026-01-23"
+      },
+      "textLength": 5102
     },
     "GS": {
       "discovery": true,
@@ -126,11 +162,11 @@
       "content": true,
       "error": null,
       "latest": {
-        "title": "BofA Invests Nearly $40 Million into American Workforce Skills in 2025",
-        "url": "https://newsroom.bankofamerica.com/content/newsroom/press-releases/2026/02/bofa-invests-nearly--40-million-into-american-workforce-skills-i.html",
-        "date": "2026-02-26"
+        "title": "Bank of America Announces Redemption of $2,800,000,000 1.658% Fixed/Floating Rate Senior Notes, Due March 2027",
+        "url": "https://newsroom.bankofamerica.com/content/newsroom/press-releases/2026/03/bank-of-america-announces-redemption-of--2-800-000-000-1-658--fi.html",
+        "date": "2026-03-03"
       },
-      "textLength": 8062
+      "textLength": 6388
     },
     "XOM": {
       "discovery": true,
@@ -170,22 +206,22 @@
       "content": true,
       "error": null,
       "latest": {
-        "title": "Lilly's Olumiant (baricitinib) recommended by CHMP for approval of expanded use in the European Union for adolescents with severe alopecia areata",
-        "url": "https://investor.lilly.com/news-releases/news-release-details/lillys-olumiant-baricitinib-recommended-chmp-approval-expanded",
-        "date": "2026-02-27"
+        "title": "Lilly Employer Connect platform launches with over fifteen independent program administrators offering tailored obesity coverage options to expand access to patients",
+        "url": "https://investor.lilly.com/news-releases/news-release-details/lilly-employer-connect-platform-launches-over-fifteen",
+        "date": "2026-03-05"
       },
-      "textLength": 9420
+      "textLength": 15236
     },
     "JNJ": {
       "discovery": true,
       "content": true,
       "error": null,
       "latest": {
-        "title": "Early study results from Johnson & Johnson show promising antitumor activity with combination of pasritamig and docetaxel in advanced prostate cancer",
-        "url": "https://www.jnj.com/media-center/press-releases/early-study-results-from-johnson-johnson-show-promising-antitumor-activity-with-combination-of-pasritamig-and-docetaxel-in-advanced-prostate-cancer",
-        "date": "2026-02-26"
+        "title": "Johnson & Johnson Announces U.S. FDA Approval of TECVAYLI® plus DARZALEX FASPRO® for Relapsed/Refractory Multiple Myeloma, Offering a Potential New Standard of Care as Early as Second Line",
+        "url": "https://www.jnj.com/media-center/press-releases/johnson-johnson-announces-u-s-fda-approval-of-tecvayli-plus-darzalex-faspro-for-relapsed-refractory-multiple-myeloma-offering-a-potential-new-standard-of-care-as-early-as-second-line",
+        "date": "2026-03-05"
       },
-      "textLength": 7944
+      "textLength": 38122
     },
     "PG": {
       "discovery": true,
@@ -225,44 +261,44 @@
       "content": true,
       "error": null,
       "latest": {
-        "title": "Caterpillar CEO Joe Creed and Group President Rod Shurman to Participate in Fireside Chat at CONEXPO",
-        "url": "https://www.caterpillar.com/content/caterpillarDotCom/en/news/corporate-press-releases/h/conexpo-fireside-chat-2026.html",
-        "date": "2026-02-19"
+        "title": "Caterpillar Elevates Skilled Trades Through Global Technician and Operator Challenges",
+        "url": "https://www.caterpillar.com/content/caterpillarDotCom/en/news/corporate-press-releases/h/gtgoc-operator-challenges.html",
+        "date": "2026-03-04"
       },
-      "textLength": 1084
+      "textLength": 4322
     },
     "BA": {
       "discovery": true,
       "content": true,
       "error": null,
       "latest": {
-        "title": "Boeing to Release Fourth Quarter Results on January 27",
-        "url": "https://investors.boeing.com/investors/news/press-release-details/2026/Boeing-to-Release-Fourth-Quarter-Results-on-January-27/default.aspx",
-        "date": "2026-01-07"
+        "title": "Delta Air Lines Orders up to 60 Boeing 787 Dreamliners to Grow, Modernize Widebody Fleet",
+        "url": "https://investors.boeing.com/investors/news/press-release-details/2026/Delta-Air-Lines-Orders-up-to-60-Boeing-787-Dreamliners-to-Grow-Modernize-Widebody-Fleet/default.aspx",
+        "date": "2026-01-13"
       },
-      "textLength": 916
+      "textLength": 3417
     },
     "INTC": {
       "discovery": true,
       "content": true,
       "error": null,
       "latest": {
-        "title": "Intel, SambaNova Planning Multi-Year Collaboration for Xeon-Based AI Inference",
-        "url": "https://newsroom.intel.com/data-center/intel-and-sambanova-planning-multi-year-collaboration-for-xeon-based-ai-inference",
-        "date": "2026-02-24"
+        "title": "Intel Board Chair Frank D. Yeary to Retire Following Annual Meeting; Dr. Craig H. Barratt Elected as Chair",
+        "url": "https://newsroom.intel.com/corporate/intel-board-chair-frank-d-yeary-to-retire-following-annual-meeting-dr-craig-h-barratt-elected-as-chair",
+        "date": "2026-03-03"
       },
-      "textLength": 2140
+      "textLength": 4648
     },
     "AMD": {
       "discovery": true,
       "content": true,
       "error": null,
       "latest": {
-        "title": "AMD and Nutanix Announce Strategic Partnership to Advance an Open and Scalable Platform for Enterprise AI",
-        "url": "https://ir.amd.com/news-events/press-releases/detail/1280/amd-and-nutanix-announce-strategic-partnership-to-advance-an-open-and-scalable-platform-for-enterprise-ai",
-        "date": "2026-02-25"
+        "title": "AMD Gives Consumers and Businesses More AI PC Options with Expanded Ryzen™ AI 400 Series Portfolio",
+        "url": "https://ir.amd.com/news-events/press-releases/detail/1281/amd-gives-consumers-and-businesses-more-ai-pc-options-with-expanded-ryzen-ai-400-series-portfolio",
+        "date": "2026-03-02"
       },
-      "textLength": 15765
+      "textLength": 6794
     },
     "NFLX": {
       "discovery": true,
@@ -280,11 +316,11 @@
       "content": true,
       "error": null,
       "latest": {
-        "title": "Graystone Consulting Named a Best Investment Consultant by Crisil Coalition Greenwich for Second Straight Year",
-        "url": "https://www.morganstanley.com/press-releases/graystone-consulting-named-a-best-investment-consultant0",
-        "date": "2026-02-24"
+        "title": "Morgan Stanley Investment Management Launches Eaton Vance Preferred Securities and Income ETF",
+        "url": "https://www.morganstanley.com/press-releases/msim-launches-eaton-vance-preferred-securities-and-income-etf",
+        "date": "2026-03-05"
       },
-      "textLength": 4823
+      "textLength": 12783
     }
   }
 }

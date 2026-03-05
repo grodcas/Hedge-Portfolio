@@ -112,7 +112,7 @@ var JobWorkflow = class extends WorkflowEntrypoint {
   }
 };
 var TICKERS = [
-  "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK",
+  "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK.B",
   "JPM", "GS", "BAC", "XOM", "CVX", "UNH", "LLY", "JNJ",
   "PG", "KO", "HD", "CAT", "BA", "INTC", "AMD", "NFLX", "MS"
 ];
@@ -173,7 +173,8 @@ var index_default = {
       const now = new Date().toISOString();
       const inputDate = body.date || now.slice(0, 10);
 
-      // Clear pending/running jobs before starting fresh
+      // Clear all old jobs before starting fresh
+      await this_env.DB.prepare(`DELETE FROM PROC_01_Job_queue WHERE status = 'done'`).run();
       await this_env.DB.prepare(`
         DELETE FROM PROC_01_Job_queue WHERE status IN ('pending', 'running')
       `).run();

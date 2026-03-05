@@ -10,7 +10,7 @@ async function scrapeArticle(url) {
   );
 
   await page.goto(url, {
-    waitUntil: "domcontentloaded",
+    waitUntil: "networkidle2",
     timeout: 120000,
   });
 

@@ -72,7 +72,7 @@ async function warmPuppeteer() {
 // ---- TICKERS ----
 const TICKERS = {
   AAPL: "feeds/AAPL.js", MSFT: "feeds/MSFT.js", GOOGL: "feeds/GOOGL.js", AMZN: "feeds/AMZN.js",
-  NVDA: "feeds/NVDA.js", META: "feeds/META.js", BRKB: "feeds/BRK.js", JPM: "feeds/JPM.js",
+  NVDA: "feeds/NVDA.js", META: "feeds/META.js", "BRK.B": "feeds/BRK.B.js", JPM: "feeds/JPM.js",
   GS: "feeds/GS.js", BAC: "feeds/BAC.js", XOM: "feeds/XOM.js", CVX: "feeds/CVX.js",
   UNH: "feeds/UNH.js", LLY: "feeds/LLY.js", JNJ: "feeds/JNJ.js", PG: "feeds/PG.js",
   KO: "feeds/KO.js", HD: "feeds/HD.js", CAT: "feeds/CAT.js", BA: "feeds/BA.js",

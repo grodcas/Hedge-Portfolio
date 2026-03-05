@@ -847,6 +847,18 @@ const PRESS_URLS = {
   MS: "https://www.morganstanley.com/about-us-newsroom"
 };
 
+// Source URLs where macro values can be verified (Ctrl+F the exact number)
+const MACRO_SOURCE_URLS = {
+  "CPI": "https://data.bls.gov/timeseries/CUUR0000SA0",
+  "PPI": "https://data.bls.gov/timeseries/WPSFD4",
+  "Employment": "https://data.bls.gov/timeseries/CES0000000001",
+  "Bank Reserves": "https://fred.stlouisfed.org/series/WRESBAL",
+  "Consumer Sentiment": "https://www.sca.isr.umich.edu/files/tbcics.csv",
+  "Inflation Expectations": "https://www.sca.isr.umich.edu/files/tbcpx1px5.csv",
+  "Gamma Regime (VIX)": "https://finance.yahoo.com/quote/%5EVIX/",
+  "FOMC": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+};
+
 const PORTFOLIO_TICKERS = [
   'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'BRK.B',
   'JPM', 'GS', 'BAC', 'XOM', 'CVX', 'UNH', 'LLY', 'JNJ',
@@ -866,11 +878,18 @@ function updateMonthlyCheck() {
       }
     });
     Object.values(latestByHeading).forEach((item, i) => {
+      const sourceUrl = MACRO_SOURCE_URLS[item.heading] || '';
+      // Format key values for easy Ctrl+F verification
+      const keyValues = Object.entries(item.summary || {})
+        .filter(([k]) => k.startsWith('current') || k === 'VIX' || k === 'VIX9D' || k === 'VIX3M' || k === 'Gamma Regime')
+        .map(([k, v]) => `${k.replace('current ', '')}: ${v}`)
+        .join(', ');
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${item.heading}</td>
-        <td>${formatSummary(item.summary).substring(0, 50)}...</td>
+        <td style="font-size:0.85rem">${keyValues || formatSummary(item.summary).substring(0, 50)}</td>
         <td>${item.date}</td>
+        <td>${sourceUrl ? `<button class="btn btn-secondary open-url-btn" data-url="${sourceUrl}">Open</button>` : ''}</td>
         <td>
           <button class="btn btn-secondary verify-btn" data-type="macro" data-idx="${i}">✓</button>
           <button class="btn btn-secondary verify-btn" data-type="macro" data-idx="${i}" data-wrong="true">✗</button>
@@ -880,19 +899,21 @@ function updateMonthlyCheck() {
     });
   }
 
-  // Press Releases table
+  // Press Releases table — show actual article URLs (where content was scraped from)
   const pressTable = document.querySelector('#monthlyPressTable tbody');
   pressTable.innerHTML = '';
   const pressValidation = dashboardData.validation?.validations?.PRESS || {};
 
-  Object.entries(PRESS_URLS).forEach(([ticker, url], i) => {
-    const data = pressValidation[ticker] || {};
+  Object.entries(PRESS_URLS).forEach(([ticker, feedUrl], i) => {
+    const pressData = pressValidation[ticker] || {};
+    const articleUrl = pressData.latestUrl || feedUrl;
+    const latestTitle = pressData.latest || 'Not checked';
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${ticker}</td>
-      <td><a href="${url}" target="_blank" class="url-link">${url.substring(0, 35)}...</a></td>
-      <td>${data.latest?.substring(0, 30) || 'Not checked'}...</td>
-      <td><button class="btn btn-secondary open-url-btn" data-url="${url}">Open</button></td>
+      <td><a href="${articleUrl}" target="_blank" class="url-link">${articleUrl.substring(0, 50)}...</a></td>
+      <td>${latestTitle.substring(0, 40)}${latestTitle.length > 40 ? '...' : ''}</td>
+      <td><button class="btn btn-secondary open-url-btn" data-url="${articleUrl}">Open</button></td>
       <td>
         <button class="btn btn-secondary verify-btn" data-type="press" data-idx="${i}">✓</button>
         <button class="btn btn-secondary verify-btn" data-type="press" data-idx="${i}" data-wrong="true">✗</button>
@@ -965,7 +986,13 @@ function updateMonthlyCheck() {
   });
 
   document.getElementById('openPressUrls')?.addEventListener('click', () => {
-    Object.values(PRESS_URLS).forEach(url => window.open(url, '_blank'));
+    // Collect actual article URLs from the table
+    const urls = [];
+    document.querySelectorAll('#monthlyPressTable .open-url-btn').forEach(btn => {
+      urls.push(btn.dataset.url);
+    });
+    // Use server-side open to bypass popup blockers
+    openUrlsBatch(urls);
   });
 }
 
@@ -995,23 +1022,21 @@ async function runMonthlyCheck() {
 }
 
 function openAllUrls() {
-  const urls = [
-    'https://www.bls.gov/cpi/',
-    'https://www.bls.gov/ppi/',
-    'https://www.bls.gov/news.release/empsit.nr0.htm',
-    'https://fred.stlouisfed.org/series/WRESBAL',
-    'https://www.federalreserve.gov/monetarypolicy.htm',
-    'https://www.cboe.com/us/options/market_statistics/daily/',
-    'https://www.aaii.com/sentiment-survey',
-    'https://www.cftc.gov/dea/newcot/FinFutWk.txt',
-    'https://www.whitehouse.gov/news/'
-  ];
+  // Open all macro source URLs via server (bypasses popup blockers)
+  openUrlsBatch(Object.values(MACRO_SOURCE_URLS));
+}
 
-  fetch('/api/open-urls', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ urls })
-  });
+// Open URLs in batches via server-side open (bypasses browser popup blocking)
+function openUrlsBatch(urls) {
+  // Server endpoint has a limit of 10, so batch if needed
+  for (let i = 0; i < urls.length; i += 10) {
+    const batch = urls.slice(i, i + 10);
+    fetch('/api/open-urls', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls: batch })
+    });
+  }
 }
 
 // ============ UTILITIES ============
@@ -1183,30 +1208,34 @@ function updateVerificationFromD1() {
 
   // Transform D1 results into the expected format
   // Score is already 0-100 percentage from hallucination checker
-  validationResults = verificationData.results.map(r => ({
-    itemName: r.summaryId || r.summary_id || 'Unknown',
-    itemType: r.summaryType || r.summary_type || 'press',
-    status: (r.contradicted > 0 || r.score < 80) ? 'FAIL' : 'PASS',
-    verification: {
-      summaryScore: {
-        totalFacts: r.totalFacts || r.total_facts || 1,
-        verified: r.verified || (r.score >= 80 ? 1 : 0),
-        notFound: r.notFound || r.not_found || 0,
-        contradicted: r.contradicted || (r.score < 80 ? 1 : 0),
-        verificationRate: (r.score || 0) / 100 // Convert 0-100 to 0-1 for percentage display
-      },
-      analysis: r.analysis || '',
-      issues: r.issues || [],
-      verifiedFacts: r.verifiedFacts || [],
-      verificationResults: (r.issues || []).map(issue => ({
-        claim: issue.claim,
-        problem: issue.problem,
-        status: 'CONTRADICTED',
-        confidence: 0.9,
-        source: issue.source || {}
-      }))
-    }
-  }));
+  validationResults = verificationData.results.map(r => {
+    const parsed = typeof r.issues === 'string' ? JSON.parse(r.issues) : (r.issues || {});
+    const problems = parsed.problems || [];
+    return {
+      itemName: r.summaryId || r.summary_id || 'Unknown',
+      itemType: r.summaryType || r.summary_type || 'press',
+      status: (r.contradicted > 0 || r.score < 80) ? 'FAIL' : 'PASS',
+      verification: {
+        summaryScore: {
+          totalFacts: r.totalFacts || r.total_facts || 1,
+          verified: r.verified || (r.score >= 80 ? 1 : 0),
+          notFound: r.notFound || r.not_found || 0,
+          contradicted: r.contradicted || (r.score < 80 ? 1 : 0),
+          verificationRate: (r.score || 0) / 100 // Convert 0-100 to 0-1 for percentage display
+        },
+        analysis: parsed.analysis || r.analysis || '',
+        issues: problems,
+        verifiedFacts: parsed.verifiedFacts || r.verifiedFacts || [],
+        verificationResults: problems.map(issue => ({
+          claim: issue.claim,
+          problem: issue.problem,
+          status: 'CONTRADICTED',
+          confidence: 0.9,
+          source: issue.source || {}
+        }))
+      }
+    };
+  });
 
   // Update status
   const statusEl = document.getElementById('contentValStatus');
@@ -1576,11 +1605,14 @@ function renderFactsList(result) {
 
   // Fallback only if no verified facts AND no issues (old data without verifiedFacts)
   if (verifiedFacts.length === 0 && issues.length === 0 && !analysis) {
+    const isError = result && result.verification?.summaryScore?.verificationRate === 0;
     html += `
-      <div class="fact-item verified">
-        <span class="fact-status-icon">✓</span>
+      <div class="fact-item ${isError ? 'contradicted' : 'verified'}">
+        <span class="fact-status-icon">${isError ? '⚠' : '✓'}</span>
         <div class="fact-content">
-          <div class="fact-claim-text">Summary verified — re-run pipeline to see detailed fact breakdown</div>
+          <div class="fact-claim-text">${isError
+            ? 'Verification failed (AI returned invalid response) — re-run pipeline to retry'
+            : 'Summary verified — re-run pipeline to see detailed fact breakdown'}</div>
         </div>
       </div>
     `;

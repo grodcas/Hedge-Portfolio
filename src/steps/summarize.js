@@ -172,7 +172,9 @@ export async function summarize(config, logger, stepResults) {
             text: item.checks.content,
             ai: item.checks.ai
           },
-          latest: item.latest || null
+          latest: item.latest || null,
+          latestUrl: item.details?.url || null,
+          latestDate: item.latestDate || null
         };
       }
     }

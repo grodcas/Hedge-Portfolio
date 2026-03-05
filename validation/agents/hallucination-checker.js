@@ -73,12 +73,12 @@ IMPORTANT: Always populate "verifiedFacts" with the key claims you checked and c
       model: MODEL,
       messages: [{ role: "user", content: prompt }],
       max_tokens: 1500,
-      temperature: 0.1
+      temperature: 0.1,
+      response_format: { type: "json_object" }
     });
 
     const content = response.choices[0]?.message?.content?.trim();
-    const jsonStr = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const result = JSON.parse(jsonStr);
+    const result = JSON.parse(content);
 
     return {
       summaryId,
