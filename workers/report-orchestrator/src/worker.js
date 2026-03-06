@@ -113,7 +113,7 @@ export default {
       }
 
       // --------------------------------------------
-      // A) Prerequisites LAST (run first)
+      // A) Cluster summaries — call in PARALLEL (independent of each other)
       // --------------------------------------------
       const { results: clusters } = await db.prepare(`
         SELECT id, title, summary, importance
@@ -121,29 +121,36 @@ export default {
         WHERE report_id = ?
       `).bind(report_id).all();
 
-      for (const c of clusters) {
-        const invalid =
-          !c.summary ||
-          !c.title ||
-          !Number.isInteger(c.importance);
+      const invalidClusters = clusters.filter(c =>
+        !c.summary || !c.title || !Number.isInteger(c.importance)
+      );
 
-        if (invalid) {
-          await db.prepare(`
-            INSERT INTO PROC_01_Job_queue (date, worker, input, status)
-            VALUES (?, ?, ?, ?)
-          `).bind(
-            now,
-            "qk-cluster-summarizer",
-            JSON.stringify({ cluster_id: c.id }),
-            "pending"
-          ).run();
+      if (invalidClusters.length > 0) {
+        const results = await Promise.allSettled(
+          invalidClusters.map(c =>
+            env.qk_cluster_summarizer.fetch("https://internal/summarize-cluster", {
+              method: "POST",
+              body: JSON.stringify({ cluster_id: c.id })
+            }).then(async res => {
+              if (!res.ok) throw new Error(`Cluster ${c.id} failed: ${res.status}`);
+              return c.id;
+            })
+          )
+        );
+
+        const failed = results.filter(r => r.status === "rejected");
+        if (failed.length > 0) {
+          console.error(`${failed.length}/${invalidClusters.length} clusters failed:`,
+            failed.map(r => r.reason?.message));
         }
+        console.log(`Clusters summarized: ${results.length - failed.length}/${invalidClusters.length} OK`);
       }
 
       return Response.json({
         ok: true,
         enqueued: "10K/10Q pipeline",
-        clusters: clusters.length
+        clusters: clusters.length,
+        summarized: invalidClusters.length
       });
     }
 
