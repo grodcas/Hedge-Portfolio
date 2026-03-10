@@ -23,9 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Monthly check handlers
-  document.getElementById('runMonthlyCheck').addEventListener('click', runMonthlyCheck);
-  document.getElementById('openAllUrls').addEventListener('click', openAllUrls);
+  // Monthly check handlers are set up inside updateMonthlyCheck()
 
   // Filter handlers for Daily Output
   document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -855,8 +853,7 @@ const MACRO_SOURCE_URLS = {
   "Bank Reserves": "https://fred.stlouisfed.org/series/WRESBAL",
   "Consumer Sentiment": "https://www.sca.isr.umich.edu/files/tbcics.csv",
   "Inflation Expectations": "https://www.sca.isr.umich.edu/files/tbcpx1px5.csv",
-  "Gamma Regime (VIX)": "https://finance.yahoo.com/quote/%5EVIX/",
-  "FOMC": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+  "Gamma Regime (VIX)": "https://finance.yahoo.com/quote/%5EVIX/"
 };
 
 const PORTFOLIO_TICKERS = [
@@ -870,9 +867,10 @@ function updateMonthlyCheck() {
   const macroTable = document.querySelector('#monthlyMacroTable tbody');
   macroTable.innerHTML = '';
   if (dashboardData.macro?.Macro) {
-    // Keep only the latest entry per heading
+    // Keep only the latest entry per heading, exclude FOMC (shown in Policy section)
     const latestByHeading = {};
     dashboardData.macro.Macro.forEach(item => {
+      if (item.heading === 'FOMC') return;
       if (!latestByHeading[item.heading] || item.date > latestByHeading[item.heading].date) {
         latestByHeading[item.heading] = item;
       }
@@ -889,7 +887,7 @@ function updateMonthlyCheck() {
         <td>${item.heading}</td>
         <td style="font-size:0.85rem">${keyValues || formatSummary(item.summary).substring(0, 50)}</td>
         <td>${item.date}</td>
-        <td>${sourceUrl ? `<button class="btn btn-secondary open-url-btn" data-url="${sourceUrl}">Open</button>` : ''}</td>
+        <td>${sourceUrl ? `<a href="${sourceUrl}" target="_blank" class="url-link">${new URL(sourceUrl).hostname}</a>` : '-'}</td>
         <td>
           <button class="btn btn-secondary verify-btn" data-type="macro" data-idx="${i}">✓</button>
           <button class="btn btn-secondary verify-btn" data-type="macro" data-idx="${i}" data-wrong="true">✗</button>
@@ -908,12 +906,13 @@ function updateMonthlyCheck() {
     const pressData = pressValidation[ticker] || {};
     const articleUrl = pressData.latestUrl || feedUrl;
     const latestTitle = pressData.latest || 'Not checked';
+    const latestDate = pressData.latestDate || '-';
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${ticker}</td>
-      <td><a href="${articleUrl}" target="_blank" class="url-link">${articleUrl.substring(0, 50)}...</a></td>
-      <td>${latestTitle.substring(0, 40)}${latestTitle.length > 40 ? '...' : ''}</td>
-      <td><button class="btn btn-secondary open-url-btn" data-url="${articleUrl}">Open</button></td>
+      <td>${latestTitle.substring(0, 50)}${latestTitle.length > 50 ? '...' : ''}</td>
+      <td>${latestDate}</td>
+      <td><a href="${articleUrl}" target="_blank" class="url-link">${new URL(articleUrl).hostname}</a></td>
       <td>
         <button class="btn btn-secondary verify-btn" data-type="press" data-idx="${i}">✓</button>
         <button class="btn btn-secondary verify-btn" data-type="press" data-idx="${i}" data-wrong="true">✗</button>
@@ -929,11 +928,13 @@ function updateMonthlyCheck() {
   // Latest White House item only
   if (dashboardData.whitehouse?.WhiteHouse?.length) {
     const latest = dashboardData.whitehouse.WhiteHouse.reduce((a, b) => a.date > b.date ? a : b);
+    const whUrl = latest.link || 'https://www.whitehouse.gov/news/';
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>White House</td>
-      <td><a href="https://www.whitehouse.gov/news/" target="_blank" class="url-link">${latest.title?.substring(0, 50) || 'Latest article'}...</a></td>
+      <td>${latest.title?.substring(0, 50) || 'Latest article'}${(latest.title?.length || 0) > 50 ? '...' : ''}</td>
       <td>${latest.date}</td>
+      <td><a href="${whUrl}" target="_blank" class="url-link">${new URL(whUrl).hostname}</a></td>
       <td>
         <button class="btn btn-secondary verify-btn" data-type="wh" data-idx="0">✓</button>
         <button class="btn btn-secondary verify-btn" data-type="wh" data-idx="0" data-wrong="true">✗</button>
@@ -942,14 +943,16 @@ function updateMonthlyCheck() {
     fomcTable.appendChild(tr);
   }
 
-  // FOMC Statement — extract first substantive paragraph from macro FOMC data
+  // FOMC Statement — use the actual statement link from summary
   const fomcMacro = (dashboardData.macro?.Macro || []).filter(x => x.heading === 'FOMC').reduce((a, b) => (!a || b.date > a.date) ? b : a, null);
   const fomcSnippet = fomcMacro?.summary?.paragraphs?.find(p => p.length > 60 && !p.includes('media inquiries') && !p.includes('For release')) || '-';
+  const fomcStmtUrl = fomcMacro?.summary?.link || 'https://www.federalreserve.gov/newsevents/pressreleases.htm';
   const fomcRow = document.createElement('tr');
   fomcRow.innerHTML = `
-    <td><a href="https://www.federalreserve.gov/monetarypolicy.htm" target="_blank" class="url-link">FOMC Statement</a></td>
-    <td style="font-size:0.8rem;font-style:italic">${fomcSnippet.substring(0, 150)}${fomcSnippet.length > 150 ? '...' : ''}</td>
+    <td>FOMC Statement</td>
+    <td style="font-size:0.8rem;font-style:italic">${fomcSnippet.substring(0, 80)}${fomcSnippet.length > 80 ? '...' : ''}</td>
     <td>${fomcMacro?.date || '-'}</td>
+    <td><a href="${fomcStmtUrl}" target="_blank" class="url-link">${new URL(fomcStmtUrl).hostname}</a></td>
     <td>
       <button class="btn btn-secondary verify-btn" data-type="wh" data-idx="1">✓</button>
       <button class="btn btn-secondary verify-btn" data-type="wh" data-idx="1" data-wrong="true">✗</button>
@@ -957,12 +960,14 @@ function updateMonthlyCheck() {
   `;
   fomcTable.appendChild(fomcRow);
 
-  // Fed Minutes — link to calendar page, show FOMC title as reference
+  // Fed Minutes — link to FOMC calendars page where minutes are listed
+  const fomcCalUrl = 'https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm';
   const minRow = document.createElement('tr');
   minRow.innerHTML = `
-    <td><a href="https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" target="_blank" class="url-link">Fed Minutes</a></td>
+    <td>Fed Minutes</td>
     <td style="font-size:0.8rem;font-style:italic">${fomcMacro?.summary?.title || '-'}</td>
     <td>${fomcMacro?.date || '-'}</td>
+    <td><a href="${fomcCalUrl}" target="_blank" class="url-link">${new URL(fomcCalUrl).hostname}</a></td>
     <td>
       <button class="btn btn-secondary verify-btn" data-type="wh" data-idx="2">✓</button>
       <button class="btn btn-secondary verify-btn" data-type="wh" data-idx="2" data-wrong="true">✗</button>
@@ -979,19 +984,22 @@ function updateMonthlyCheck() {
     });
   });
 
-  document.querySelectorAll('.open-url-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      window.open(e.target.dataset.url, '_blank');
-    });
+  // Per-section "Open All" handlers
+  document.getElementById('openMacroUrls')?.addEventListener('click', () => {
+    const urls = [];
+    document.querySelectorAll('#monthlyMacroTable .url-link').forEach(a => urls.push(a.href));
+    openUrlsBatch(urls);
   });
 
   document.getElementById('openPressUrls')?.addEventListener('click', () => {
-    // Collect actual article URLs from the table
     const urls = [];
-    document.querySelectorAll('#monthlyPressTable .open-url-btn').forEach(btn => {
-      urls.push(btn.dataset.url);
-    });
-    // Use server-side open to bypass popup blockers
+    document.querySelectorAll('#monthlyPressTable .url-link').forEach(a => urls.push(a.href));
+    openUrlsBatch(urls);
+  });
+
+  document.getElementById('openPolicyUrls')?.addEventListener('click', () => {
+    const urls = [];
+    document.querySelectorAll('#monthlyFomcTable .url-link').forEach(a => urls.push(a.href));
     openUrlsBatch(urls);
   });
 }
@@ -1003,27 +1011,6 @@ function updateVerifyProgress() {
 
   document.getElementById('verifyProgress').style.width = `${((verified + wrong) / total) * 100}%`;
   document.getElementById('verifyCount').textContent = `${verified + wrong} / ${total} checked (${wrong} issues)`;
-}
-
-async function runMonthlyCheck() {
-  document.getElementById('monthlyStatus').textContent = 'Running validation...';
-  try {
-    const res = await fetch('/api/run-validation', { method: 'POST' });
-    const data = await res.json();
-    if (data.success) {
-      document.getElementById('monthlyStatus').textContent = 'Validation complete. Refresh to see results.';
-      loadData(currentDate);
-    } else {
-      document.getElementById('monthlyStatus').textContent = 'Error: ' + data.error;
-    }
-  } catch (err) {
-    document.getElementById('monthlyStatus').textContent = 'Error: ' + err.message;
-  }
-}
-
-function openAllUrls() {
-  // Open all macro source URLs via server (bypasses popup blockers)
-  openUrlsBatch(Object.values(MACRO_SOURCE_URLS));
 }
 
 // Open URLs in batches via server-side open (bypasses browser popup blocking)

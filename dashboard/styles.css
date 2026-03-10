@@ -378,6 +378,17 @@ select {
   grid-column: span 2;
 }
 
+.section-header-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.section-header-inline h3 {
+  margin: 0;
+}
+
 .url-link {
   color: var(--accent-blue);
   text-decoration: none;
@@ -397,7 +408,19 @@ select {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.8125rem;
+  table-layout: fixed;
 }
+
+.check-table th:nth-child(1),
+.check-table td:nth-child(1) { width: 12%; }
+.check-table th:nth-child(2),
+.check-table td:nth-child(2) { width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.check-table th:nth-child(3),
+.check-table td:nth-child(3) { width: 12%; }
+.check-table th:nth-child(4),
+.check-table td:nth-child(4) { width: 20%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.check-table th:nth-child(5),
+.check-table td:nth-child(5) { width: 16%; }
 
 .check-table th,
 .check-table td {

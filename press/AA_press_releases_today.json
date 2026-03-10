@@ -1,13 +1,6 @@
 {
-  "date": "2026-03-05",
+  "date": "2026-03-06",
   "results": {
-    "AAPL": [
-      {
-        "title": "Say hello to MacBook Neo",
-        "url": "https://www.apple.com/uk/newsroom/2026/03/say-hello-to-macbook-neo/",
-        "norm": "2026-03-04"
-      }
-    ],
     "NVDA": [
       {
         "title": "March Into the Cloud With 15 New Games Coming to GeForce NOW",
@@ -29,30 +22,11 @@
         "norm": "2026-03-05"
       }
     ],
-    "CAT": [
-      {
-        "title": "Caterpillar Elevates Skilled Trades Through Global Technician and Operator Challenges",
-        "url": "https://www.caterpillar.com/content/caterpillarDotCom/en/news/corporate-press-releases/h/gtgoc-operator-challenges.html",
-        "norm": "2026-03-04"
-      }
-    ],
-    "BA": [
-      {
-        "title": "Boeing CFO Jay Malave to Speak at Bank of America Global Industrials Conference March 17",
-        "url": "https://investors.boeing.com/investors/news/press-release-details/2026/Boeing-CFO-Jay-Malave-to-Speak-at-Bank-of-America-Global-Industrials-Conference-March-17/default.aspx",
-        "norm": "2026-03-04"
-      }
-    ],
     "MS": [
       {
         "title": "Morgan Stanley Investment Management Launches Eaton Vance Preferred Securities and Income ETF",
         "url": "https://www.morganstanley.com/press-releases/msim-launches-eaton-vance-preferred-securities-and-income-etf",
         "norm": "2026-03-05"
-      },
-      {
-        "title": "Dan Simkowitz to Speak at the Annual Morgan Stanley European Financials Conference",
-        "url": "https://www.morganstanley.com/press-releases/Dan-Simkowitz-to-Speak-at-Morgan-Stanley-European-Financials-Conference",
-        "norm": "2026-03-04"
       }
     ]
   },
@@ -199,7 +173,7 @@
         "url": "https://www.unitedhealthgroup.com/newsroom/2026/2026-02-25-uhg-authorizes-payment-quarterly-dividend.html",
         "date": "2026-02-25"
       },
-      "textLength": 892
+      "textLength": 895
     },
     "LLY": {
       "discovery": true,
@@ -221,18 +195,18 @@
         "url": "https://www.jnj.com/media-center/press-releases/johnson-johnson-announces-u-s-fda-approval-of-tecvayli-plus-darzalex-faspro-for-relapsed-refractory-multiple-myeloma-offering-a-potential-new-standard-of-care-as-early-as-second-line",
         "date": "2026-03-05"
       },
-      "textLength": 38122
+      "textLength": 38166
     },
     "PG": {
       "discovery": true,
-      "content": true,
-      "error": null,
+      "content": false,
+      "error": "BAD_CONTENT",
       "latest": {
         "title": "P&G Brands Recognized for Packaging That’s Accessible and Sustainable",
         "url": "https://us.pg.com/blogs/accessible-and-sustainable-packaging/",
         "date": "2026-02-27"
       },
-      "textLength": 3828
+      "textLength": 0
     },
     "KO": {
       "discovery": true,

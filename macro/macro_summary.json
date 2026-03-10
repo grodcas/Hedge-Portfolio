@@ -35,23 +35,23 @@
     },
     {
       "heading": "Employment",
-      "date": "2026-01-01",
+      "date": "2026-02-01",
       "summary": {
-        "previous Nonfarm Payrolls": 158497,
-        "current Nonfarm Payrolls": 158627,
-        "pct_change Nonfarm Payrolls": 0.0820204798829,
-        "previous Unemployment Rate": 4.4,
-        "current Unemployment Rate": 4.3,
-        "pct_change Unemployment Rate": -2.2727272727272845
+        "previous Nonfarm Payrolls": 158558,
+        "current Nonfarm Payrolls": 158466,
+        "pct_change Nonfarm Payrolls": -0.05802293167169112,
+        "previous Unemployment Rate": 4.3,
+        "current Unemployment Rate": 4.4,
+        "pct_change Unemployment Rate": 2.32558139534885
       }
     },
     {
       "heading": "Bank Reserves",
-      "date": "2026-02-25",
+      "date": "2026-03-04",
       "summary": {
-        "previous Bank Reserves": 2949804,
-        "current Bank Reserves": 2965765,
-        "pct_change Bank Reserves": 0.5410867976313003
+        "previous Bank Reserves": 2965765,
+        "current Bank Reserves": 3015531,
+        "pct_change Bank Reserves": 1.6780156216018465
       }
     },
     {
@@ -77,12 +77,12 @@
     },
     {
       "heading": "Gamma Regime (VIX)",
-      "date": "2026-03-05",
+      "date": "2026-03-06",
       "summary": {
-        "VIX9D": 23.260000228881836,
-        "VIX": 23.5,
-        "VIX3M": 23.700000762939453,
-        "Gamma Regime": "POSITIVE"
+        "VIX9D": 26.229999542236328,
+        "VIX": 25.93000030517578,
+        "VIX3M": 25.389999389648438,
+        "Gamma Regime": "NEGATIVE"
       }
     },
     {

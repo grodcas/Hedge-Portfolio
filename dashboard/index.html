@@ -355,22 +355,20 @@
       <!-- Monthly Check Tab -->
       <section id="monthly" class="tab-content">
         <div class="monthly-controls">
-          <button id="runMonthlyCheck" class="btn btn-primary">Run Full Check</button>
-          <button id="openAllUrls" class="btn btn-secondary">Open All URLs</button>
           <span id="monthlyStatus"></span>
         </div>
 
         <div class="monthly-grid">
           <!-- Macro Check -->
-          <div class="card">
-            <h3>Macro Indicators</h3>
+          <div class="card full-width">
+            <div class="section-header-inline"><h3>Macro Indicators</h3><button id="openMacroUrls" class="btn btn-secondary">Open All</button></div>
             <table class="check-table" id="monthlyMacroTable">
               <thead>
                 <tr>
                   <th>Indicator</th>
                   <th>Value</th>
                   <th>Date</th>
-                  <th>Open</th>
+                  <th>URL</th>
                   <th>Verify</th>
                 </tr>
               </thead>
@@ -380,15 +378,14 @@
 
           <!-- Press Check -->
           <div class="card full-width">
-            <h3>Press Releases (All Tickers)</h3>
-            <button id="openPressUrls" class="btn btn-secondary" style="margin-bottom:1rem;">Open All PR Pages</button>
+            <div class="section-header-inline"><h3>Press Releases</h3><button id="openPressUrls" class="btn btn-secondary">Open All</button></div>
             <table class="check-table" id="monthlyPressTable">
               <thead>
                 <tr>
                   <th>Ticker</th>
-                  <th>URL</th>
                   <th>Latest Title</th>
-                  <th>Open</th>
+                  <th>Date</th>
+                  <th>URL</th>
                   <th>Verify</th>
                 </tr>
               </thead>
@@ -396,15 +393,16 @@
             </table>
           </div>
 
-          <!-- FOMC Check -->
-          <div class="card">
-            <h3>FOMC / Policy</h3>
+          <!-- FOMC / Policy Check -->
+          <div class="card full-width">
+            <div class="section-header-inline"><h3>FOMC / Policy</h3><button id="openPolicyUrls" class="btn btn-secondary">Open All</button></div>
             <table class="check-table" id="monthlyFomcTable">
               <thead>
                 <tr>
                   <th>Source</th>
                   <th>Title</th>
                   <th>Date</th>
+                  <th>URL</th>
                   <th>Verify</th>
                 </tr>
               </thead>

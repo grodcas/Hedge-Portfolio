@@ -221,6 +221,7 @@ async function main() {
       date: fomc.date,
       summary: {
         title: fomc.title,
+        link: fomc.link,
         paragraphs: statement.paragraphs || []
       }
     });

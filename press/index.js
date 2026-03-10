@@ -113,7 +113,7 @@ function runArticleScraper(ticker, url) {
     const timer = setTimeout(() => {
       child.kill("SIGKILL");
       resolve(null);
-    }, 30000);
+    }, 60000);
 
     child.stdout.on("data", d => out += d.toString());
     child.on("close", () => {

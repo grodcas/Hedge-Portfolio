@@ -230,13 +230,16 @@ export default {
           `).all();
 
           return Response.json({
-            WhiteHouse: results.map(r => ({
-              id: r.id,
-              date: r.date,
-              title: r.title,
-              summary: r.summary,
-              created_at: r.created_at
-            }))
+            WhiteHouse: results.map(r => {
+              // Parse link from JSON summary if available
+              let summary = r.summary;
+              let link = null;
+              try {
+                const parsed = JSON.parse(r.summary);
+                if (parsed?.text) { summary = parsed.text; link = parsed.link || null; }
+              } catch {}
+              return { id: r.id, date: r.date, title: r.title, summary, link, created_at: r.created_at };
+            })
           }, { headers: corsHeaders });
         }
 
@@ -596,6 +599,10 @@ export default {
     if (which === "whitehouse") {
       for (const x of body.WhiteHouse) {
         const id = await shortHash(`${x.date}|${x.title}`);
+        // Store link inside summary JSON so it's retrievable
+        const summaryPayload = x.link
+          ? JSON.stringify({ text: x.summary, link: x.link })
+          : x.summary ?? null;
 
         await db.prepare(
           `INSERT INTO BETA_02_WH
@@ -608,7 +615,7 @@ export default {
           id,
           x.date,
           x.title,
-          x.summary ?? null,
+          summaryPayload,
           now
         ).run();
       }

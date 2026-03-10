@@ -133,6 +133,7 @@ async function main() {
       output.WhiteHouse.push({
         title: item.title,
         date: item.date,
+        link: item.link,
         summary
       });
       console.log(`[DEBUG] Article ${i + 1} completed successfully`);

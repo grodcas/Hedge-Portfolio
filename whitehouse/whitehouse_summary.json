@@ -1,9 +1,3 @@
 {
-  "WhiteHouse": [
-    {
-      "title": "President Trump Secures Historic Commitment to Keep Electricity Costs Down Amid Data Center Boom",
-      "date": "2026-03-05",
-      "summary": "The White House announced that several major U.S. AI and technology companies signed the \"Ratepayer Protection Pledge\" at an event hosted by President Donald J. Trump. This pledge commits companies to cover the costs of any increased electricity demand from new AI data centers, aiming to prevent higher electricity prices for consumers.\n\nKey points from the announcement:  \n- The pledge was first introduced by President Trump during his recent State of the Union address.  \n- Signatory companies include Amazon, Google, Meta, Microsoft, OpenAI, Oracle, and xAI.  \n- These companies agree to fund new power generation or grid improvements required by their data centers, ensuring these costs are not passed on to residential customers.  \n- The initiative is intended to support American innovation, job creation, and energy grid resilience while maintaining electricity affordability for families and communities.  \n- Energy industry leaders and company executives expressed support for the pledge, highlighting partnerships between tech companies and utilities and emphasizing economic growth and reliable energy access.  \n- The pledge is described as a voluntary, collaborative effort between government, technology firms, and energy providers to balance AI infrastructure expansion with stable electricity costs.  \n- Specific commitments include investments in new power plants, grid upgrades, and energy storage, with companies such as xAI and Meta citing plans to develop large-scale power capacity to support their operations.\n\nOverall, the announcement presents the Ratepayer Protection Pledge as a coordinated effort to align AI growth with energy affordability and infrastructure development in the United States."
-    }
-  ]
+  "WhiteHouse": []
 }
