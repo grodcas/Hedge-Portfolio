@@ -94,6 +94,11 @@
       "binding": "DAILY_MACRO_SUMMARIZER",
       "service": "daily-macro-summarizer",
       "environment": "production"
+    },
+    {
+      "binding": "MACRO_NEWS_ORCHESTRATOR",
+      "service": "macro-news-orchestrator",
+      "environment": "production"
     }
   ],
   "d1_databases": [

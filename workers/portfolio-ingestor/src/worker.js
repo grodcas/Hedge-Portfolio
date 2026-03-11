@@ -62,6 +62,39 @@ export default {
           }, { headers: corsHeaders });
         }
 
+        // -------- GET /query/macro-news --------
+        if (path === "/query/macro-news") {
+          const row = await db.prepare(`
+            SELECT id, date, layer_calendar, layer_geopolitics, layer_regulatory,
+                   layer_sectors, layer_wave, summary, overall_sentiment,
+                   overall_magnitude, sector_sentiments, created_at
+            FROM BETA_11_Macro_news
+            ORDER BY date DESC
+            LIMIT 1
+          `).first();
+
+          if (!row) {
+            return Response.json({ error: "No data" }, { status: 404, headers: corsHeaders });
+          }
+
+          return Response.json({
+            id: row.id,
+            date: row.date,
+            layers: {
+              economic_calendar: row.layer_calendar ? JSON.parse(row.layer_calendar) : null,
+              geopolitics: row.layer_geopolitics ? JSON.parse(row.layer_geopolitics) : null,
+              regulatory_fiscal: row.layer_regulatory ? JSON.parse(row.layer_regulatory) : null,
+              sector_pulse: row.layer_sectors ? JSON.parse(row.layer_sectors) : null,
+              the_wave: row.layer_wave ? JSON.parse(row.layer_wave) : null
+            },
+            summary: row.summary,
+            overall_sentiment: row.overall_sentiment,
+            overall_magnitude: row.overall_magnitude,
+            sector_sentiments: row.sector_sentiments ? JSON.parse(row.sector_sentiments) : {},
+            created_at: row.created_at
+          }, { headers: corsHeaders });
+        }
+
         // -------- GET /query/ticker-trends --------
         if (path === "/query/ticker-trends") {
           const { results } = await db.prepare(`
@@ -88,7 +121,7 @@ export default {
         // -------- GET /query/daily-news --------
         if (path === "/query/daily-news") {
           const { results } = await db.prepare(`
-            SELECT id, ticker, summary, todays_important, last_important, last_important_date, created_at
+            SELECT id, ticker, summary, todays_important, last_important, last_important_date, sentiment, magnitude, created_at
             FROM ALPHA_05_Daily_news
             ORDER BY created_at DESC
           `).all();
@@ -103,6 +136,8 @@ export default {
                 todays_important: row.todays_important,
                 last_important: row.last_important,
                 last_important_date: row.last_important_date,
+                sentiment: row.sentiment,
+                magnitude: row.magnitude,
                 date: row.created_at?.slice(0, 10)
               };
             }
@@ -246,7 +281,7 @@ export default {
         // -------- GET /query/news --------
         if (path === "/query/news") {
           const { results } = await db.prepare(`
-            SELECT id, tickers, date, source, title, summary, created_at
+            SELECT id, tickers, date, source, title, summary, sentiment, magnitude, created_at
             FROM BETA_01_News
             ORDER BY date DESC
             LIMIT 50
@@ -262,6 +297,8 @@ export default {
               date: row.date,
               title: row.title,
               summary: row.summary,
+              sentiment: row.sentiment,
+              magnitude: row.magnitude,
               created_at: row.created_at
             });
           }
@@ -576,10 +613,12 @@ export default {
 
           await db.prepare(
             `INSERT INTO BETA_01_News
-             (id, tickers, date, source, title, summary, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?)
+             (id, tickers, date, source, title, summary, sentiment, magnitude, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(id) DO UPDATE SET
                summary=excluded.summary,
+               sentiment=excluded.sentiment,
+               magnitude=excluded.magnitude,
                created_at=excluded.created_at`
           ).bind(
             id,
@@ -588,6 +627,8 @@ export default {
             source,
             title,
             x.summary ?? null,
+            x.sentiment ?? null,
+            x.magnitude ?? null,
             now
           ).run();
         }

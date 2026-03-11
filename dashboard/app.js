@@ -523,6 +523,24 @@ function createTickerCard(ticker, data, reportData) {
   // Determine card border color and badges
   const badges = [];
 
+  // Sentiment badge (from AI-Search)
+  if (data.sentiment && data.magnitude != null) {
+    const mag = parseFloat(data.magnitude);
+    let sentimentClass, sentimentText;
+    if (mag > 0) {
+      sentimentClass = 'badge-bullish';
+      sentimentText = `+${mag.toFixed(1)}`;
+    } else if (mag < 0) {
+      sentimentClass = 'badge-bearish';
+      sentimentText = mag.toFixed(1);
+    } else {
+      sentimentClass = 'badge-neutral';
+      sentimentText = '0.0';
+    }
+    badges.push({ class: sentimentClass, text: sentimentText });
+    card.dataset.types += 'news ';
+  }
+
   if (data.new_sec) {
     const secTypes = data.new_sec.split(',').map(s => s.trim());
     secTypes.forEach(type => {

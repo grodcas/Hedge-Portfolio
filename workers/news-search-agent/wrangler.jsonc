@@ -1,5 +1,5 @@
 {
-  "name": "news-orchestrator",
+  "name": "news-search-agent",
   "main": "src/worker.js",
   "workers_dev": true,
   "preview_urls": false,
@@ -19,18 +19,6 @@
       "head_sampling_rate": 1
     }
   },
-  "services": [
-    {
-      "binding": "NEWS_SEARCH_AGENT",
-      "service": "news-search-agent",
-      "environment": "production"
-    },
-    {
-      "binding": "NEWS_CURATOR_AGENT",
-      "service": "news-curator-agent",
-      "environment": "production"
-    }
-  ],
   "d1_databases": [
     {
       "binding": "DB",

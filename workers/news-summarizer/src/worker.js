@@ -17,7 +17,7 @@ export default {
     // NEWS
     // --------------------------------------------
     const news = await db.prepare(`
-      SELECT source, title, date, summary
+      SELECT source, title, date, summary, sentiment, magnitude
       FROM BETA_01_News
       WHERE date = ?
         AND tickers LIKE ?
@@ -179,16 +179,23 @@ export default {
     }
     const id = `${T}-${idDate.toISOString().slice(0, 10)}`;
 
+    // Extract sentiment from BETA_01_News if available (from AI-Search source)
+    const newsWithSentiment = news.results.find(n => n.sentiment && n.magnitude != null);
+    const newsSentiment = newsWithSentiment?.sentiment || null;
+    const newsMagnitude = newsWithSentiment?.magnitude ?? null;
+
     await db.prepare(`
       INSERT INTO ALPHA_05_Daily_news
-        (id, ticker, summary, todays_important, last_important, last_important_date, new_sec, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        (id, ticker, summary, todays_important, last_important, last_important_date, new_sec, sentiment, magnitude, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         summary = excluded.summary,
         todays_important = excluded.todays_important,
         last_important = excluded.last_important,
         last_important_date = excluded.last_important_date,
         new_sec = excluded.new_sec,
+        sentiment = excluded.sentiment,
+        magnitude = excluded.magnitude,
         created_at = excluded.created_at
     `).bind(
       id,
@@ -198,6 +205,8 @@ export default {
       lastImportant,
       lastImportantDate,
       newSec,
+      newsSentiment,
+      newsMagnitude,
       new Date().toISOString()
     ).run();
 

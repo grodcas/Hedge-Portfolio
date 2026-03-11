@@ -17,10 +17,10 @@ export async function upload(config, logger, ingestedData) {
   logger.log("UPLOAD", "Uploading data to ingestor...");
 
   if (!config.skipIngestion) {
+    // News is no longer uploaded locally — handled server-side by news-orchestrator (GPT-5-mini web search)
     const uploads = [
       { name: "macro", data: ingestedData.macro, endpoint: "/ingest/macro" },
       { name: "sentiment", data: ingestedData.sentiment, endpoint: "/ingest/sentiment" },
-      { name: "news", data: ingestedData.news, endpoint: "/ingest/news" },
       { name: "press", data: ingestedData.press, endpoint: "/ingest/press" },
       { name: "whitehouse", data: ingestedData.whitehouse, endpoint: "/ingest/whitehouse" }
     ];

@@ -590,6 +590,30 @@ select {
   color: #000;
 }
 
+.badge-bullish {
+  background-color: #3fb950;
+  color: #000;
+  font-weight: 700;
+  min-width: 2.5rem;
+  text-align: center;
+}
+
+.badge-bearish {
+  background-color: #f85149;
+  color: #fff;
+  font-weight: 700;
+  min-width: 2.5rem;
+  text-align: center;
+}
+
+.badge-neutral {
+  background-color: #8b949e;
+  color: #fff;
+  font-weight: 700;
+  min-width: 2.5rem;
+  text-align: center;
+}
+
 .badge-macro {
   background-color: #3fb950;
   color: #000;

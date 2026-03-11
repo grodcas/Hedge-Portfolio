@@ -130,7 +130,6 @@ var index_default = {
       await this_env.REPORT_ORCHESTRATOR.fetch("https://internal/process-report", { method: "POST", body: JSON.stringify(body) });
     }
     if (action === "daily_news") {
-      const tickersToProcess = body.ticker ? [body.ticker.toUpperCase()] : TICKERS;
       const now = new Date().toISOString();
 
       // Clear pending/running jobs before starting fresh
@@ -138,12 +137,11 @@ var index_default = {
         DELETE FROM PROC_01_Job_queue WHERE status IN ('pending', 'running')
       `).run();
 
-      for (const t of tickersToProcess) {
-        await this_env.DB.prepare(`
-          INSERT INTO PROC_01_Job_queue (date, worker, input, status)
-          VALUES (?, ?, ?, ?)
-        `).bind(now, "news-orchestrator", JSON.stringify({ ticker: t }), "pending").run();
-      }
+      // Single orchestrator job handles all 25 tickers internally (parallel search + curation)
+      await this_env.DB.prepare(`
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
+        VALUES (?, ?, ?, ?)
+      `).bind(now, "news-orchestrator", "{}", "pending").run();
     }
     if (action === "trend") {
       await this_env.TREND_ORCHESTRATOR.fetch("https://internal/process-trend", { method: "POST", body: JSON.stringify(body) });
@@ -169,6 +167,21 @@ var index_default = {
         VALUES (?, ?, ?, ?)
       `).bind(now, "macro-news-summarizer", JSON.stringify({ date: inputDate }), "pending").run();
     }
+    if (action === "macro_news_search") {
+      // Call orchestrator directly and await (runs 5 parallel web searches, ~90s)
+      // Don't start the job queue workflow — this is a standalone long-running call
+      try {
+        const macroRes = await this_env.MACRO_NEWS_ORCHESTRATOR.fetch("https://internal/process-macro-news", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}"
+        });
+        const macroResult = await macroRes.json();
+        return Response.json({ ok: true, macro_news: macroResult });
+      } catch (err) {
+        return Response.json({ ok: false, error: err.message });
+      }
+    }
     if (action === "daily_update") {
       const now = new Date().toISOString();
       const inputDate = body.date || now.slice(0, 10);
@@ -179,13 +192,11 @@ var index_default = {
         DELETE FROM PROC_01_Job_queue WHERE status IN ('pending', 'running')
       `).run();
 
-      // 1) Queue daily_news (news-orchestrator for all tickers)
-      for (const t of TICKERS) {
-        await this_env.DB.prepare(`
-          INSERT INTO PROC_01_Job_queue (date, worker, input, status)
-          VALUES (?, ?, ?, ?)
-        `).bind(now, "news-orchestrator", JSON.stringify({ ticker: t }), "pending").run();
-      }
+      // 1) Queue news-orchestrator (single job handles all 25 tickers with parallel search + curation)
+      await this_env.DB.prepare(`
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
+        VALUES (?, ?, ?, ?)
+      `).bind(now, "news-orchestrator", "{}", "pending").run();
 
       // 2) Queue daily_macro
       await this_env.DB.prepare(`
@@ -199,11 +210,20 @@ var index_default = {
         VALUES (?, ?, ?, ?)
       `).bind(now, "beta-trend-orchestrator", "{}", "pending").run();
 
-      // 4) Queue macro_news
+      // 4) Queue macro_news (old summarizer)
       await this_env.DB.prepare(`
         INSERT INTO PROC_01_Job_queue (date, worker, input, status)
         VALUES (?, ?, ?, ?)
       `).bind(now, "macro-news-summarizer", JSON.stringify({ date: inputDate }), "pending").run();
+
+      // 5) Fire macro-news-orchestrator directly (parallel web search, ~90s)
+      // This runs concurrently with the workflow — the workflow handles job queue items
+      // while the orchestrator runs independently via service binding
+      await this_env.MACRO_NEWS_ORCHESTRATOR.fetch("https://internal/process-macro-news", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}"
+      }).catch(err => console.error("Macro news orchestrator error:", err.message));
     }
     const instanceId = `run-${Date.now()}`;
     await this_env.WORKFLOW.create({ id: instanceId });

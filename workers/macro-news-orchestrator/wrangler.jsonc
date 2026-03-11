@@ -1,5 +1,5 @@
 {
-  "name": "news-orchestrator",
+  "name": "macro-news-orchestrator",
   "main": "src/worker.js",
   "workers_dev": true,
   "preview_urls": false,
@@ -21,13 +21,13 @@
   },
   "services": [
     {
-      "binding": "NEWS_SEARCH_AGENT",
-      "service": "news-search-agent",
+      "binding": "MACRO_NEWS_SEARCH",
+      "service": "macro-news-search-agent",
       "environment": "production"
     },
     {
-      "binding": "NEWS_CURATOR_AGENT",
-      "service": "news-curator-agent",
+      "binding": "MACRO_NEWS_CURATOR",
+      "service": "macro-news-curator-agent",
       "environment": "production"
     }
   ],
