@@ -92,7 +92,16 @@ export const MACRO_INDICATORS = {
     source: "FRED",
     apiUrl: "https://api.stlouisfed.org/fred/series/observations",
     seriesId: "WRESBAL",
-    expectedRange: [1000000, 10000000]
+    expectedRange: [1000000, 10000000],
+    displayUnit: "millions"
+  },
+  InterestRates: {
+    name: "Interest Rates",
+    source: "FRED",
+    apiUrl: "https://api.stlouisfed.org/fred/series/observations",
+    seriesId: "DFF",
+    expectedRange: [0, 15],
+    displayUnit: "percent"
   },
   ConsumerSentiment: {
     name: "Consumer Sentiment",

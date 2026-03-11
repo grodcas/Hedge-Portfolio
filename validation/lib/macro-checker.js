@@ -226,7 +226,13 @@ async function checkIndicator(indicatorKey) {
         formatResult = checkFREDFormat(urlResult.data);
         if (formatResult.valid) {
           dataResult = validateFREDData(urlResult.data, config.expectedRange);
-          displayValue = dataResult.value ? `${(dataResult.value / 1000000).toFixed(2)}M (${dataResult.date})` : "ERROR";
+          if (dataResult.value != null) {
+            displayValue = config.displayUnit === "percent"
+              ? `${dataResult.value}% (${dataResult.date})`
+              : `${(dataResult.value / 1000000).toFixed(2)}M (${dataResult.date})`;
+          } else {
+            displayValue = "ERROR";
+          }
         } else {
           dataResult = { valid: false };
         }

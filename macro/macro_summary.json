@@ -55,6 +55,17 @@
       }
     },
     {
+      "heading": "Interest Rates",
+      "date": "2026-03-06",
+      "summary": {
+        "previous Fed Funds Rate": 3.64,
+        "current Fed Funds Rate": 3.64,
+        "pct_change Fed Funds Rate": 0,
+        "Target Range Upper": 3.75,
+        "Target Range Lower": 3.5
+      }
+    },
+    {
       "heading": "Consumer Sentiment",
       "date": "2026-02-01",
       "summary": {
@@ -77,12 +88,12 @@
     },
     {
       "heading": "Gamma Regime (VIX)",
-      "date": "2026-03-06",
+      "date": "2026-03-10",
       "summary": {
-        "VIX9D": 26.229999542236328,
-        "VIX": 25.93000030517578,
-        "VIX3M": 25.389999389648438,
-        "Gamma Regime": "NEGATIVE"
+        "VIX9D": 24.84000015258789,
+        "VIX": 24.1299991607666,
+        "VIX3M": 24.81999969482422,
+        "Gamma Regime": "POSITIVE"
       }
     },
     {
@@ -90,6 +101,7 @@
       "date": "2026-01-28",
       "summary": {
         "title": "Federal Reserve issues FOMC statement",
+        "link": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260128a.htm",
         "paragraphs": [
           "January 28, 2026",
           "For release at 2:00 p.m. EST",

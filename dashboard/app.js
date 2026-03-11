@@ -853,6 +853,7 @@ const MACRO_SOURCE_URLS = {
   "Bank Reserves": "https://fred.stlouisfed.org/series/WRESBAL",
   "Consumer Sentiment": "https://www.sca.isr.umich.edu/files/tbcics.csv",
   "Inflation Expectations": "https://www.sca.isr.umich.edu/files/tbcpx1px5.csv",
+  "Interest Rates": "https://fred.stlouisfed.org/series/DFF",
   "Gamma Regime (VIX)": "https://finance.yahoo.com/quote/%5EVIX/"
 };
 
@@ -879,7 +880,7 @@ function updateMonthlyCheck() {
       const sourceUrl = MACRO_SOURCE_URLS[item.heading] || '';
       // Format key values for easy Ctrl+F verification
       const keyValues = Object.entries(item.summary || {})
-        .filter(([k]) => k.startsWith('current') || k === 'VIX' || k === 'VIX9D' || k === 'VIX3M' || k === 'Gamma Regime')
+        .filter(([k]) => k.startsWith('current') || k.startsWith('Target Range') || k === 'VIX' || k === 'VIX9D' || k === 'VIX3M' || k === 'Gamma Regime')
         .map(([k, v]) => `${k.replace('current ', '')}: ${v}`)
         .join(', ');
       const tr = document.createElement('tr');

@@ -94,6 +94,53 @@ async function getBankReserves() {
 }
 
 
+// -------------------- INTEREST RATES (FRED) --------------
+async function getInterestRates() {
+  const url = "https://api.stlouisfed.org/fred/series/observations";
+
+  // Fetch effective federal funds rate (DFF), upper bound (DFEDTARU), lower bound (DFEDTARL)
+  const series = {
+    effective: "DFF",
+    upper: "DFEDTARU",
+    lower: "DFEDTARL"
+  };
+
+  const results = {};
+
+  for (const [key, seriesId] of Object.entries(series)) {
+    try {
+      const params = {
+        api_key: FRED_KEY,
+        series_id: seriesId,
+        file_type: "json",
+        sort_order: "desc",
+        limit: 2
+      };
+
+      const { data } = await axios.get(url, { params });
+
+      if (!data?.observations?.length) {
+        console.log(`FRED ERROR (${seriesId}):`, data);
+        results[key] = null;
+        continue;
+      }
+
+      results[key] = {
+        latest: data.observations[0],
+        previous: data.observations[1]
+      };
+    } catch (err) {
+      console.error(`FRED fetch error for ${seriesId}:`, err.message);
+      results[key] = null;
+    }
+  }
+
+  // Need at least the effective rate
+  if (!results.effective) return null;
+
+  return results;
+}
+
 // -------------------- FOMC STATEMENT (RSS) -------------
 async function getFOMC() {
   const url = "https://www.federalreserve.gov/feeds/press_monetary.xml";
@@ -386,7 +433,8 @@ export {
   getEmployment,
   getFOMC,
   getFOMCStatement,
-  getBankReserves,      // <-- THIS ONE FIXES YOUR ERROR
+  getBankReserves,
+  getInterestRates,
   getSkew,
   getGammaRegime_ETF,
   getConsumerSentimentUMich,

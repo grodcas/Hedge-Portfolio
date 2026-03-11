@@ -11,6 +11,7 @@ import {
   getEmployment,
   getFOMC,
   getBankReserves,
+  getInterestRates,
   getConsumerSentimentUMich,
   getInflationExpectations,
   getVIXTermStructure
@@ -150,6 +151,27 @@ async function main() {
     out.Macro.push({
       heading: "Bank Reserves",
       date: reserves.latest.date,
+      summary
+    });
+  }
+
+  // Interest Rates (Fed Funds)
+  const rates = await getInterestRates();
+  if (rates) {
+    const eff = rates.effective;
+    const summary = {
+      ...simplePair("Fed Funds Rate", Number(eff.latest.value), Number(eff.previous.value))
+    };
+    if (rates.upper?.latest) {
+      summary["Target Range Upper"] = Number(rates.upper.latest.value);
+    }
+    if (rates.lower?.latest) {
+      summary["Target Range Lower"] = Number(rates.lower.latest.value);
+    }
+
+    out.Macro.push({
+      heading: "Interest Rates",
+      date: eff.latest.date,
       summary
     });
   }
