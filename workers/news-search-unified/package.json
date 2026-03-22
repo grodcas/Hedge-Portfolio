@@ -1,0 +1,9 @@
+{
+  "name": "news-search-unified",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/worker.js",
+  "dependencies": {
+    "wrangler": "^4.72.0"
+  }
+}

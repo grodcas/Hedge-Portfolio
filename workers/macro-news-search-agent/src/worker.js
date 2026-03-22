@@ -1,6 +1,72 @@
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
+
+    // ---- A/B cost test endpoint ----
+    // Usage: POST /cost-test?model=gpt-5-mini  OR  /cost-test?model=gpt-4.1-mini
+    if (url.pathname === "/cost-test") {
+      const testModel = url.searchParams.get("model") || "gpt-5-mini";
+      const today = new Date().toISOString().slice(0, 10);
+      const prompt = buildGeopoliticsPrompt(today, "");
+      const schema = {
+        type: "object",
+        properties: {
+          layer: { type: "string" },
+          events: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                date: { type: "string" },
+                headline: { type: "string" },
+                summary: { type: "string" },
+                sentiment: { type: "string", enum: ["bullish", "bearish", "neutral"] },
+                magnitude: { type: "number" },
+                sources: { type: "array", items: { type: "string" } },
+                confidence: { type: "string", enum: ["high", "medium", "low"] }
+              },
+              required: ["id", "date", "headline", "summary", "sentiment", "magnitude", "sources", "confidence"],
+              additionalProperties: false
+            }
+          },
+          sentiment: { type: "string", enum: ["bullish", "bearish", "neutral"] },
+          magnitude: { type: "number" }
+        },
+        required: ["layer", "events", "sentiment", "magnitude"],
+        additionalProperties: false
+      };
+
+      const t1 = Date.now();
+      try {
+        const r1 = await fetch("https://api.openai.com/v1/responses", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: testModel,
+            tools: [{ type: "web_search_preview" }],
+            input: prompt,
+            text: { format: { type: "json_schema", name: "macro_layer_result", strict: true, schema } }
+          }),
+        });
+        const j1 = await r1.json();
+        let text1 = "";
+        if (j1.output) for (const b of j1.output) if (b.type === "message") for (const c of b.content) if (c.type === "output_text") text1 = c.text;
+        const parsed1 = text1 ? JSON.parse(text1) : null;
+        return Response.json({
+          model: testModel,
+          ok: !!parsed1,
+          ms: Date.now() - t1,
+          events: parsed1?.events?.length || 0,
+          sentiment: parsed1?.sentiment,
+          magnitude: parsed1?.magnitude,
+          usage: j1.usage || null
+        });
+      } catch (err) {
+        return Response.json({ model: testModel, ok: false, ms: Date.now() - t1, error: err.message });
+      }
+    }
+
     if (url.pathname !== "/search-macro")
       return new Response("Not found", { status: 404 });
 

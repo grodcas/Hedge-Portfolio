@@ -130,18 +130,17 @@ var index_default = {
       await this_env.REPORT_ORCHESTRATOR.fetch("https://internal/process-report", { method: "POST", body: JSON.stringify(body) });
     }
     if (action === "daily_news") {
-      const now = new Date().toISOString();
-
-      // Clear pending/running jobs before starting fresh
-      await this_env.DB.prepare(`
-        DELETE FROM PROC_01_Job_queue WHERE status IN ('pending', 'running')
-      `).run();
-
-      // Single orchestrator job handles all 25 tickers internally (parallel search + curation)
-      await this_env.DB.prepare(`
-        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
-        VALUES (?, ?, ?, ?)
-      `).bind(now, "news-orchestrator", "{}", "pending").run();
+      // Unified news worker handles ticker + macro + calendar in parallel
+      try {
+        const mode = body.mode || "deep";
+        const newsRes = await this_env.NEWS_SEARCH_UNIFIED.fetch(`https://internal/run?mode=${mode}`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: "{}"
+        });
+        const newsResult = await newsRes.json();
+        return Response.json({ ok: true, news: newsResult });
+      } catch (err) {
+        return Response.json({ ok: false, error: err.message });
+      }
     }
     if (action === "trend") {
       await this_env.TREND_ORCHESTRATOR.fetch("https://internal/process-trend", { method: "POST", body: JSON.stringify(body) });
@@ -168,16 +167,13 @@ var index_default = {
       `).bind(now, "macro-news-summarizer", JSON.stringify({ date: inputDate }), "pending").run();
     }
     if (action === "macro_news_search") {
-      // Call orchestrator directly and await (runs 5 parallel web searches, ~90s)
-      // Don't start the job queue workflow — this is a standalone long-running call
+      // Handled by unified news worker now
       try {
-        const macroRes = await this_env.MACRO_NEWS_ORCHESTRATOR.fetch("https://internal/process-macro-news", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: "{}"
+        const newsRes = await this_env.NEWS_SEARCH_UNIFIED.fetch("https://internal/run?mode=deep", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: "{}"
         });
-        const macroResult = await macroRes.json();
-        return Response.json({ ok: true, macro_news: macroResult });
+        const newsResult = await newsRes.json();
+        return Response.json({ ok: true, news: newsResult });
       } catch (err) {
         return Response.json({ ok: false, error: err.message });
       }
@@ -192,11 +188,11 @@ var index_default = {
         DELETE FROM PROC_01_Job_queue WHERE status IN ('pending', 'running')
       `).run();
 
-      // 1) Queue news-orchestrator (single job handles all 25 tickers with parallel search + curation)
-      await this_env.DB.prepare(`
-        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
-        VALUES (?, ?, ?, ?)
-      `).bind(now, "news-orchestrator", "{}", "pending").run();
+      // 1) Fire unified news search (ticker + macro + calendar in parallel)
+      // Runs via service binding — does NOT go through job queue
+      this_env.NEWS_SEARCH_UNIFIED.fetch("https://internal/run?mode=deep", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: "{}"
+      }).catch(err => console.error("Unified news search error:", err.message));
 
       // 2) Queue daily_macro
       await this_env.DB.prepare(`
@@ -210,20 +206,11 @@ var index_default = {
         VALUES (?, ?, ?, ?)
       `).bind(now, "beta-trend-orchestrator", "{}", "pending").run();
 
-      // 4) Queue macro_news (old summarizer)
+      // 4) Queue macro_news (old summarizer for non-search macro data)
       await this_env.DB.prepare(`
         INSERT INTO PROC_01_Job_queue (date, worker, input, status)
         VALUES (?, ?, ?, ?)
       `).bind(now, "macro-news-summarizer", JSON.stringify({ date: inputDate }), "pending").run();
-
-      // 5) Fire macro-news-orchestrator directly (parallel web search, ~90s)
-      // This runs concurrently with the workflow — the workflow handles job queue items
-      // while the orchestrator runs independently via service binding
-      await this_env.MACRO_NEWS_ORCHESTRATOR.fetch("https://internal/process-macro-news", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{}"
-      }).catch(err => console.error("Macro news orchestrator error:", err.message));
     }
     const instanceId = `run-${Date.now()}`;
     await this_env.WORKFLOW.create({ id: instanceId });

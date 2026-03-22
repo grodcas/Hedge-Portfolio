@@ -99,6 +99,11 @@
       "binding": "MACRO_NEWS_ORCHESTRATOR",
       "service": "macro-news-orchestrator",
       "environment": "production"
+    },
+    {
+      "binding": "NEWS_SEARCH_UNIFIED",
+      "service": "news-search-unified",
+      "environment": "production"
     }
   ],
   "d1_databases": [
