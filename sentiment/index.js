@@ -57,7 +57,7 @@ function fixAAIIDate(str) {
 //-------------------------------------------------------------
 async function scrapeAAII() {
   const raw = fs.readFileSync(
-    "C:\\AI_agent\\HF\\sentiment\\AAII.mhtml",
+    path.join(__dirname, "AAII.mhtml"),
     "utf8"
   );
 

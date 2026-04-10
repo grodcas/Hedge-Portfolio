@@ -4,9 +4,12 @@
 import OpenAI from "openai";
 import { VALIDATION_THRESHOLDS } from "../config.js";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+// Lazy-init: only create client when AI is actually needed
+let _openai = null;
+function getOpenAI() {
+  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return _openai;
+}
 
 const MODEL = VALIDATION_THRESHOLDS.aiValidationModel || "o3-mini";
 
@@ -67,7 +70,7 @@ Examples of VALID content:
       requestParams.temperature = 0.1;
     }
 
-    const response = await openai.chat.completions.create(requestParams);
+    const response = await getOpenAI().chat.completions.create(requestParams);
 
     const content = response.choices[0]?.message?.content?.trim();
 

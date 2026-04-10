@@ -1,6 +1,6 @@
 # HF Trading Journal — System Structure
 
-**Last updated**: 2026-03-01
+**Last updated**: 2026-04-10
 **Status**: Active
 
 This is the **single entry point** for all project documentation. Every doc is linked from here. If it's not linked, it doesn't exist.
@@ -207,6 +207,14 @@ HF/
 | **[Validation](features/validation.md)** | 6 checkers + AI hallucination detection, check tiers |
 | **[Worker & D1](features/worker-d1.md)** | Worker API reference, all routes, data transformations |
 | **[Dashboard](features/dashboard.md)** | 6 tabs, data flow from D1 to UI, auto-refresh mechanism |
+
+### Roadmap
+
+| Document | Purpose |
+|----------|---------|
+| **[REWORK_PLAN.md](REWORK_PLAN.md)** | Frozen target: investment counseling system — data architecture, API integrations, assessment model, phases |
+| **[TEST_CHECKLIST.md](TEST_CHECKLIST.md)** | Pre-rework validation: every component tested, results recorded, broken items identified |
+| **[TEST_RESULTS_20260410.md](TEST_RESULTS_20260410.md)** | First test run results: 23 pass, 30 fail, 30 blocked. Fix list prioritized. |
 
 ### Process & History
 

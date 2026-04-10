@@ -67,7 +67,7 @@ class PipelineLogger {
     this.rows = process.stdout.rows || 24;
   }
 
-  init(steps, logDir = "C:\\AI_agent\\HF\\logs") {
+  init(steps, logDir = "logs") {
     this.steps = steps.map((name, i) => ({
       name,
       status: "pending",

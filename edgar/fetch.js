@@ -40,7 +40,7 @@ const TICKERS = {
 const TARGET_FORMS = new Set(["10-K", "10-Q", "8-K", "4"]);
 //const TARGET_FORMS = new Set(["10-K", "10-Q"]);
 
-const OUT_DIR = "C:/AI_agent/HF/edgar/edgar_raw_html";
+const OUT_DIR = path.join(__dirname, "edgar_raw_html");
 if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR);
 
 // --------------------------------------------------
@@ -105,9 +105,17 @@ await main();
 
 
 console.log("→ Parsing downloaded HTMLs");
-execSync(`node edgar/dispatch.js ${START} ${END}`, { stdio: "inherit" });
+try {
+  execSync(`node edgar/dispatch.js ${START} ${END}`, { stdio: "inherit" });
+} catch (err) {
+  console.error("⚠ Dispatch had errors (continuing):", err.message.split("\n")[0]);
+}
 
 console.log("→ Clustering parsed JSONs");
-execSync(`node edgar/dispatch-cluster.js ${START} ${END}`, { stdio: "inherit" });
+try {
+  execSync(`node edgar/dispatch-cluster.js ${START} ${END}`, { stdio: "inherit" });
+} catch (err) {
+  console.error("⚠ Clustering had errors (continuing):", err.message.split("\n")[0]);
+}
 
 console.log("→ EDGAR FETCH DONE");

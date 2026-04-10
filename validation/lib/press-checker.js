@@ -6,8 +6,11 @@ import path from "path";
 import OpenAI from "openai";
 import { PORTFOLIO_TICKERS } from "../config.js";
 
-const PRESS_JSON_PATH = "C:\\AI_agent\\HF\\press\\AA_press_releases_today.json";
-const SUMMARY_JSON_PATH = "C:\\AI_agent\\HF\\press\\AA_press_summary.json";
+import { fileURLToPath } from "url";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const BASE_DIR = path.resolve(__dirname, "../..");
+const PRESS_JSON_PATH = path.join(BASE_DIR, "press", "AA_press_releases_today.json");
+const SUMMARY_JSON_PATH = path.join(BASE_DIR, "press", "AA_press_summary.json");
 
 /**
  * Load the press releases health check data

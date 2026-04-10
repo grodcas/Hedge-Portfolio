@@ -5,8 +5,11 @@ import fs from "fs";
 import path from "path";
 import { PORTFOLIO_TICKERS, SEC_FILING_TYPES } from "../config.js";
 
-const EDGAR_PARSED_DIR = "C:\\AI_agent\\HF\\edgar\\edgar_parsed_json";
-const EDGAR_RAW_DIR = "C:\\AI_agent\\HF\\edgar\\edgar_raw_html";
+import { fileURLToPath } from "url";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const BASE_DIR = path.resolve(__dirname, "../..");
+const EDGAR_PARSED_DIR = path.join(BASE_DIR, "edgar", "edgar_parsed_json");
+const EDGAR_RAW_DIR = path.join(BASE_DIR, "edgar", "edgar_raw_html");
 
 /**
  * Scan edgar folders to find all ingested SEC filings

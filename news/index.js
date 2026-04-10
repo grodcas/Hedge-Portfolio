@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import qp from "quoted-printable";
 import iconv from "iconv-lite";
 import { load } from "cheerio";
@@ -10,7 +11,8 @@ const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 console.log("NEWS_SUMMARY STARTED")
 
-const __dirname = "C:/AI_agent/HF";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const BASE_DIR = path.resolve(__dirname, "..");
 const date = new Date().toISOString().slice(0, 10);
 
 // -------------------------------------------------
@@ -203,7 +205,7 @@ async function main() {
   output.Reuters   = await processFolder("news/REUTERS/files", parseReuters);
 
   fs.writeFileSync(
-    path.join("C:/AI_agent/HF/news/news_summary.json"),
+    path.join(__dirname, "news_summary.json"),
     JSON.stringify(output, null, 2)
   );
 }

@@ -1,7 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const DIR = process.argv[2] || "C:/AI_agent/HF/edgar/edgar_clustered_json";
+import { fileURLToPath } from "node:url";
+const __dir = path.dirname(fileURLToPath(import.meta.url));
+const DIR = process.argv[2] || __dir;
 const WORKER_INGEST_URL = process.env.INGEST_URL; // e.g. https://edgar-ingestor.yourname.workers.dev/ingest
 
 if (!WORKER_INGEST_URL) {

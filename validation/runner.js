@@ -4,6 +4,9 @@
 import "dotenv/config";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const BASE_DIR = path.resolve(__dirname, "..");
 
 import PipelineLogger from "./lib/logger.js";
 import * as secChecker from "./lib/sec-checker.js";
@@ -31,7 +34,7 @@ async function runValidation(options = {}, ingestedData = {}) {
     skipNews = false,
     secLookbackDays = 2,   // Days to look back for SEC comparison
     skipPolicy = false,
-    logDir = "C:\\AI_agent\\HF\\logs"
+    logDir = path.join(BASE_DIR, "logs")
   } = options;
 
   // Initialize logger

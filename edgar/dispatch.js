@@ -9,6 +9,8 @@ const [,, START, END] = process.argv;
 const startDate = new Date(START);
 const endDate = new Date(END);
 
+let passed = 0, failed = 0;
+
 ;(async () => {
   for (const f of fs.readdirSync(RAW_DIR)) {
     if (!f.endsWith(".html")) continue;
@@ -23,6 +25,7 @@ const endDate = new Date(END);
   const fileDate = new Date(date);
   if (fileDate < startDate || fileDate > endDate) continue;
 
+  try {
   const html = fs.readFileSync(path.join(RAW_DIR, f), "utf8");
 
   let outputs = {};
@@ -60,7 +63,15 @@ const endDate = new Date(END);
   // -------- write output --------
   const outName = `${base}_parsed.json`;
   fs.writeFileSync(path.join(OUT_DIR, outName), JSON.stringify(outputs, null, 2));
-  console.log("Saved", outName);
+  console.log("✓", outName);
+  passed++;
+
+  } catch (err) {
+    console.error("✗ PARSE FAILED:", f, "—", err.message);
+    failed++;
   }
+  }
+
+  console.log(`\nDispatch done: ${passed} passed, ${failed} failed`);
 })();
 

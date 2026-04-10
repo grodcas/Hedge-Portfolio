@@ -28,7 +28,7 @@
     "validate": "node validation/runner.js",
     "pipeline": "node src/pipeline.js",
     "ingest": "node src/pipeline.js",
-    "verify": "node src/verify.js"
+    "verify": "echo 'Fact verification runs as pipeline step 9 or via dashboard button'"
   },
 
 

@@ -141,7 +141,7 @@ export const SENTIMENT_INDICATORS = {
     name: "AAII Sentiment",
     source: "AAII",
     url: "https://www.aaii.com/sentiment-survey",
-    localFile: "C:\\AI_agent\\HF\\sentiment\\AAII.mhtml",
+    localFile: null, // AAII.mhtml must be manually placed in sentiment/
     expectedRange: [0, 100]
   },
   COT: {
@@ -172,15 +172,15 @@ export const POLICY_SOURCES = {
 export const NEWS_SOURCES = {
   Bloomberg: {
     name: "Bloomberg",
-    folder: "C:\\AI_agent\\HF\\news\\BLOOMBERG\\files"
+    folder: "news/BLOOMBERG/files"
   },
   WSJ: {
     name: "WSJ",
-    folder: "C:\\AI_agent\\HF\\news\\WSJ\\files"
+    folder: "news/WSJ/files"
   },
   Reuters: {
     name: "Reuters",
-    folder: "C:\\AI_agent\\HF\\news\\REUTERS\\files"
+    folder: "news/REUTERS/files"
   }
 };
 

@@ -1,7 +1,8 @@
 import fs from "fs";
 import path from "path";
 
-const DIR = "C:/AI_agent/HF/edgar/edgar_clustered_json";
+import { fileURLToPath } from "url";
+const DIR = path.dirname(fileURLToPath(import.meta.url));
 
 // --------------------
 // failure heuristics

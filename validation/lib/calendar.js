@@ -3,11 +3,14 @@
 
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const BASE_DIR = path.resolve(__dirname, "../..");
 
 // Load macro calendar from existing file
 function loadMacroCalendar() {
   try {
-    const calendarPath = "C:\\AI_agent\\HF\\macro_calendar_2025.json";
+    const calendarPath = path.join(BASE_DIR, "macro_calendar_2025.json");
     if (fs.existsSync(calendarPath)) {
       return JSON.parse(fs.readFileSync(calendarPath, "utf8"));
     }
