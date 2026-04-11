@@ -16,6 +16,7 @@ import * as sentimentChecker from "./lib/sentiment-checker.js";
 import * as pressChecker from "./lib/press-checker.js";
 import * as newsChecker from "./lib/news-checker.js";
 import * as policyChecker from "./lib/policy-checker.js";
+import * as newsFunnelChecker from "./lib/news-funnel-checker.js";
 import * as calendar from "./lib/calendar.js";
 
 /**
@@ -34,6 +35,8 @@ async function runValidation(options = {}, ingestedData = {}) {
     skipNews = false,
     secLookbackDays = 2,   // Days to look back for SEC comparison
     skipPolicy = false,
+    skipNewsFunnel = false,
+    newsFunnelData = null,  // { gathered, filtered, orchestrator } from pipeline run
     logDir = path.join(BASE_DIR, "logs")
   } = options;
 
@@ -45,7 +48,8 @@ async function runValidation(options = {}, ingestedData = {}) {
     "Sentiment",
     "Press Releases",
     "White House/FOMC",
-    "News"
+    "News",
+    "News Funnel"
   ];
 
   logger.init(steps, logDir);
@@ -59,6 +63,7 @@ async function runValidation(options = {}, ingestedData = {}) {
     press: null,
     policy: null,
     news: null,
+    newsFunnel: null,
     summary: null
   };
 
@@ -285,6 +290,50 @@ async function runValidation(options = {}, ingestedData = {}) {
       logger.completeStep(5, 0, "done");
     }
 
+    // ============ STEP 7: NEWS FUNNEL ============
+    if (!skipNewsFunnel && newsFunnelData) {
+      logger.startStep(6);
+      logger.log("NEWS_FUNNEL", "Starting news funnel validation...");
+
+      const funnelResult = newsFunnelChecker.checkNewsFunnel(newsFunnelData);
+      const funnelSummary = newsFunnelChecker.getSummary(funnelResult);
+
+      // Log each stage result
+      for (const [stage, check] of Object.entries(funnelResult.checks)) {
+        if (!check) continue;
+        const icon = check.valid ? "✓" : "✗";
+        const level = check.valid ? "ok" : "warn";
+        const detail = check.error || Object.entries(check.checks || {})
+          .map(([k, v]) => `${k}:${v ? "✓" : "✗"}`).join(" ");
+        logger.log("NEWS_FUNNEL", `  ${icon} ${stage}: ${detail}`, level);
+
+        // Log URL issues if any
+        if (check.details?.urls_invalid?.length > 0) {
+          for (const u of check.details.urls_invalid) {
+            logger.log("NEWS_FUNNEL", `    Bad URL: ${u.title || "?"} → ${u.url || "null"}`, "warn");
+          }
+        }
+        // Log LLM issues if any
+        if (check.details?.llm_issues?.length > 0) {
+          for (const i of check.details.llm_issues) {
+            logger.log("NEWS_FUNNEL", `    LLM issue: ${i.ticker || "macro"} missing [${i.missing?.join(", ")}]`, "warn");
+          }
+        }
+      }
+
+      if (funnelSummary.issues.length > 0) {
+        hasWarnings = true;
+        for (const issue of funnelSummary.issues) {
+          actionRequired.push(`News Funnel: ${issue}`);
+        }
+      }
+
+      results.newsFunnel = funnelResult;
+      logger.completeStep(6, funnelSummary.total, funnelSummary.allPassed ? "done" : "warning");
+    } else {
+      logger.completeStep(6, 0, "done");
+    }
+
     // ============ FINAL SUMMARY ============
     const summary = {
       hasErrors,
@@ -323,6 +372,12 @@ async function runValidation(options = {}, ingestedData = {}) {
           passed: newsChecker.getSummary(results.news || []).aiPassed,
           failed: newsChecker.getSummary(results.news || []).totalArticles - newsChecker.getSummary(results.news || []).aiPassed,
           issues: newsChecker.getSummary(results.news || []).failed?.slice(0, 3).map(f => f.file).join(", ")
+        },
+        "News Funnel": {
+          total: newsFunnelChecker.getSummary(results.newsFunnel).total,
+          passed: newsFunnelChecker.getSummary(results.newsFunnel).passed,
+          failed: newsFunnelChecker.getSummary(results.newsFunnel).total - newsFunnelChecker.getSummary(results.newsFunnel).passed,
+          issues: newsFunnelChecker.getSummary(results.newsFunnel).issues.join("; ")
         }
       },
       calendarEvents: [
