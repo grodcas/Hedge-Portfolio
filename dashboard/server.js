@@ -325,6 +325,38 @@ app.get("/api/fomc-calendar", (req, res) => {
   });
 });
 
+// Get news digest from D1 (BETA_12 + releases)
+app.get("/api/news-digest/:date", async (req, res) => {
+  try {
+    const { date } = req.params;
+    const data = await fetchFromWorker(`/query/news-digest?date=${date}`);
+    res.json({ ...data, source: "D1" });
+  } catch (error) {
+    handleD1Error(res, `/api/news-digest/${req.params.date}`, error);
+  }
+});
+
+// Get prices from D1
+app.get("/api/prices/:date", async (req, res) => {
+  try {
+    const { date } = req.params;
+    const data = await fetchFromWorker(`/query/prices?date=${date}`);
+    res.json(data);
+  } catch (error) {
+    handleD1Error(res, `/api/prices/${req.params.date}`, error);
+  }
+});
+
+// Get sector performance from D1
+app.get("/api/sector-performance", async (req, res) => {
+  try {
+    const data = await fetchFromWorker("/query/sector-performance");
+    res.json(data);
+  } catch (error) {
+    handleD1Error(res, "/api/sector-performance", error);
+  }
+});
+
 // ============ MAIN DASHBOARD ENDPOINT (ALL DATA FROM D1) ============
 
 app.get("/api/dashboard/:date", async (req, res) => {
@@ -346,8 +378,9 @@ app.get("/api/dashboard/:date", async (req, res) => {
     tickerTrends: {},
     reports: {},
     earningsCalendar: {},
-    calendar: { nextFOMC: { date: "2026-03-18" } },
+    calendar: { nextFOMC: { date: "2026-05-06" } },
     verification_ai: null,
+    newsDigest: null,
     errors: [] // Track any fetch errors
   };
 
@@ -465,6 +498,19 @@ app.get("/api/dashboard/:date", async (req, res) => {
       .catch(err => {
         result.errors.push({ endpoint: "earnings-calendar", error: err.message });
         console.error(`[D1 ERROR] earnings-calendar: ${err.message}`);
+      }),
+
+    // 9. News digest (BETA_12 + releases)
+    fetchFromWorker(`/query/news-digest?date=${date}`)
+      .then(data => {
+        if (data) {
+          result.newsDigest = data;
+          console.log(`[D1] Loaded news digest`);
+        }
+      })
+      .catch(err => {
+        result.errors.push({ endpoint: "news-digest", error: err.message });
+        console.error(`[D1 ERROR] news-digest: ${err.message}`);
       })
   ];
 

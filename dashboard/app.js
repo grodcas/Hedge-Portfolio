@@ -385,258 +385,198 @@ function updateValidation() {
   }
 }
 
-// ============ DAILY OUTPUT TAB (REDESIGNED) ============
+// ============ DAILY INTELLIGENCE TAB (v2) ============
 
 function updateDailyOutput() {
-  // Daily Macro Summary (from BETA_10_Daily_macro)
-  const dailyMacro = dashboardData.dailyMacro || {};
-  document.getElementById('dailyMacroUpdate').textContent =
-    `Last update: ${dailyMacro.creation_date || dashboardData.date || '--'}`;
+  const digest = dashboardData.newsDigest || {};
+  const releases = digest.releases || {};
+  const macroHL = digest.macro_headlines || [];
+  const tickerHL = digest.ticker_headlines || {};
 
-  // Show which macros were published today as badges
-  const badgesContainer = document.getElementById('macroPublishedToday');
+  // --- RELEASES TODAY ---
+  const badgesContainer = document.getElementById('releaseBadges');
   badgesContainer.innerHTML = '';
 
-  if (dailyMacro.structure && Array.isArray(dailyMacro.structure)) {
-    dailyMacro.structure.forEach(src => {
-      const badge = document.createElement('span');
-      badge.className = `type-badge badge-macro`;
-      badge.textContent = src.type || src.name || 'MACRO';
-      badge.title = src.date || '';
-      badgesContainer.appendChild(badge);
-    });
-  } else {
-    // Fallback: show recent macro updates from macro data
-    const macroItems = dashboardData.macro?.Macro || [];
-    macroItems.slice(0, 5).forEach(item => {
-      const badge = document.createElement('span');
-      badge.className = `type-badge badge-macro`;
-      badge.textContent = item.heading?.split(' ')[0] || 'MACRO';
-      badgesContainer.appendChild(badge);
-    });
+  // SEC releases
+  const secReleases = releases.sec || [];
+  secReleases.forEach(r => {
+    const badge = document.createElement('div');
+    badge.className = 'release-badge release-sec';
+    badge.innerHTML = `<span class="release-type">${r.type}</span><span class="release-ticker">${r.ticker}</span>`;
+    badge.addEventListener('click', () => showReportModal(`${r.ticker} ${r.type}`, `Filed on ${r.date}. Check SEC Edgar for full filing.`));
+    badgesContainer.appendChild(badge);
+  });
+
+  // Press releases
+  const pressReleases = releases.press || [];
+  pressReleases.forEach(r => {
+    const badge = document.createElement('div');
+    badge.className = 'release-badge release-press';
+    badge.innerHTML = `<span class="release-type">PRESS</span><span class="release-ticker">${r.ticker}</span>`;
+    badge.addEventListener('click', () => showReportModal(`${r.ticker} Press Release`, r.heading || 'Press release'));
+    badgesContainer.appendChild(badge);
+  });
+
+  // Macro data releases
+  const macroReleases = releases.macro || [];
+  macroReleases.forEach(r => {
+    const badge = document.createElement('div');
+    badge.className = 'release-badge release-macro';
+    const label = r.type?.split(' ')[0] || 'DATA';
+    badge.innerHTML = `<span class="release-type">${label}</span>`;
+    badge.addEventListener('click', () => showReportModal(r.type || 'Macro Data', formatSummary(r.summary)));
+    badgesContainer.appendChild(badge);
+  });
+
+  if (secReleases.length + pressReleases.length + macroReleases.length === 0) {
+    badgesContainer.innerHTML = '<span class="no-data">No releases today</span>';
   }
 
-  document.getElementById('dailyMacroSummary').textContent =
-    dailyMacro.summary || 'No daily macro summary available. Run the daily-macro-summarizer worker to generate.';
+  // --- UPCOMING CATALYSTS ---
+  const catalysts = document.getElementById('catalystsList');
+  catalysts.innerHTML = '';
 
-  // Ticker Daily News (from ALPHA_05_Daily_news)
-  const tickerGrid = document.getElementById('tickerNewsGrid');
-  tickerGrid.innerHTML = '';
+  const FOMC_DATES = ['2026-05-06', '2026-06-17', '2026-07-29', '2026-09-16', '2026-11-04', '2026-12-16'];
+  const CPI_DATES = ['2026-04-14', '2026-05-13', '2026-06-10', '2026-07-15', '2026-08-12', '2026-09-10'];
+  const EMPLOYMENT_DATES = ['2026-04-17', '2026-05-08', '2026-06-05', '2026-07-02', '2026-08-07', '2026-09-04'];
+  const now = new Date();
 
-  const dailyNews = dashboardData.dailyNews || {};
-  const reports = dashboardData.reports || {};
-  const today = currentDate; // Use selected date for filtering
+  const upcomingEvents = [];
+  const nextFOMC = FOMC_DATES.find(d => new Date(d) > now);
+  if (nextFOMC) upcomingEvents.push({ name: 'FOMC Meeting', date: nextFOMC });
+  const nextCPI = CPI_DATES.find(d => new Date(d) > now);
+  if (nextCPI) upcomingEvents.push({ name: 'CPI Release', date: nextCPI });
+  const nextEmployment = EMPLOYMENT_DATES.find(d => new Date(d) > now);
+  if (nextEmployment) upcomingEvents.push({ name: 'Employment Report', date: nextEmployment });
 
-  let tickersAdded = 0;
+  // Add earnings from calendar
+  const earningsCal = dashboardData.earningsCalendar || {};
+  Object.entries(earningsCal).forEach(([ticker, data]) => {
+    const eDate = data?.nextEarnings;
+    if (eDate && new Date(eDate) > now) {
+      const days = Math.ceil((new Date(eDate) - now) / 86400000);
+      if (days <= 30) upcomingEvents.push({ name: `${ticker} Earnings`, date: eDate });
+    }
+  });
 
-  // If we have daily news data
-  if (Object.keys(dailyNews).length > 0) {
-    Object.entries(dailyNews).forEach(([ticker, data]) => {
-      // Only show tickers updated today
-      if (data.date === today) {
-        tickerGrid.appendChild(createTickerCard(ticker, data, reports[ticker]));
-        tickersAdded++;
-      }
-    });
-  } else {
-    // Fallback: create cards from news and press data - only today's updates
-    const tickerUpdates = new Map(); // ticker -> { news: [], press: [] }
+  upcomingEvents.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    // Collect news articles from today
-    if (dashboardData.news) {
-      Object.entries(dashboardData.news).forEach(([source, articles]) => {
-        if (Array.isArray(articles)) {
-          articles.forEach(article => {
-            // Check if article is from today
-            const articleDate = article.date || article.published_date || article.publishedAt;
-            if (articleDate && articleDate.startsWith(today)) {
-              if (article.tickers) {
-                article.tickers.forEach(ticker => {
-                  if (!tickerUpdates.has(ticker)) {
-                    tickerUpdates.set(ticker, { news: [], press: [] });
-                  }
-                  tickerUpdates.get(ticker).news.push({ ...article, source });
-                });
-              }
-            }
-          });
-        }
+  upcomingEvents.slice(0, 8).forEach(evt => {
+    const days = Math.ceil((new Date(evt.date) - now) / 86400000);
+    const row = document.createElement('div');
+    row.className = 'catalyst-row';
+    const urgency = days <= 3 ? 'urgent' : days <= 7 ? 'soon' : '';
+    row.innerHTML = `<span class="catalyst-name">${evt.name}</span><span class="catalyst-dots"></span><span class="catalyst-days ${urgency}">${days}d</span>`;
+    catalysts.appendChild(row);
+  });
+
+  if (upcomingEvents.length === 0) {
+    catalysts.innerHTML = '<span class="no-data">No upcoming catalysts</span>';
+  }
+
+  // --- MACRO HEADLINES ---
+  const macroList = document.getElementById('macroHeadlinesList');
+  macroList.innerHTML = '';
+  document.getElementById('macroHeadlineCount').textContent = macroHL.length;
+
+  macroHL.forEach(h => {
+    const item = document.createElement('details');
+    item.className = 'headline-row';
+    const sentClass = h.sentiment === 'bullish' ? 'dot-green' : h.sentiment === 'bearish' ? 'dot-red' : 'dot-gray';
+    item.innerHTML = `
+      <summary>
+        <span class="headline-category">${h.category || 'macro'}</span>
+        <span class="headline-title">${h.title}</span>
+        <span class="sentiment-dot ${sentClass}"></span>
+      </summary>
+      <div class="headline-detail">
+        <p>${h.summary || h.impact || 'No summary available'}</p>
+        ${h.source ? `<span class="headline-source">${h.source}</span>` : ''}
+      </div>
+    `;
+    macroList.appendChild(item);
+  });
+
+  if (macroHL.length === 0) {
+    macroList.innerHTML = '<span class="no-data">No macro headlines. Run the news funnel pipeline to populate.</span>';
+  }
+
+  // --- TICKER HEADLINES ---
+  const tickerList = document.getElementById('tickerHeadlinesList');
+  tickerList.innerHTML = '';
+
+  const allTickerItems = [];
+  Object.entries(tickerHL).forEach(([ticker, items]) => {
+    items.forEach(h => allTickerItems.push({ ...h, _ticker: ticker }));
+  });
+  allTickerItems.sort((a, b) => (a.rank || 99) - (b.rank || 99));
+
+  allTickerItems.forEach(h => {
+    const item = document.createElement('details');
+    item.className = 'headline-row';
+    item.dataset.type = 'news';
+    const sentClass = h.sentiment === 'bullish' ? 'dot-green' : h.sentiment === 'bearish' ? 'dot-red' : 'dot-gray';
+    const mag = h.magnitude != null ? (h.magnitude > 0 ? `+${h.magnitude.toFixed(1)}` : h.magnitude.toFixed(1)) : '';
+    item.innerHTML = `
+      <summary>
+        <span class="headline-ticker">${h._ticker}</span>
+        <span class="headline-title">${h.title}</span>
+        <span class="sentiment-dot ${sentClass}"></span>
+        ${mag ? `<span class="headline-mag">${mag}</span>` : ''}
+      </summary>
+      <div class="headline-detail">
+        <p>${h.summary || h.impact || 'No summary available'}</p>
+        ${h.source ? `<span class="headline-source">${h.source}</span>` : ''}
+      </div>
+    `;
+    tickerList.appendChild(item);
+  });
+
+  // Also add SEC filings and press as headlines
+  secReleases.forEach(r => {
+    const item = document.createElement('details');
+    item.className = 'headline-row';
+    item.dataset.type = 'sec';
+    item.innerHTML = `
+      <summary>
+        <span class="headline-ticker">${r.ticker}</span>
+        <span class="headline-title">${r.type} filed</span>
+        <span class="type-badge badge-10k">${r.type}</span>
+      </summary>
+      <div class="headline-detail"><p>SEC filing ${r.type} filed on ${r.date}.</p></div>
+    `;
+    tickerList.appendChild(item);
+  });
+
+  pressReleases.forEach(r => {
+    const item = document.createElement('details');
+    item.className = 'headline-row';
+    item.dataset.type = 'press';
+    item.innerHTML = `
+      <summary>
+        <span class="headline-ticker">${r.ticker}</span>
+        <span class="headline-title">${r.heading || 'Press release'}</span>
+        <span class="type-badge badge-press">PRESS</span>
+      </summary>
+      <div class="headline-detail"><p>${r.heading || 'Press release'} (${r.date})</p></div>
+    `;
+    tickerList.appendChild(item);
+  });
+
+  if (allTickerItems.length + secReleases.length + pressReleases.length === 0) {
+    tickerList.innerHTML = '<span class="no-data">No ticker headlines. Run the news funnel pipeline to populate.</span>';
+  }
+
+  // Filter buttons
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.onclick = (e) => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      const filter = e.target.dataset.filter;
+      document.querySelectorAll('#tickerHeadlinesList .headline-row').forEach(row => {
+        row.style.display = (filter === 'all' || row.dataset.type === filter) ? '' : 'none';
       });
-    }
-
-    // Collect press releases from today
-    if (dashboardData.press) {
-      Object.entries(dashboardData.press).forEach(([ticker, items]) => {
-        if (Array.isArray(items)) {
-          items.forEach(item => {
-            const itemDate = item.date || item.published_date;
-            if (itemDate && itemDate.startsWith(today)) {
-              if (!tickerUpdates.has(ticker)) {
-                tickerUpdates.set(ticker, { news: [], press: [] });
-              }
-              tickerUpdates.get(ticker).press.push(item);
-            }
-          });
-        }
-      });
-    }
-
-    // Create cards only for tickers with today's updates
-    tickerUpdates.forEach((updates, ticker) => {
-      const newsItems = updates.news;
-      const pressItems = updates.press;
-
-      // Only create card if there's something from today
-      if (newsItems.length > 0 || pressItems.length > 0) {
-        const fallbackData = {
-          summary: `${newsItems.length} news items, ${pressItems.length} press releases`,
-          todays_important: newsItems[0]?.summary || pressItems[0]?.summary || null,
-          new_sec: null,
-          types: {
-            news: newsItems.length,
-            press: pressItems.length
-          }
-        };
-
-        tickerGrid.appendChild(createTickerCard(ticker, fallbackData, null));
-        tickersAdded++;
-      }
-    });
-  }
-
-  // Show message if no tickers have updates today
-  if (tickersAdded === 0) {
-    tickerGrid.innerHTML = `
-      <div class="no-updates-message" style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-secondary);">
-        <p style="font-size: 1rem; margin-bottom: 0.5rem;">No ticker updates for ${today}</p>
-        <p style="font-size: 0.875rem;">Run the daily pipeline to fetch new data.</p>
-      </div>
-    `;
-  }
-}
-
-function createTickerCard(ticker, data, reportData) {
-  const card = document.createElement('div');
-  card.className = 'ticker-card';
-  card.dataset.types = '';
-
-  // Determine card border color and badges
-  const badges = [];
-
-  // Sentiment badge (from AI-Search)
-  if (data.sentiment && data.magnitude != null) {
-    const mag = parseFloat(data.magnitude);
-    let sentimentClass, sentimentText;
-    if (mag > 0) {
-      sentimentClass = 'badge-bullish';
-      sentimentText = `+${mag.toFixed(1)}`;
-    } else if (mag < 0) {
-      sentimentClass = 'badge-bearish';
-      sentimentText = mag.toFixed(1);
-    } else {
-      sentimentClass = 'badge-neutral';
-      sentimentText = '0.0';
-    }
-    badges.push({ class: sentimentClass, text: sentimentText });
-    card.dataset.types += 'news ';
-  }
-
-  if (data.new_sec) {
-    const secTypes = data.new_sec.split(',').map(s => s.trim());
-    secTypes.forEach(type => {
-      if (type.includes('10-K')) {
-        badges.push({ class: 'badge-10k', text: '10-K' });
-        card.classList.add('has-sec');
-        card.dataset.types += 'sec ';
-      } else if (type.includes('10-Q')) {
-        badges.push({ class: 'badge-10q', text: '10-Q' });
-        card.classList.add('has-sec');
-        card.dataset.types += 'sec ';
-      } else if (type.includes('8-K')) {
-        badges.push({ class: 'badge-8k', text: '8-K' });
-        card.classList.add('has-sec');
-        card.dataset.types += 'sec ';
-      } else if (type.includes('4') || type.includes('Form')) {
-        badges.push({ class: 'badge-form4', text: 'Form 4' });
-        card.dataset.types += 'sec ';
-      }
-    });
-  }
-
-  if (data.types?.press > 0 || data.hasPress) {
-    badges.push({ class: 'badge-press', text: 'PRESS' });
-    card.classList.add('has-press');
-    card.dataset.types += 'press ';
-  }
-
-  if (data.types?.news > 0 || data.hasNews) {
-    badges.push({ class: 'badge-news', text: 'NEWS' });
-    card.dataset.types += 'news ';
-  }
-
-  // Build card HTML
-  let html = `
-    <div class="ticker-card-header">
-      <span class="ticker-symbol">${ticker}</span>
-      <div class="ticker-badges">
-        ${badges.map(b => `<span class="type-badge ${b.class}">${b.text}</span>`).join('')}
-      </div>
-    </div>
-    <div class="ticker-summary">${data.summary || 'No summary available'}</div>
-  `;
-
-  // Add important news section if present
-  if (data.todays_important) {
-    html += `
-      <div class="ticker-important">
-        <div class="ticker-important-label">Today's Important</div>
-        <div class="ticker-important-text">${truncate(data.todays_important, 150)}</div>
-      </div>
-    `;
-  }
-
-  if (data.last_important && data.last_important !== data.todays_important) {
-    html += `
-      <div class="ticker-important">
-        <div class="ticker-important-label">Previous (${data.last_important_date || 'recent'})</div>
-        <div class="ticker-important-text">${truncate(data.last_important, 150)}</div>
-      </div>
-    `;
-  }
-
-  // Add report button if there's a 10-K or 10-Q report
-  if (reportData && (data.new_sec?.includes('10-K') || data.new_sec?.includes('10-Q'))) {
-    html += `
-      <button class="report-expand-btn" data-ticker="${ticker}" data-report-id="${reportData.id}">
-        View Report Summary
-      </button>
-    `;
-  }
-
-  card.innerHTML = html;
-
-  // Add click handler for report button
-  const reportBtn = card.querySelector('.report-expand-btn');
-  if (reportBtn) {
-    reportBtn.addEventListener('click', () => {
-      showReportModal(
-        `${ticker} - ${data.new_sec} Report Summary`,
-        reportData?.summary || 'Report summary not available'
-      );
-    });
-  }
-
-  return card;
-}
-
-function filterTickerCards(filter) {
-  const cards = document.querySelectorAll('.ticker-card');
-  cards.forEach(card => {
-    if (filter === 'all') {
-      card.style.display = 'block';
-    } else {
-      card.style.display = card.dataset.types.includes(filter) ? 'block' : 'none';
-    }
+    };
   });
 }
 
@@ -645,10 +585,117 @@ function truncate(str, len) {
   return str.length > len ? str.substring(0, len) + '...' : str;
 }
 
-// ============ MACRO TAB ============
+// ============ MACRO TAB (v2) ============
 
 function updateMacroTab() {
-  // FOMC Countdown
+  // Try to parse structured macro intelligence from dailyMacro summary
+  const dailyMacro = dashboardData.dailyMacro || {};
+  let intel = null;
+
+  // Try JSON parse (new macro-intelligence-builder format)
+  try {
+    if (dailyMacro.summary && dailyMacro.summary.startsWith('{')) {
+      intel = JSON.parse(dailyMacro.summary);
+    }
+  } catch (e) { /* not JSON, use fallback */ }
+
+  // --- REGIME + PROBABILITIES ---
+  const regimeEl = document.getElementById('macroRegime');
+  if (intel?.regime) {
+    const regimeLabels = {
+      bullish: 'BULLISH', cautious_bullish: 'CAUTIOUS BULLISH',
+      neutral: 'NEUTRAL', cautious_bearish: 'CAUTIOUS BEARISH', bearish: 'BEARISH'
+    };
+    regimeEl.textContent = regimeLabels[intel.regime] || intel.regime.toUpperCase();
+    regimeEl.className = `regime-badge regime-${intel.regime}`;
+  } else {
+    regimeEl.textContent = 'NO DATA';
+    regimeEl.className = 'regime-badge';
+  }
+
+  document.getElementById('macroSP500').textContent = ''; // Will show price when Phase 1 data available
+
+  if (intel?.sp500_direction) {
+    const dir = intel.sp500_direction;
+    document.getElementById('probUp').style.width = `${(dir.p_up || 0) * 100}%`;
+    document.getElementById('probUpPct').textContent = `${Math.round((dir.p_up || 0) * 100)}%`;
+    document.getElementById('probFlat').style.width = `${(dir.p_flat || 0) * 100}%`;
+    document.getElementById('probFlatPct').textContent = `${Math.round((dir.p_flat || 0) * 100)}%`;
+    document.getElementById('probDown').style.width = `${(dir.p_down || 0) * 100}%`;
+    document.getElementById('probDownPct').textContent = `${Math.round((dir.p_down || 0) * 100)}%`;
+  }
+
+  // --- WHY IT MOVED ---
+  const whatEl = document.getElementById('whatHappened');
+  whatEl.innerHTML = '';
+  if (intel?.what_happened?.length) {
+    intel.what_happened.forEach(item => {
+      const li = document.createElement('li');
+      li.textContent = item;
+      whatEl.appendChild(li);
+    });
+  } else {
+    // Fallback: show daily macro text summary
+    const li = document.createElement('li');
+    li.textContent = dailyMacro.summary || 'No macro data available. Run the macro pipeline.';
+    whatEl.appendChild(li);
+  }
+
+  // --- WHAT'S NEXT ---
+  const nextEl = document.getElementById('whatsNext');
+  nextEl.innerHTML = '';
+  if (intel?.whats_next?.length) {
+    intel.whats_next.forEach(item => {
+      const li = document.createElement('li');
+      li.textContent = item;
+      nextEl.appendChild(li);
+    });
+  } else {
+    nextEl.innerHTML = '<li>Run macro-intelligence-builder to generate outlook.</li>';
+  }
+
+  // --- PORTFOLIO ACTION ---
+  const actionEl = document.getElementById('portfolioAction');
+  actionEl.innerHTML = '';
+  if (intel?.portfolio_action) {
+    const pa = intel.portfolio_action;
+    let html = '';
+    if (pa.overweight?.length) html += `<div class="action-item action-overweight"><strong>Overweight:</strong> ${pa.overweight.join(', ')}</div>`;
+    if (pa.underweight?.length) html += `<div class="action-item action-underweight"><strong>Underweight:</strong> ${pa.underweight.join(', ')}</div>`;
+    if (pa.hedge) html += `<div class="action-item action-hedge"><strong>Hedge:</strong> ${pa.hedge}</div>`;
+    actionEl.innerHTML = html || '<span class="no-data">No action recommendations</span>';
+  } else {
+    actionEl.innerHTML = '<span class="no-data">Run macro-intelligence-builder to generate.</span>';
+  }
+
+  // --- 5-LAYER INTELLIGENCE ---
+  const layersEl = document.getElementById('fiveLayers');
+  layersEl.innerHTML = '';
+  const layerNames = ['calendar', 'geopolitics', 'regulatory', 'sectors', 'wave'];
+
+  if (intel?.five_layers) {
+    layerNames.forEach(name => {
+      const layer = intel.five_layers[name];
+      if (!layer) return;
+      const score = Math.max(0, Math.min(5, layer.score || 0));
+      const detail = document.createElement('details');
+      detail.className = 'layer-row';
+      detail.innerHTML = `
+        <summary>
+          <span class="layer-name">${name.charAt(0).toUpperCase() + name.slice(1)}</span>
+          <span class="layer-bar">${'#'.repeat(score)}${'_'.repeat(5 - score)}</span>
+          <span class="layer-score">${score}/5</span>
+        </summary>
+        <div class="layer-detail">${layer.summary || 'No detail'}</div>
+      `;
+      layersEl.appendChild(detail);
+    });
+  } else {
+    // Fallback: show macro news 5-layer data if available
+    layersEl.innerHTML = '<span class="no-data">Run macro-intelligence-builder to generate 5-layer analysis.</span>';
+  }
+
+  // --- FOMC COUNTDOWN ---
   const fomcData = dashboardData.calendar?.nextFOMC || getNextFOMCDate();
   const fomcDate = new Date(fomcData.date);
   const today = new Date();
@@ -660,74 +707,14 @@ function updateMacroTab() {
   document.getElementById('fomcDaysLeft').textContent =
     daysUntil <= 0 ? 'TODAY!' : `${daysUntil} days away`;
 
-  // Temperature bar (fills from right, showing how close we are)
-  // 45 days = cool, 0 days = hot
   const tempPercent = Math.max(0, Math.min(100, (45 - daysUntil) / 45 * 100));
   document.getElementById('fomcTempBar').style.width = `${100 - tempPercent}%`;
-
-  // Macro Trend Summary (BETA_09_Trend)
-  const macroTrend = dashboardData.macroTrend || {};
-  document.getElementById('macroTrendUpdate').textContent =
-    `Last update: ${macroTrend.date || macroTrend.created_at || '--'}`;
-  document.getElementById('macroTrendSummary').textContent =
-    macroTrend.summary || 'No weekly macro trend available. Run the beta-trend-builder worker to generate.';
-
-  // Recent Macro Events
-  const timeline = document.getElementById('macroEventsTimeline');
-  timeline.innerHTML = '';
-
-  const events = [];
-
-  // Collect from macro data
-  if (dashboardData.macro?.Macro) {
-    dashboardData.macro.Macro.forEach(item => {
-      events.push({
-        date: item.date,
-        title: item.heading,
-        value: formatSummary(item.summary).substring(0, 80)
-      });
-    });
-  }
-
-  // Collect from sentiment data
-  if (dashboardData.sentiment?.Sentiment) {
-    dashboardData.sentiment.Sentiment.forEach(item => {
-      events.push({
-        date: item.date,
-        title: item.heading,
-        value: formatSummary(item.summary).substring(0, 80)
-      });
-    });
-  }
-
-  // Sort by date descending
-  events.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  // Display
-  events.slice(0, 10).forEach(event => {
-    const div = document.createElement('div');
-    div.className = 'event-item';
-    div.innerHTML = `
-      <span class="type-badge badge-macro">${event.title?.split(' ')[0] || 'DATA'}</span>
-      <div class="event-content">
-        <div class="event-title">${event.title}</div>
-        <div class="event-value">${event.value}...</div>
-      </div>
-      <span class="event-date">${event.date}</span>
-    `;
-    timeline.appendChild(div);
-  });
-
-  if (events.length === 0) {
-    timeline.innerHTML = '<div class="loading">No recent macro events</div>';
-  }
 }
 
 function getNextFOMCDate() {
-  // Fallback FOMC dates for 2026
   const fomcDates = [
-    '2026-01-28', '2026-03-18', '2026-05-06', '2026-06-17',
-    '2026-07-29', '2026-09-16', '2026-11-04', '2026-12-16'
+    '2026-05-06', '2026-06-17', '2026-07-29',
+    '2026-09-16', '2026-11-04', '2026-12-16'
   ];
   const today = new Date();
   const next = fomcDates.find(d => new Date(d) > today) || fomcDates[0];

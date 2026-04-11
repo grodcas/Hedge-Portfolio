@@ -265,23 +265,40 @@
           </div>
       </section>
 
-      <!-- Daily Output Tab (Redesigned) -->
+      <!-- Daily Intelligence Feed (Redesigned v2) -->
       <section id="daily" class="tab-content">
-        <div class="daily-output-container">
-          <!-- Daily Macro Summary -->
-          <div class="card daily-macro-section">
-            <div class="section-header">
-              <h3>Daily Macro Summary</h3>
-              <span class="last-update" id="dailyMacroUpdate">Last update: --</span>
+        <div class="daily-v2">
+          <!-- RELEASES TODAY -->
+          <div class="card">
+            <h3>Releases Today</h3>
+            <div class="releases-row" id="releaseBadges">
+              <span class="loading">Loading...</span>
             </div>
-            <div class="macro-badges" id="macroPublishedToday"></div>
-            <div class="summary-text" id="dailyMacroSummary">Loading...</div>
           </div>
 
-          <!-- Ticker Daily News -->
-          <div class="card ticker-news-section">
+          <!-- UPCOMING CATALYSTS -->
+          <div class="card">
+            <h3>Upcoming Catalysts</h3>
+            <div class="catalysts-list" id="catalystsList">
+              <span class="loading">Loading...</span>
+            </div>
+          </div>
+
+          <!-- MACRO HEADLINES -->
+          <div class="card">
             <div class="section-header">
-              <h3>Portfolio Daily News</h3>
+              <h3>Macro Headlines</h3>
+              <span class="headline-count" id="macroHeadlineCount">0</span>
+            </div>
+            <div class="headlines-list" id="macroHeadlinesList">
+              <span class="loading">Loading...</span>
+            </div>
+          </div>
+
+          <!-- TICKER HEADLINES -->
+          <div class="card">
+            <div class="section-header">
+              <h3>Ticker Headlines</h3>
               <div class="filter-buttons">
                 <button class="filter-btn active" data-filter="all">All</button>
                 <button class="filter-btn" data-filter="sec">SEC</button>
@@ -289,44 +306,84 @@
                 <button class="filter-btn" data-filter="news">News</button>
               </div>
             </div>
-            <div class="ticker-news-grid" id="tickerNewsGrid">
-              <!-- Dynamically populated ticker cards -->
+            <div class="headlines-list" id="tickerHeadlinesList">
+              <span class="loading">Loading...</span>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- Macro Tab (New) -->
+      <!-- Macro Tab (Redesigned v2) -->
       <section id="macro" class="tab-content">
-        <div class="macro-tab-container">
-          <!-- FOMC Countdown -->
-          <div class="card fomc-card">
-            <div class="section-header">
-              <h3>Next FOMC Meeting</h3>
+        <div class="macro-v2">
+          <!-- Market Regime Header -->
+          <div class="card macro-regime-card">
+            <div class="regime-header">
+              <div>
+                <span class="regime-badge" id="macroRegime">--</span>
+                <span class="regime-sp500" id="macroSP500">S&P 500: --</span>
+              </div>
+              <div class="regime-probabilities">
+                <div class="prob-bar">
+                  <span class="prob-label">Up</span>
+                  <div class="prob-fill prob-up" id="probUp" style="width:33%"></div>
+                  <span class="prob-pct" id="probUpPct">--%</span>
+                </div>
+                <div class="prob-bar">
+                  <span class="prob-label">Flat</span>
+                  <div class="prob-fill prob-flat" id="probFlat" style="width:33%"></div>
+                  <span class="prob-pct" id="probFlatPct">--%</span>
+                </div>
+                <div class="prob-bar">
+                  <span class="prob-label">Down</span>
+                  <div class="prob-fill prob-down" id="probDown" style="width:33%"></div>
+                  <span class="prob-pct" id="probDownPct">--%</span>
+                </div>
+              </div>
             </div>
+          </div>
+
+          <!-- Why It Moved -->
+          <div class="card">
+            <h3>Why It Moved</h3>
+            <ul class="macro-bullets" id="whatHappened">
+              <li class="loading">Loading...</li>
+            </ul>
+          </div>
+
+          <!-- What's Next -->
+          <div class="card">
+            <h3>What's Next</h3>
+            <ul class="macro-bullets" id="whatsNext">
+              <li class="loading">Loading...</li>
+            </ul>
+          </div>
+
+          <!-- Portfolio Action -->
+          <div class="card">
+            <h3>Portfolio Action</h3>
+            <div class="portfolio-action-grid" id="portfolioAction">
+              <span class="loading">Loading...</span>
+            </div>
+          </div>
+
+          <!-- 5-Layer Intelligence -->
+          <div class="card">
+            <h3>5-Layer Intelligence</h3>
+            <div class="five-layers" id="fiveLayers">
+              <span class="loading">Loading...</span>
+            </div>
+          </div>
+
+          <!-- FOMC Countdown -->
+          <div class="card">
+            <h3>Next FOMC Meeting</h3>
             <div class="fomc-countdown">
               <div class="fomc-date" id="fomcNextDate">--</div>
               <div class="temperature-bar">
                 <div class="temp-fill" id="fomcTempBar"></div>
               </div>
               <div class="fomc-days" id="fomcDaysLeft">-- days away</div>
-            </div>
-          </div>
-
-          <!-- Macro Trend Summary -->
-          <div class="card macro-trend-card">
-            <div class="section-header">
-              <h3>Weekly Macro Trend (BETA_09)</h3>
-              <span class="last-update" id="macroTrendUpdate">Last update: --</span>
-            </div>
-            <div class="summary-text" id="macroTrendSummary">Loading...</div>
-          </div>
-
-          <!-- Recent Macro Events -->
-          <div class="card recent-events-card">
-            <h3>Recent Macro Events</h3>
-            <div class="events-timeline" id="macroEventsTimeline">
-              <!-- Dynamically populated -->
             </div>
           </div>
         </div>
