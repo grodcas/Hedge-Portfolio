@@ -104,6 +104,11 @@
       "binding": "NEWS_SEARCH_UNIFIED",
       "service": "news-search-unified",
       "environment": "production"
+    },
+    {
+      "binding": "NEWS_FUNNEL_ORCHESTRATOR",
+      "service": "news-funnel-orchestrator",
+      "environment": "production"
     }
   ],
   "d1_databases": [

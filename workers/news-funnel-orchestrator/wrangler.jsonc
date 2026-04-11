@@ -1,0 +1,35 @@
+{
+  "name": "news-funnel-orchestrator",
+  "main": "src/worker.js",
+  "workers_dev": true,
+  "preview_urls": false,
+  "compatibility_date": "2026-01-07",
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true
+    }
+  },
+  "services": [
+    {
+      "binding": "NEWS_FUNNEL_GATHERER",
+      "service": "news-funnel-gatherer",
+      "environment": "production"
+    },
+    {
+      "binding": "NEWS_FUNNEL_FILTER",
+      "service": "news-funnel-filter",
+      "environment": "production"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_id": "e306b0a8-7d5e-4032-b46e-9b50fc6c4f99"
+    }
+  ],
+}

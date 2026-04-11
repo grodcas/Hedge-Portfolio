@@ -93,6 +93,10 @@ var JobWorkflow = class extends WorkflowEntrypoint {
             case "daily-macro-summarizer":
               res = await this.env.DAILY_MACRO_SUMMARIZER.fetch("https://internal/process-daily-macro", { method: "POST", body });
               break;
+            // --- NEWS FUNNEL ---
+            case "news-funnel-orchestrator":
+              res = await this.env.NEWS_FUNNEL_ORCHESTRATOR.fetch("https://internal/run-news-funnel", { method: "POST", body });
+              break;
             default:
               throw new Error(`Unknown worker: ${job.worker}`);
           }
@@ -178,6 +182,13 @@ var index_default = {
         return Response.json({ ok: false, error: err.message });
       }
     }
+    if (action === "news_funnel") {
+      const now = new Date().toISOString();
+      await this_env.DB.prepare(`
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
+        VALUES (?, ?, ?, ?)
+      `).bind(now, "news-funnel-orchestrator", "{}", "pending").run();
+    }
     if (action === "daily_update") {
       const now = new Date().toISOString();
       const inputDate = body.date || now.slice(0, 10);
@@ -188,11 +199,11 @@ var index_default = {
         DELETE FROM PROC_01_Job_queue WHERE status IN ('pending', 'running')
       `).run();
 
-      // 1) Fire unified news search (ticker + macro + calendar in parallel)
+      // 1) Fire news funnel (RSS + Finnhub → GPT filter → Gemini summaries → D1)
       // Runs via service binding — does NOT go through job queue
-      this_env.NEWS_SEARCH_UNIFIED.fetch("https://internal/run?mode=deep", {
+      this_env.NEWS_FUNNEL_ORCHESTRATOR.fetch("https://internal/run-news-funnel", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: "{}"
-      }).catch(err => console.error("Unified news search error:", err.message));
+      }).catch(err => console.error("News funnel error:", err.message));
 
       // 2) Queue daily_macro
       await this_env.DB.prepare(`
