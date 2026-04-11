@@ -473,6 +473,168 @@ export default {
           }, { headers: corsHeaders });
         }
 
+        // -------- GET /query/prices --------
+        if (path === "/query/prices") {
+          const ticker = url.searchParams.get("ticker");
+          const date = url.searchParams.get("date");
+          const range = parseInt(url.searchParams.get("range") || "0");
+
+          let rows;
+          if (ticker && range > 0) {
+            // Time series for one ticker (for charts)
+            rows = await db.prepare(`
+              SELECT * FROM PRICE_01_Daily WHERE ticker = ? ORDER BY date DESC LIMIT ?
+            `).bind(ticker, range).all();
+          } else if (date) {
+            rows = await db.prepare(`
+              SELECT * FROM PRICE_01_Daily WHERE date = ? ORDER BY ticker
+            `).bind(date).all();
+          } else {
+            // Latest date, all tickers
+            const latestDate = await db.prepare(`SELECT date FROM PRICE_01_Daily ORDER BY date DESC LIMIT 1`).first();
+            if (!latestDate) return Response.json({ error: "No price data" }, { status: 404, headers: corsHeaders });
+            rows = await db.prepare(`
+              SELECT * FROM PRICE_01_Daily WHERE date = ? ORDER BY ticker
+            `).bind(latestDate.date).all();
+          }
+
+          return Response.json(rows.results || [], { headers: corsHeaders });
+        }
+
+        // -------- GET /query/sector-performance --------
+        if (path === "/query/sector-performance") {
+          const latestDate = await db.prepare(`SELECT date FROM PRICE_01_Daily ORDER BY date DESC LIMIT 1`).first();
+          if (!latestDate) return Response.json({ error: "No price data" }, { status: 404, headers: corsHeaders });
+
+          const { results } = await db.prepare(`
+            SELECT ticker, open, close FROM PRICE_01_Daily WHERE date = ?
+          `).bind(latestDate.date).all();
+
+          const priceMap = {};
+          for (const r of results) {
+            priceMap[r.ticker] = r.open > 0 ? ((r.close - r.open) / r.open * 100) : 0;
+          }
+
+          const sectorETFs = { Technology: "XLK", Finance: "XLF", Energy: "XLE", Healthcare: "XLV", Consumer: "XLP", Industrial: "XLI" };
+          const sectors = {};
+          for (const [sector, etf] of Object.entries(sectorETFs)) {
+            sectors[sector] = { etf, return_pct: priceMap[etf] ?? null };
+          }
+
+          return Response.json({
+            date: latestDate.date,
+            spy_return: priceMap["SPY"] ?? null,
+            sectors,
+          }, { headers: corsHeaders });
+        }
+
+        // -------- GET /query/fundamentals --------
+        if (path === "/query/fundamentals") {
+          const ticker = url.searchParams.get("ticker");
+          const history = url.searchParams.get("history");
+
+          let rows;
+          if (ticker && history) {
+            rows = await db.prepare(`
+              SELECT * FROM FUND_01_Fundamentals WHERE ticker = ? ORDER BY date DESC LIMIT 30
+            `).bind(ticker).all();
+          } else if (ticker) {
+            const row = await db.prepare(`
+              SELECT * FROM FUND_01_Fundamentals WHERE ticker = ? ORDER BY date DESC LIMIT 1
+            `).bind(ticker).first();
+            return Response.json(row || {}, { headers: corsHeaders });
+          } else {
+            // Latest per ticker
+            rows = await db.prepare(`
+              SELECT f.* FROM FUND_01_Fundamentals f
+              INNER JOIN (SELECT ticker, MAX(date) as max_date FROM FUND_01_Fundamentals GROUP BY ticker) g
+              ON f.ticker = g.ticker AND f.date = g.max_date
+              ORDER BY f.ticker
+            `).all();
+          }
+
+          return Response.json(rows.results || [], { headers: corsHeaders });
+        }
+
+        // -------- GET /query/earnings --------
+        if (path === "/query/earnings") {
+          const ticker = url.searchParams.get("ticker");
+
+          let rows;
+          if (ticker) {
+            rows = await db.prepare(`
+              SELECT * FROM FUND_02_Earnings WHERE ticker = ? ORDER BY period DESC LIMIT 8
+            `).bind(ticker).all();
+          } else {
+            // Latest quarter per ticker
+            rows = await db.prepare(`
+              SELECT e.* FROM FUND_02_Earnings e
+              INNER JOIN (SELECT ticker, MAX(period) as max_period FROM FUND_02_Earnings GROUP BY ticker) g
+              ON e.ticker = g.ticker AND e.period = g.max_period
+              ORDER BY e.ticker
+            `).all();
+          }
+
+          return Response.json(rows.results || [], { headers: corsHeaders });
+        }
+
+        // -------- GET /query/recommendations --------
+        if (path === "/query/recommendations") {
+          const ticker = url.searchParams.get("ticker");
+
+          let rows;
+          if (ticker) {
+            rows = await db.prepare(`
+              SELECT * FROM FUND_03_Recommendations WHERE ticker = ? ORDER BY date DESC LIMIT 6
+            `).bind(ticker).all();
+          } else {
+            // Latest per ticker
+            rows = await db.prepare(`
+              SELECT r.* FROM FUND_03_Recommendations r
+              INNER JOIN (SELECT ticker, MAX(date) as max_date FROM FUND_03_Recommendations GROUP BY ticker) g
+              ON r.ticker = g.ticker AND r.date = g.max_date
+              ORDER BY r.ticker
+            `).all();
+          }
+
+          return Response.json(rows.results || [], { headers: corsHeaders });
+        }
+
+        // -------- GET /query/news-digest --------
+        if (path === "/query/news-digest") {
+          const date = url.searchParams.get("date") || new Date().toISOString().slice(0, 10);
+
+          const [digestRows, secRows, pressRows, macroRows] = await Promise.all([
+            db.prepare(`SELECT * FROM BETA_12_News_digest WHERE date = ? ORDER BY type, rank`).bind(date).all(),
+            db.prepare(`SELECT id, date, ticker, type FROM ALPHA_01_Reports WHERE date = ?`).bind(date).all(),
+            db.prepare(`SELECT id, ticker, date, heading FROM ALPHA_03_Press WHERE date = ?`).bind(date).all(),
+            db.prepare(`SELECT id, date, type, summary FROM BETA_03_Macro WHERE date = ? ORDER BY date DESC`).bind(date).all(),
+          ]);
+
+          // Structure digest by type
+          const macroHeadlines = [];
+          const tickerHeadlines = {};
+          for (const row of (digestRows.results || [])) {
+            if (row.type === "macro") {
+              macroHeadlines.push(row);
+            } else {
+              if (!tickerHeadlines[row.ticker]) tickerHeadlines[row.ticker] = [];
+              tickerHeadlines[row.ticker].push(row);
+            }
+          }
+
+          return Response.json({
+            date,
+            releases: {
+              sec: (secRows.results || []),
+              press: (pressRows.results || []),
+              macro: (macroRows.results || []).map(r => ({ ...r, summary: r.summary ? JSON.parse(r.summary) : null })),
+            },
+            macro_headlines: macroHeadlines,
+            ticker_headlines: tickerHeadlines,
+          }, { headers: corsHeaders });
+        }
+
         return new Response("Not found", { status: 404, headers: corsHeaders });
 
       } catch (err) {
@@ -867,6 +1029,92 @@ export default {
       return Response.json({ ok: true, id }, { headers: corsHeaders });
     }
 
+
+    // -------- PRICE_01_Daily --------
+    if (which === "prices") {
+      const items = Array.isArray(body) ? body : [body];
+      let inserted = 0;
+      for (const p of items) {
+        const id = await shortHash(`${p.ticker}|${p.date}`);
+        await db.prepare(`
+          INSERT INTO PRICE_01_Daily (id, ticker, date, open, high, low, close, volume, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            open = excluded.open, high = excluded.high, low = excluded.low,
+            close = excluded.close, volume = excluded.volume, created_at = excluded.created_at
+        `).bind(id, p.ticker, p.date, p.open, p.high, p.low, p.close, p.volume, now).run();
+        inserted++;
+      }
+      return Response.json({ ok: true, inserted }, { headers: corsHeaders });
+    }
+
+    // -------- FUND_01_Fundamentals --------
+    if (which === "fundamentals") {
+      const items = Array.isArray(body) ? body : [body];
+      let inserted = 0;
+      for (const f of items) {
+        const id = await shortHash(`${f.ticker}|${f.date}`);
+        await db.prepare(`
+          INSERT INTO FUND_01_Fundamentals
+            (id, ticker, date, pe_ratio, forward_pe, eps, revenue_ttm, profit_margin, operating_margin,
+             market_cap, week_52_high, week_52_low, dma_50, dma_200, analyst_target, dividend_yield, beta, raw_json, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            pe_ratio = excluded.pe_ratio, forward_pe = excluded.forward_pe, eps = excluded.eps,
+            revenue_ttm = excluded.revenue_ttm, profit_margin = excluded.profit_margin,
+            operating_margin = excluded.operating_margin, market_cap = excluded.market_cap,
+            week_52_high = excluded.week_52_high, week_52_low = excluded.week_52_low,
+            dma_50 = excluded.dma_50, dma_200 = excluded.dma_200,
+            analyst_target = excluded.analyst_target, dividend_yield = excluded.dividend_yield,
+            beta = excluded.beta, raw_json = excluded.raw_json, created_at = excluded.created_at
+        `).bind(
+          id, f.ticker, f.date, f.pe_ratio, f.forward_pe, f.eps, f.revenue_ttm,
+          f.profit_margin, f.operating_margin, f.market_cap, f.week_52_high, f.week_52_low,
+          f.dma_50, f.dma_200, f.analyst_target, f.dividend_yield, f.beta, f.raw_json || null, now
+        ).run();
+        inserted++;
+      }
+      return Response.json({ ok: true, inserted }, { headers: corsHeaders });
+    }
+
+    // -------- FUND_02_Earnings --------
+    if (which === "earnings") {
+      const items = Array.isArray(body) ? body : [body];
+      let inserted = 0;
+      for (const e of items) {
+        const id = await shortHash(`${e.ticker}|${e.period}`);
+        await db.prepare(`
+          INSERT INTO FUND_02_Earnings
+            (id, ticker, period, estimate, actual, surprise, surprise_pct, report_date, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            estimate = excluded.estimate, actual = excluded.actual,
+            surprise = excluded.surprise, surprise_pct = excluded.surprise_pct,
+            report_date = excluded.report_date, created_at = excluded.created_at
+        `).bind(id, e.ticker, e.period, e.estimate, e.actual, e.surprise, e.surprise_pct, e.report_date, now).run();
+        inserted++;
+      }
+      return Response.json({ ok: true, inserted }, { headers: corsHeaders });
+    }
+
+    // -------- FUND_03_Recommendations --------
+    if (which === "recommendations") {
+      const items = Array.isArray(body) ? body : [body];
+      let inserted = 0;
+      for (const r of items) {
+        const id = await shortHash(`${r.ticker}|recs|${r.date}`);
+        await db.prepare(`
+          INSERT INTO FUND_03_Recommendations
+            (id, ticker, date, strong_buy, buy, hold, sell, strong_sell, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            strong_buy = excluded.strong_buy, buy = excluded.buy, hold = excluded.hold,
+            sell = excluded.sell, strong_sell = excluded.strong_sell, created_at = excluded.created_at
+        `).bind(id, r.ticker, r.date, r.strong_buy, r.buy, r.hold, r.sell, r.strong_sell, now).run();
+        inserted++;
+      }
+      return Response.json({ ok: true, inserted }, { headers: corsHeaders });
+    }
 
     return new Response("OK", { headers: corsHeaders });
   }

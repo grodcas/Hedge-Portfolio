@@ -109,6 +109,21 @@
       "binding": "NEWS_FUNNEL_ORCHESTRATOR",
       "service": "news-funnel-orchestrator",
       "environment": "production"
+    },
+    {
+      "binding": "PRICE_FETCHER",
+      "service": "price-fetcher",
+      "environment": "production"
+    },
+    {
+      "binding": "EARNINGS_FETCHER",
+      "service": "earnings-fetcher",
+      "environment": "production"
+    },
+    {
+      "binding": "FUNDAMENTALS_FETCHER",
+      "service": "fundamentals-fetcher",
+      "environment": "production"
     }
   ],
   "d1_databases": [

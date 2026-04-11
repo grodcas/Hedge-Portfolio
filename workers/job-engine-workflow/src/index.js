@@ -97,6 +97,16 @@ var JobWorkflow = class extends WorkflowEntrypoint {
             case "news-funnel-orchestrator":
               res = await this.env.NEWS_FUNNEL_ORCHESTRATOR.fetch("https://internal/run-news-funnel", { method: "POST", body });
               break;
+            // --- DATA FETCHERS ---
+            case "price-fetcher":
+              res = await this.env.PRICE_FETCHER.fetch("https://internal/fetch-prices", { method: "POST", body });
+              break;
+            case "earnings-fetcher":
+              res = await this.env.EARNINGS_FETCHER.fetch("https://internal/fetch-earnings", { method: "POST", body });
+              break;
+            case "fundamentals-fetcher":
+              res = await this.env.FUNDAMENTALS_FETCHER.fetch("https://internal/fetch-fundamentals", { method: "POST", body });
+              break;
             default:
               throw new Error(`Unknown worker: ${job.worker}`);
           }
@@ -182,6 +192,13 @@ var index_default = {
         return Response.json({ ok: false, error: err.message });
       }
     }
+    if (action === "fundamentals") {
+      const now = new Date().toISOString();
+      await this_env.DB.prepare(`
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
+        VALUES (?, ?, ?, ?)
+      `).bind(now, "fundamentals-fetcher", "{}", "pending").run();
+    }
     if (action === "news_funnel") {
       const now = new Date().toISOString();
       await this_env.DB.prepare(`
@@ -205,23 +222,35 @@ var index_default = {
         method: "POST", headers: { "Content-Type": "application/json" }, body: "{}"
       }).catch(err => console.error("News funnel error:", err.message));
 
-      // 2) Queue daily_macro
+      // Queue jobs in INSERT order (LIFO: last inserted = highest ID = runs first)
+      // So we insert in REVERSE execution order:
+
+      // 2) Queue AI summarizers (run AFTER data fetchers)
       await this_env.DB.prepare(`
         INSERT INTO PROC_01_Job_queue (date, worker, input, status)
         VALUES (?, ?, ?, ?)
       `).bind(now, "daily-macro-summarizer", "{}", "pending").run();
 
-      // 3) Queue trend_beta
       await this_env.DB.prepare(`
         INSERT INTO PROC_01_Job_queue (date, worker, input, status)
         VALUES (?, ?, ?, ?)
       `).bind(now, "beta-trend-orchestrator", "{}", "pending").run();
 
-      // 4) Queue macro_news (old summarizer for non-search macro data)
       await this_env.DB.prepare(`
         INSERT INTO PROC_01_Job_queue (date, worker, input, status)
         VALUES (?, ?, ?, ?)
       `).bind(now, "macro-news-summarizer", JSON.stringify({ date: inputDate }), "pending").run();
+
+      // 3) Queue data fetchers (run FIRST — highest IDs)
+      await this_env.DB.prepare(`
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
+        VALUES (?, ?, ?, ?)
+      `).bind(now, "earnings-fetcher", "{}", "pending").run();
+
+      await this_env.DB.prepare(`
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
+        VALUES (?, ?, ?, ?)
+      `).bind(now, "price-fetcher", "{}", "pending").run();
     }
     const instanceId = `run-${Date.now()}`;
     await this_env.WORKFLOW.create({ id: instanceId });
