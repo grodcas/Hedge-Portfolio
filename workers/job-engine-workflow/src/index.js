@@ -242,12 +242,11 @@ var index_default = {
       // So we insert in REVERSE execution order:
 
       // 1) Signal layer (runs LAST — lowest IDs)
-      // event-attribution-engine runs LAST (needs prices + assessments fresh)
-      await this_env.DB.prepare(`
-        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
-        VALUES (?, ?, ?, ?)
-      `).bind(now, "event-attribution-engine", "{}", "pending").run();
-
+      // Execution order (LIFO-reversed): price → earnings → macro-news →
+      //   beta-trend → macro-intel → event-attribution → assessment →
+      //   probability → consensus
+      // event-attribution moved earlier: it only reads PRICE_01, BETA_12,
+      //   ALPHA_01, ALPHA_03 — doesn't need assessment output.
       await this_env.DB.prepare(`
         INSERT INTO PROC_01_Job_queue (date, worker, input, status)
         VALUES (?, ?, ?, ?)
@@ -266,13 +265,16 @@ var index_default = {
       await this_env.DB.prepare(`
         INSERT INTO PROC_01_Job_queue (date, worker, input, status)
         VALUES (?, ?, ?, ?)
-      `).bind(now, "macro-intelligence-builder", "{}", "pending").run();
+      `).bind(now, "event-attribution-engine", "{}", "pending").run();
 
-      // 2) Queue AI summarizers (run AFTER data fetchers)
       await this_env.DB.prepare(`
         INSERT INTO PROC_01_Job_queue (date, worker, input, status)
         VALUES (?, ?, ?, ?)
-      `).bind(now, "daily-macro-summarizer", "{}", "pending").run();
+      `).bind(now, "macro-intelligence-builder", "{}", "pending").run();
+
+      // 2) Queue AI summarizers (run AFTER data fetchers)
+      // NOTE: daily-macro-summarizer dropped — macro-intelligence-builder supersedes it
+      // (both wrote to BETA_10_Daily_macro, causing double-write)
 
       await this_env.DB.prepare(`
         INSERT INTO PROC_01_Job_queue (date, worker, input, status)

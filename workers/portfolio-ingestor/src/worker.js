@@ -1132,6 +1132,23 @@ export default {
         ).run();
       }
 
+      // ---------- AUTO-QUEUE report-orchestrator ----------
+      // Only queue if there's no pending/running job for this report already.
+      // Multiple chunks of the same report (different itemKeys) will try to
+      // queue, but only the first one succeeds until the job completes.
+      // report-orchestrator is idempotent — re-runs are safe.
+      const orchestratorInput = JSON.stringify({ report_id: reportId });
+      await db.prepare(`
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
+        SELECT ?, ?, ?, ?
+        WHERE NOT EXISTS (
+          SELECT 1 FROM PROC_01_Job_queue
+          WHERE worker = 'report-orchestrator'
+            AND input = ?
+            AND status IN ('pending', 'running')
+        )
+      `).bind(now, "report-orchestrator", orchestratorInput, "pending", orchestratorInput).run();
+
       return Response.json({ ok: true, report_id: reportId }, { headers: corsHeaders });
     }
 
