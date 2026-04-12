@@ -17,6 +17,10 @@ import * as pressChecker from "./lib/press-checker.js";
 import * as newsChecker from "./lib/news-checker.js";
 import * as policyChecker from "./lib/policy-checker.js";
 import * as newsFunnelChecker from "./lib/news-funnel-checker.js";
+import * as priceChecker from "./lib/price-checker.js";
+import * as fundamentalsChecker from "./lib/fundamentals-checker.js";
+import * as earningsChecker from "./lib/earnings-checker.js";
+import * as consensusChecker from "./lib/consensus-checker.js";
 import * as calendar from "./lib/calendar.js";
 
 /**
@@ -37,6 +41,10 @@ async function runValidation(options = {}, ingestedData = {}) {
     skipPolicy = false,
     skipNewsFunnel = false,
     newsFunnelData = null,  // { gathered, filtered, orchestrator } from pipeline run
+    skipPrices = false,
+    skipFundamentals = false,
+    skipEarnings = false,
+    skipConsensus = false,
     logDir = path.join(BASE_DIR, "logs")
   } = options;
 
@@ -64,6 +72,10 @@ async function runValidation(options = {}, ingestedData = {}) {
     policy: null,
     news: null,
     newsFunnel: null,
+    prices: null,
+    fundamentals: null,
+    earnings_check: null,
+    consensus: null,
     summary: null
   };
 
@@ -288,6 +300,85 @@ async function runValidation(options = {}, ingestedData = {}) {
       logger.completeStep(5, newsSummary.totalArticles, newsSummary.aiPassed === newsSummary.totalArticles ? "done" : "warning");
     } else {
       logger.completeStep(5, 0, "done");
+    }
+
+    // ============ STEP: PRICE DATA ============
+    if (!skipPrices) {
+      logger.log("PRICES", "Checking PRICE_01_Daily...");
+      try {
+        const priceResult = await priceChecker.checkPrices();
+        const summary = priceChecker.getSummary(priceResult);
+        const icon = priceResult.valid ? "✓" : "✗";
+        logger.log("PRICES", `  ${icon} ${priceResult.count || 0} rows, date=${priceResult.date || "none"}`, priceResult.valid ? "ok" : "warn");
+        for (const issue of summary.issues) logger.log("PRICES", `    ${issue}`, "warn");
+        results.prices = priceResult;
+        if (!priceResult.valid) {
+          hasWarnings = true;
+          actionRequired.push(`Prices: ${summary.issues.join("; ") || priceResult.error || "validation failed"}`);
+        }
+      } catch (err) {
+        logger.log("PRICES", `  Error: ${err.message}`, "fail");
+      }
+    }
+
+    // ============ STEP: FUNDAMENTALS ============
+    if (!skipFundamentals) {
+      logger.log("FUNDAMENTALS", "Checking FUND_01_Fundamentals...");
+      try {
+        const fundResult = await fundamentalsChecker.checkFundamentals();
+        const summary = fundamentalsChecker.getSummary(fundResult);
+        const icon = fundResult.valid ? "✓" : "✗";
+        logger.log("FUNDAMENTALS", `  ${icon} ${fundResult.count || 0} rows`, fundResult.valid ? "ok" : "warn");
+        for (const issue of summary.issues) logger.log("FUNDAMENTALS", `    ${issue}`, "warn");
+        results.fundamentals = fundResult;
+        if (!fundResult.valid) {
+          hasWarnings = true;
+          actionRequired.push(`Fundamentals: ${summary.issues.join("; ") || fundResult.error || "validation failed"}`);
+        }
+      } catch (err) {
+        logger.log("FUNDAMENTALS", `  Error: ${err.message}`, "fail");
+      }
+    }
+
+    // ============ STEP: EARNINGS ============
+    if (!skipEarnings) {
+      logger.log("EARNINGS", "Checking FUND_02/03...");
+      try {
+        const earnResult = await earningsChecker.checkEarnings();
+        const summary = earningsChecker.getSummary(earnResult);
+        const icon = earnResult.valid ? "✓" : "✗";
+        logger.log("EARNINGS", `  ${icon} earnings=${earnResult.details?.earnings_count || 0}, recs=${earnResult.details?.recs_count || 0}`, earnResult.valid ? "ok" : "warn");
+        for (const issue of summary.issues) logger.log("EARNINGS", `    ${issue}`, "warn");
+        results.earnings_check = earnResult;
+        if (!earnResult.valid) {
+          hasWarnings = true;
+          actionRequired.push(`Earnings: ${summary.issues.join("; ") || earnResult.error || "validation failed"}`);
+        }
+      } catch (err) {
+        logger.log("EARNINGS", `  Error: ${err.message}`, "fail");
+      }
+    }
+
+    // ============ STEP: CONSENSUS ============
+    if (!skipConsensus) {
+      logger.log("CONSENSUS", "Checking SIGNAL_03_Consensus...");
+      try {
+        const consResult = await consensusChecker.checkConsensus();
+        const summary = consensusChecker.getSummary(consResult);
+        const icon = consResult.valid ? "✓" : "✗";
+        const lowCount = consResult.details?.low_confidence?.length || 0;
+        logger.log("CONSENSUS", `  ${icon} ${consResult.count || 0} results, ${lowCount} LOW confidence`, lowCount > 0 ? "warn" : "ok");
+        for (const issue of summary.issues) logger.log("CONSENSUS", `    ${issue}`, "warn");
+        results.consensus = consResult;
+        if (lowCount > 0) {
+          hasWarnings = true;
+          for (const lc of consResult.details.low_confidence) {
+            actionRequired.push(`Consensus disagreement: ${lc.target} (level ${lc.level.toFixed(2)}) — ${lc.counter?.slice(0, 100) || "no counter"}`);
+          }
+        }
+      } catch (err) {
+        logger.log("CONSENSUS", `  Error: ${err.message}`, "fail");
+      }
     }
 
     // ============ STEP 7: NEWS FUNNEL ============
