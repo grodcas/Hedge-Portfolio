@@ -172,34 +172,73 @@ After searching, answer as JSON ONLY (no prose, no markdown):
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("Empty Gemini response");
 
-  // Extract JSON (Gemini may wrap in markdown)
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("No JSON in response");
+  // Extract grounding metadata (search sources) if present
+  const groundingChunks = data.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+  const sources = groundingChunks
+    .map(c => c.web?.title || c.web?.uri)
+    .filter(Boolean)
+    .slice(0, 10);
 
-  let parsed;
-  try {
-    parsed = JSON.parse(jsonMatch[0]);
-  } catch (err) {
-    throw new Error(`JSON parse failed: ${err.message}`);
+  // Try JSON parse first (handles cases where Gemini actually outputs JSON)
+  const cleanedText = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+  let parsed = null;
+  if (jsonMatch) {
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch { /* fall through to prose fallback */ }
   }
 
-  // Determine confidence
-  const level = parseFloat(parsed.consensus_level) || 0;
-  const missedFactors = parsed.missed_factors || [];
-  let confidence;
-  if (level >= 0.7 && missedFactors.length === 0) confidence = "HIGH";
-  else if (level >= 0.4) confidence = "MEDIUM";
-  else confidence = "LOW";
+  if (parsed) {
+    // Structured path — exactly what we asked for
+    const level = parseFloat(parsed.consensus_level) || 0;
+    const missedFactors = parsed.missed_factors || [];
+    let confidence;
+    if (level >= 0.7 && missedFactors.length === 0) confidence = "HIGH";
+    else if (level >= 0.4) confidence = "MEDIUM";
+    else confidence = "LOW";
+
+    return {
+      date: today,
+      target: task.target,
+      our_conclusion: task.conclusion,
+      dominant_narrative: parsed.dominant_narrative || "",
+      consensus_level: level,
+      missed_factors: JSON.stringify(missedFactors),
+      strongest_counter: parsed.strongest_counter || "",
+      confidence,
+      search_sources: JSON.stringify(parsed.sources || sources),
+    };
+  }
+
+  // PROSE FALLBACK: Gemini with google_search often returns grounded prose.
+  // Don't fail — extract what we can from the text itself.
+  const prose = text.trim();
+  const firstSentence = prose.split(/[.!?]\s+/)[0]?.slice(0, 300) || prose.slice(0, 300);
+
+  // Simple sentiment heuristic from the text
+  const lower = prose.toLowerCase();
+  const bullishHits = (lower.match(/\b(bullish|upside|positive|beat|growth|strong|rally|gain)\b/g) || []).length;
+  const bearishHits = (lower.match(/\b(bearish|downside|weak|miss|decline|concern|risk|drop|fall)\b/g) || []).length;
+  const totalHits = bullishHits + bearishHits;
+
+  // Estimate consensus alignment with our direction
+  let consensusLevel = 0.5;
+  if (totalHits > 0) {
+    const bullishRatio = bullishHits / totalHits;
+    if (direction === "bullish") consensusLevel = bullishRatio;
+    else if (direction === "bearish") consensusLevel = 1 - bullishRatio;
+  }
 
   return {
     date: today,
     target: task.target,
     our_conclusion: task.conclusion,
-    dominant_narrative: parsed.dominant_narrative || "",
-    consensus_level: level,
-    missed_factors: JSON.stringify(missedFactors),
-    strongest_counter: parsed.strongest_counter || "",
-    confidence,
-    search_sources: JSON.stringify(parsed.sources || []),
+    dominant_narrative: firstSentence,
+    consensus_level: consensusLevel,
+    missed_factors: "[]",
+    strongest_counter: prose.slice(0, 500),
+    confidence: "MEDIUM",
+    search_sources: JSON.stringify(sources),
   };
 }

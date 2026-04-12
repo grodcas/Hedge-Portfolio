@@ -368,6 +368,16 @@ app.get("/api/portfolio-signals/:date", async (req, res) => {
   }
 });
 
+// Get pipeline health (job queue status grouped by wave)
+app.get("/api/pipeline-health", async (req, res) => {
+  try {
+    const data = await fetchFromWorker("/query/pipeline-health");
+    res.json(data);
+  } catch (error) {
+    handleD1Error(res, "/api/pipeline-health", error);
+  }
+});
+
 // Get consensus validation results
 app.get("/api/consensus/:date", async (req, res) => {
   try {

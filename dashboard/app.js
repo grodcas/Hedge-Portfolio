@@ -244,7 +244,62 @@ function updateOverview() {
 
 // ============ VALIDATION TAB ============
 
+async function updatePipelineHealth() {
+  try {
+    const res = await fetch('/api/pipeline-health');
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const summary = data.summary || {};
+    const wf = data.workflow || {};
+    const summaryEl = document.getElementById('pipelineSummary');
+    if (summaryEl) {
+      const parts = [];
+      if (summary.done > 0) parts.push(`${summary.done} done`);
+      if (summary.running > 0) parts.push(`${summary.running} running`);
+      if (summary.pending > 0) parts.push(`${summary.pending} pending`);
+      if (summary.failed > 0) parts.push(`${summary.failed} failed`);
+      const wfStatus = wf.status ? ` · workflow: ${wf.status}` : '';
+      summaryEl.textContent = parts.join(' · ') + wfStatus;
+    }
+
+    const wavesEl = document.getElementById('pipelineWaves');
+    if (!wavesEl) return;
+    wavesEl.innerHTML = '';
+
+    const waves = data.waves || {};
+    const waveNums = Object.keys(waves).sort((a, b) => Number(a) - Number(b));
+
+    if (waveNums.length === 0) {
+      wavesEl.innerHTML = '<span class="no-data">No pipeline runs in last 2 hours</span>';
+      return;
+    }
+
+    for (const wNum of waveNums) {
+      const jobs = waves[wNum];
+      const waveDiv = document.createElement('div');
+      waveDiv.className = 'pipeline-wave';
+      waveDiv.innerHTML = `
+        <span class="wave-label">Wave ${wNum}</span>
+        <div class="wave-jobs">
+          ${jobs.map(j => {
+            const icon = j.status === 'done' ? '✓'
+                       : j.status === 'running' ? '●'
+                       : j.status === 'failed' ? '✗'
+                       : '○';
+            return `<span class="wave-job wave-${j.status}" title="${j.last_update || ''}">${icon} ${j.worker}</span>`;
+          }).join('')}
+        </div>
+      `;
+      wavesEl.appendChild(waveDiv);
+    }
+  } catch (err) {
+    console.error('Pipeline health fetch failed:', err);
+  }
+}
+
 function updateValidation() {
+  updatePipelineHealth(); // Run once when validation tab is loaded
   const val = dashboardData.validation;
   if (!val) return;
 

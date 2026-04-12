@@ -1909,6 +1909,42 @@ select {
 .attribution-sector { border-left-color: var(--accent-yellow); }
 .attribution-macro { border-left-color: var(--accent-purple); }
 .attribution-none { border-left-color: var(--text-muted); opacity: 0.7; }
+
+/* ============ PIPELINE HEALTH PANEL ============ */
+
+.pipeline-health-card { margin-bottom: 1rem; }
+.pipeline-summary {
+  font-family: 'SF Mono', Consolas, monospace;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.pipeline-waves { display: flex; flex-direction: column; gap: 0.5rem; }
+.pipeline-wave {
+  display: flex; align-items: flex-start; gap: 1rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+.pipeline-wave:last-child { border-bottom: none; }
+.wave-label {
+  font-family: 'SF Mono', Consolas, monospace;
+  font-weight: 600;
+  color: var(--accent-blue);
+  min-width: 5rem;
+}
+.wave-jobs { display: flex; flex-wrap: wrap; gap: 0.5rem; flex: 1; }
+.wave-job {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  white-space: nowrap;
+  font-family: 'SF Mono', Consolas, monospace;
+}
+.wave-done { color: var(--accent-green); border-color: var(--accent-green); }
+.wave-running { color: var(--accent-yellow); border-color: var(--accent-yellow); }
+.wave-pending { color: var(--text-muted); }
+.wave-failed { color: var(--accent-red); border-color: var(--accent-red); background: rgba(248, 81, 73, 0.1); }
 .factor-list { margin-top: 0.5rem; }
 .factor-list summary { padding: 0.25rem 0; cursor: pointer; font-size: 0.8rem; color: var(--text-secondary); }
 .factor-list ul { list-style: none; padding: 0.5rem 0 0 1rem; }

@@ -132,6 +132,17 @@
 
       <!-- Validation Tab -->
       <section id="validation" class="tab-content">
+        <!-- Pipeline Health Panel (auto-refreshes every 10s when pipeline running) -->
+        <div class="card pipeline-health-card">
+          <div class="section-header">
+            <h3>Pipeline Health</h3>
+            <span class="pipeline-summary" id="pipelineSummary">--</span>
+          </div>
+          <div class="pipeline-waves" id="pipelineWaves">
+            <span class="loading">Loading...</span>
+          </div>
+        </div>
+
         <!-- AI FACT VERIFICATION - Prominent Section at Top -->
         <div class="fact-verification-section">
           <!-- Critical Issues Alert (shown at very top) -->

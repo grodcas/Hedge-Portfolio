@@ -670,6 +670,48 @@ export default {
           return Response.json(parsed, { headers: corsHeaders });
         }
 
+        // -------- GET /query/pipeline-health --------
+        if (path === "/query/pipeline-health") {
+          // Return status of the most recent daily_update jobs,
+          // grouped by wave. Used by dashboard to show pipeline progress.
+          const { results } = await db.prepare(`
+            SELECT id, worker, wave, status, date, last_update
+            FROM PROC_01_Job_queue
+            WHERE date >= datetime('now', '-2 hours')
+            ORDER BY wave ASC, id ASC
+          `).all();
+
+          const jobs = results || [];
+          const byWave = {};
+          for (const j of jobs) {
+            if (!byWave[j.wave]) byWave[j.wave] = [];
+            byWave[j.wave].push({
+              worker: j.worker,
+              status: j.status,
+              last_update: j.last_update,
+            });
+          }
+
+          const summary = {
+            total: jobs.length,
+            done: jobs.filter(j => j.status === "done").length,
+            running: jobs.filter(j => j.status === "running").length,
+            pending: jobs.filter(j => j.status === "pending").length,
+            failed: jobs.filter(j => j.status === "failed").length,
+          };
+
+          // Also fetch workflow completion flag
+          const wf = await db.prepare(`
+            SELECT status, completed_at FROM PROC_02_Workflow_status WHERE id='latest'
+          `).first();
+
+          return Response.json({
+            summary,
+            workflow: wf || { status: "unknown" },
+            waves: byWave,
+          }, { headers: corsHeaders });
+        }
+
         // -------- GET /query/attributions --------
         if (path === "/query/attributions") {
           const date = url.searchParams.get("date");
@@ -771,7 +813,19 @@ export default {
 
         // -------- GET /query/news-digest --------
         if (path === "/query/news-digest") {
-          const date = url.searchParams.get("date") || new Date().toISOString().slice(0, 10);
+          const requestedDate = url.searchParams.get("date") || new Date().toISOString().slice(0, 10);
+
+          // If the requested date has no digest, fall back to the most recent date available
+          let date = requestedDate;
+          const hasToday = await db.prepare(
+            `SELECT 1 FROM BETA_12_News_digest WHERE date = ? LIMIT 1`
+          ).bind(requestedDate).first();
+          if (!hasToday) {
+            const latest = await db.prepare(
+              `SELECT MAX(date) AS d FROM BETA_12_News_digest WHERE date <= ?`
+            ).bind(requestedDate).first();
+            if (latest?.d) date = latest.d;
+          }
 
           const [digestRows, secRows, pressRows, macroRows] = await Promise.all([
             db.prepare(`SELECT * FROM BETA_12_News_digest WHERE date = ? ORDER BY type, rank`).bind(date).all(),
