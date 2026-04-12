@@ -600,6 +600,137 @@ export default {
           return Response.json(rows.results || [], { headers: corsHeaders });
         }
 
+        // -------- GET /query/assessments --------
+        if (path === "/query/assessments") {
+          const date = url.searchParams.get("date");
+          const ticker = url.searchParams.get("ticker");
+          const history = url.searchParams.get("history");
+
+          let rows;
+          if (ticker && history) {
+            rows = await db.prepare(`SELECT * FROM SIGNAL_01_Assessment WHERE ticker = ? ORDER BY date DESC LIMIT 90`).bind(ticker).all();
+          } else if (date) {
+            rows = await db.prepare(`SELECT * FROM SIGNAL_01_Assessment WHERE date = ? ORDER BY score DESC`).bind(date).all();
+          } else {
+            const latest = await db.prepare(`SELECT MAX(date) as d FROM SIGNAL_01_Assessment`).first();
+            if (!latest?.d) return Response.json([], { headers: corsHeaders });
+            rows = await db.prepare(`SELECT * FROM SIGNAL_01_Assessment WHERE date = ? ORDER BY score DESC`).bind(latest.d).all();
+          }
+
+          const parsed = (rows.results || []).map(r => ({
+            ...r,
+            factors: r.factors_json ? JSON.parse(r.factors_json) : [],
+            sources: r.sources_json ? JSON.parse(r.sources_json) : [],
+          }));
+          return Response.json(parsed, { headers: corsHeaders });
+        }
+
+        // -------- GET /query/probabilities --------
+        if (path === "/query/probabilities") {
+          const ticker = url.searchParams.get("ticker");
+          const date = url.searchParams.get("date");
+
+          let rows;
+          if (ticker) {
+            rows = await db.prepare(`SELECT * FROM SIGNAL_02_Probability WHERE ticker = ? ORDER BY date DESC LIMIT 90`).bind(ticker).all();
+          } else if (date) {
+            rows = await db.prepare(`SELECT * FROM SIGNAL_02_Probability WHERE date = ? ORDER BY ticker`).bind(date).all();
+          } else {
+            const latest = await db.prepare(`SELECT MAX(date) as d FROM SIGNAL_02_Probability`).first();
+            if (!latest?.d) return Response.json([], { headers: corsHeaders });
+            rows = await db.prepare(`SELECT * FROM SIGNAL_02_Probability WHERE date = ? ORDER BY ticker`).bind(latest.d).all();
+          }
+
+          return Response.json(rows.results || [], { headers: corsHeaders });
+        }
+
+        // -------- GET /query/consensus --------
+        if (path === "/query/consensus") {
+          const date = url.searchParams.get("date");
+          const target = url.searchParams.get("target");
+
+          let rows;
+          if (target) {
+            rows = await db.prepare(`SELECT * FROM SIGNAL_03_Consensus WHERE target = ? ORDER BY date DESC LIMIT 30`).bind(target).all();
+          } else if (date) {
+            rows = await db.prepare(`SELECT * FROM SIGNAL_03_Consensus WHERE date = ?`).bind(date).all();
+          } else {
+            const latest = await db.prepare(`SELECT MAX(date) as d FROM SIGNAL_03_Consensus`).first();
+            if (!latest?.d) return Response.json([], { headers: corsHeaders });
+            rows = await db.prepare(`SELECT * FROM SIGNAL_03_Consensus WHERE date = ?`).bind(latest.d).all();
+          }
+
+          const parsed = (rows.results || []).map(r => ({
+            ...r,
+            missed_factors: r.missed_factors ? JSON.parse(r.missed_factors) : [],
+            search_sources: r.search_sources ? JSON.parse(r.search_sources) : [],
+          }));
+          return Response.json(parsed, { headers: corsHeaders });
+        }
+
+        // -------- GET /query/portfolio-signals --------
+        if (path === "/query/portfolio-signals") {
+          const date = url.searchParams.get("date") || new Date().toISOString().slice(0, 10);
+
+          // Find latest assessment date (fallback if specific date empty)
+          let workingDate = date;
+          const check = await db.prepare(`SELECT MAX(date) as d FROM SIGNAL_01_Assessment WHERE date <= ?`).bind(date).first();
+          if (check?.d) workingDate = check.d;
+
+          const [assessments, probabilities, consensus, prices] = await Promise.all([
+            db.prepare(`SELECT * FROM SIGNAL_01_Assessment WHERE date = ? ORDER BY score DESC`).bind(workingDate).all(),
+            db.prepare(`SELECT * FROM SIGNAL_02_Probability WHERE date = ?`).bind(workingDate).all(),
+            db.prepare(`SELECT * FROM SIGNAL_03_Consensus WHERE date = ?`).bind(workingDate).all(),
+            db.prepare(`SELECT * FROM PRICE_01_Daily WHERE date = (SELECT MAX(date) FROM PRICE_01_Daily WHERE date <= ?)`).bind(workingDate).all(),
+          ]);
+
+          // Index by ticker
+          const probMap = {};
+          for (const p of (probabilities.results || [])) probMap[p.ticker] = p;
+          const consMap = {};
+          for (const c of (consensus.results || [])) consMap[c.target] = c;
+          const priceMap = {};
+          for (const pr of (prices.results || [])) priceMap[pr.ticker] = pr;
+
+          const tickers = (assessments.results || []).map(a => {
+            const price = priceMap[a.ticker];
+            const ret = price && price.open > 0 ? ((price.close - price.open) / price.open * 100) : null;
+            return {
+              ticker: a.ticker,
+              date: a.date,
+              score: a.score,
+              factors: a.factors_json ? JSON.parse(a.factors_json) : [],
+              explanation: a.explanation,
+              sources: a.sources_json ? JSON.parse(a.sources_json) : [],
+              probability: probMap[a.ticker] ? {
+                p_favorable: probMap[a.ticker].p_favorable,
+                p_neutral: probMap[a.ticker].p_neutral,
+                p_unfavorable: probMap[a.ticker].p_unfavorable,
+              } : null,
+              consensus: consMap[a.ticker] ? {
+                confidence: consMap[a.ticker].confidence,
+                level: consMap[a.ticker].consensus_level,
+                narrative: consMap[a.ticker].dominant_narrative,
+                counter: consMap[a.ticker].strongest_counter,
+              } : null,
+              price: price ? {
+                close: price.close,
+                return_pct: ret,
+              } : null,
+            };
+          });
+
+          const buySignals = tickers.filter(t => t.score > 0.15).slice(0, 8);
+          const sellSignals = tickers.filter(t => t.score < -0.15).sort((a, b) => a.score - b.score).slice(0, 8);
+
+          return Response.json({
+            date: workingDate,
+            tickers,
+            buy_signals: buySignals,
+            sell_signals: sellSignals,
+          }, { headers: corsHeaders });
+        }
+
         // -------- GET /query/news-digest --------
         if (path === "/query/news-digest") {
           const date = url.searchParams.get("date") || new Date().toISOString().slice(0, 10);
@@ -1111,6 +1242,79 @@ export default {
             strong_buy = excluded.strong_buy, buy = excluded.buy, hold = excluded.hold,
             sell = excluded.sell, strong_sell = excluded.strong_sell, created_at = excluded.created_at
         `).bind(id, r.ticker, r.date, r.strong_buy, r.buy, r.hold, r.sell, r.strong_sell, now).run();
+        inserted++;
+      }
+      return Response.json({ ok: true, inserted }, { headers: corsHeaders });
+    }
+
+    // -------- SIGNAL_01_Assessment --------
+    if (which === "assessments") {
+      const items = Array.isArray(body) ? body : [body];
+      let inserted = 0;
+      for (const a of items) {
+        const id = await shortHash(`${a.ticker}|assessment|${a.date}`);
+        await db.prepare(`
+          INSERT INTO SIGNAL_01_Assessment
+            (id, ticker, date, score, factors_json, explanation, sources_json, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            score = excluded.score, factors_json = excluded.factors_json,
+            explanation = excluded.explanation, sources_json = excluded.sources_json,
+            created_at = excluded.created_at
+        `).bind(
+          id, a.ticker, a.date, a.score,
+          a.factors_json || "[]", a.explanation || "", a.sources_json || "[]", now
+        ).run();
+        inserted++;
+      }
+      return Response.json({ ok: true, inserted }, { headers: corsHeaders });
+    }
+
+    // -------- SIGNAL_02_Probability --------
+    if (which === "probabilities") {
+      const items = Array.isArray(body) ? body : [body];
+      let inserted = 0;
+      for (const p of items) {
+        const id = await shortHash(`${p.ticker}|prob|${p.date}`);
+        await db.prepare(`
+          INSERT INTO SIGNAL_02_Probability
+            (id, ticker, date, p_favorable, p_neutral, p_unfavorable, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            p_favorable = excluded.p_favorable, p_neutral = excluded.p_neutral,
+            p_unfavorable = excluded.p_unfavorable, created_at = excluded.created_at
+        `).bind(id, p.ticker, p.date, p.p_favorable, p.p_neutral, p.p_unfavorable, now).run();
+        inserted++;
+      }
+      return Response.json({ ok: true, inserted }, { headers: corsHeaders });
+    }
+
+    // -------- SIGNAL_03_Consensus --------
+    if (which === "consensus") {
+      const items = Array.isArray(body) ? body : [body];
+      let inserted = 0;
+      for (const c of items) {
+        const id = await shortHash(`${c.target}|consensus|${c.date}`);
+        await db.prepare(`
+          INSERT INTO SIGNAL_03_Consensus
+            (id, date, target, our_conclusion, dominant_narrative, consensus_level,
+             missed_factors, strongest_counter, confidence, search_sources, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            our_conclusion = excluded.our_conclusion,
+            dominant_narrative = excluded.dominant_narrative,
+            consensus_level = excluded.consensus_level,
+            missed_factors = excluded.missed_factors,
+            strongest_counter = excluded.strongest_counter,
+            confidence = excluded.confidence,
+            search_sources = excluded.search_sources,
+            created_at = excluded.created_at
+        `).bind(
+          id, c.date, c.target, c.our_conclusion || "",
+          c.dominant_narrative || "", c.consensus_level || 0,
+          c.missed_factors || "[]", c.strongest_counter || "",
+          c.confidence || "MEDIUM", c.search_sources || "[]", now
+        ).run();
         inserted++;
       }
       return Response.json({ ok: true, inserted }, { headers: corsHeaders });

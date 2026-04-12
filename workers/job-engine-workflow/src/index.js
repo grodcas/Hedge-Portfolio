@@ -107,6 +107,19 @@ var JobWorkflow = class extends WorkflowEntrypoint {
             case "fundamentals-fetcher":
               res = await this.env.FUNDAMENTALS_FETCHER.fetch("https://internal/fetch-fundamentals", { method: "POST", body });
               break;
+            // --- SIGNAL LAYER ---
+            case "macro-intelligence-builder":
+              res = await this.env.MACRO_INTELLIGENCE_BUILDER.fetch("https://internal/build-macro-intelligence", { method: "POST", body });
+              break;
+            case "assessment-engine":
+              res = await this.env.ASSESSMENT_ENGINE.fetch("https://internal/compute-assessments", { method: "POST", body });
+              break;
+            case "probability-engine":
+              res = await this.env.PROBABILITY_ENGINE.fetch("https://internal/update-probabilities", { method: "POST", body });
+              break;
+            case "consensus-validator":
+              res = await this.env.CONSENSUS_VALIDATOR.fetch("https://internal/validate-consensus", { method: "POST", body });
+              break;
             default:
               throw new Error(`Unknown worker: ${job.worker}`);
           }
@@ -224,6 +237,27 @@ var index_default = {
 
       // Queue jobs in INSERT order (LIFO: last inserted = highest ID = runs first)
       // So we insert in REVERSE execution order:
+
+      // 1) Signal layer (runs LAST — lowest IDs)
+      await this_env.DB.prepare(`
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
+        VALUES (?, ?, ?, ?)
+      `).bind(now, "consensus-validator", "{}", "pending").run();
+
+      await this_env.DB.prepare(`
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
+        VALUES (?, ?, ?, ?)
+      `).bind(now, "probability-engine", "{}", "pending").run();
+
+      await this_env.DB.prepare(`
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
+        VALUES (?, ?, ?, ?)
+      `).bind(now, "assessment-engine", "{}", "pending").run();
+
+      await this_env.DB.prepare(`
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
+        VALUES (?, ?, ?, ?)
+      `).bind(now, "macro-intelligence-builder", "{}", "pending").run();
 
       // 2) Queue AI summarizers (run AFTER data fetchers)
       await this_env.DB.prepare(`

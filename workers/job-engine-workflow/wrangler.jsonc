@@ -124,6 +124,26 @@
       "binding": "FUNDAMENTALS_FETCHER",
       "service": "fundamentals-fetcher",
       "environment": "production"
+    },
+    {
+      "binding": "MACRO_INTELLIGENCE_BUILDER",
+      "service": "macro-intelligence-builder",
+      "environment": "production"
+    },
+    {
+      "binding": "ASSESSMENT_ENGINE",
+      "service": "assessment-engine",
+      "environment": "production"
+    },
+    {
+      "binding": "PROBABILITY_ENGINE",
+      "service": "probability-engine",
+      "environment": "production"
+    },
+    {
+      "binding": "CONSENSUS_VALIDATOR",
+      "service": "consensus-validator",
+      "environment": "production"
     }
   ],
   "d1_databases": [
