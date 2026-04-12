@@ -9,53 +9,52 @@ export default {
     const today = now.slice(0, 10);
 
     // ------------------------------------------------
-    // 1) ENQUEUE FINAL job FIRST (LIFO)
+    // Wave-based nested chain
+    // 1200: beta-macro-processor + beta-sentiment-processor (parallel prerequisites)
+    // 1300: beta-gen-processor (runs after 1200 completes)
     // ------------------------------------------------
+
+    // Final: beta-gen-processor at wave 1300
     await db.prepare(`
-      INSERT INTO PROC_01_Job_queue (date, worker, input, status)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO PROC_01_Job_queue (date, worker, input, status, wave)
+      VALUES (?, ?, ?, ?, ?)
     `).bind(
       now,
-      "beta-gen-processor",                 // <-- your BETA_08_Gen_Processed summarizer worker name
-      JSON.stringify({}),                   // no input needed (it pulls latest)
-      "pending"
+      "beta-gen-processor",
+      JSON.stringify({}),
+      "pending",
+      1300
     ).run();
 
-    // ------------------------------------------------
-    // 2) Sentiment prerequisite (enqueue AFTER final, so it runs BEFORE final)
-    // ------------------------------------------------
+    // Sentiment prerequisite at wave 1200
     const sentRow = await db.prepare(`
       SELECT id FROM BETA_06_Sentiment_Processed WHERE date = ? LIMIT 1
     `).bind(today).first();
-    
+
     if (!sentRow) {
       await db.prepare(`
-        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
-        VALUES (?, ?, ?, ?)
-      `).bind(now, "beta-sentiment-processor", JSON.stringify({ date: "LATEST" }), "pending").run();
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status, wave)
+        VALUES (?, ?, ?, ?, ?)
+      `).bind(now, "beta-sentiment-processor", JSON.stringify({ date: "LATEST" }), "pending", 1200).run();
     }
 
-    // ------------------------------------------------
-    // 3) Macro prerequisite (enqueue LAST, so it runs FIRST)
-    // ------------------------------------------------
-    // 3) Macro prerequisite
+    // Macro prerequisite at wave 1200 (runs in parallel with sentiment)
     const macroRow = await db.prepare(`
-      SELECT id FROM BETA_05_Macro_Processed 
-      WHERE date = ? 
+      SELECT id FROM BETA_05_Macro_Processed
+      WHERE date = ?
       LIMIT 1
     `).bind(today).first();
 
     if (!macroRow) {
       await db.prepare(`
-        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status, wave)
+        VALUES (?, ?, ?, ?, ?)
       `).bind(
         now,
         "beta-macro-processor",
-        // Pass 'LATEST' instead of a specific date, 
-        // or just an empty object if you use the query above.
-        JSON.stringify({ date: "LATEST" }), 
-        "pending"
+        JSON.stringify({ date: "LATEST" }),
+        "pending",
+        1200
       ).run();
     }
 

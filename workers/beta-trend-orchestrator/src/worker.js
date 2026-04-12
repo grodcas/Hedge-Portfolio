@@ -9,45 +9,24 @@ export default {
     const today = now.slice(0, 10);
 
     // ------------------------------------------------
-    // 1) FINAL job FIRST (LIFO) → builds BETA_09_Trend
+    // Wave-based nested chain (runs inside main wave 1000)
+    // 1100: beta-gen-orchestrator (if needed)   — fans out further
+    // 1400: beta-trend-processor                — final BETA_09_Trend build
     // ------------------------------------------------
+
+    // Final job: beta-trend-processor at wave 1400
     await db.prepare(`
-      INSERT INTO PROC_01_Job_queue (date, worker, input, status)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO PROC_01_Job_queue (date, worker, input, status, wave)
+      VALUES (?, ?, ?, ?, ?)
     `).bind(
       now,
-      "beta-trend-processor",   // BETA_09_Trend summarizer
+      "beta-trend-processor",
       JSON.stringify({}),
-      "pending"
+      "pending",
+      1400
     ).run();
 
-
-    // ------------------------------------------------
-    // 2) News prerequisite (runs before trend)
-    // ------------------------------------------------
-    /*
-    const newsRow = await db.prepare(`
-      SELECT id
-      FROM BETA_07_News_Processed
-      WHERE date = ?
-      LIMIT 1
-    `).bind(today).first();
-
-    if (!newsRow) {
-      await db.prepare(`
-        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
-        VALUES (?, ?, ?, ?)
-      `).bind(
-        now,
-        "beta-news-processor",   // BETA_07_News_Processed summarizer
-        JSON.stringify({ date: today }),
-        "pending"
-      ).run();
-    }
-*/
-    // ------------------------------------------------
-    // 3) Gen prerequisite (runs FIRST)
-    // ------------------------------------------------
+    // Gen prerequisite at wave 1100 (runs first, before trend-processor)
     const genRow = await db.prepare(`
       SELECT id
       FROM BETA_08_Gen_Processed
@@ -57,13 +36,14 @@ export default {
 
     if (!genRow) {
       await db.prepare(`
-        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status, wave)
+        VALUES (?, ?, ?, ?, ?)
       `).bind(
         now,
-        "beta-gen-orchestrator", // orchestrator you created before
+        "beta-gen-orchestrator",
         JSON.stringify({}),
-        "pending"
+        "pending",
+        1100
       ).run();
     }
 

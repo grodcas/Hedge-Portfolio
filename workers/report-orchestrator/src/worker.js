@@ -65,7 +65,9 @@ export default {
     if (type === "10-K" || type === "10-Q") {
 
       // --------------------------------------------
-      // C) FINAL step FIRST (LIFO)
+      // Wave-based sub-chain for report processing:
+      //   wave 10: qk-structure-builder (runs after cluster summaries)
+      //   wave 11: qk-report-summarizer (runs after structure-builder)
       // --------------------------------------------
       const summaryRow = await db.prepare(`
         SELECT summary
@@ -75,19 +77,17 @@ export default {
 
       if (!summaryRow?.summary) {
         await db.prepare(`
-          INSERT INTO PROC_01_Job_queue (date, worker, input, status)
-          VALUES (?, ?, ?, ?)
+          INSERT INTO PROC_01_Job_queue (date, worker, input, status, wave)
+          VALUES (?, ?, ?, ?, ?)
         `).bind(
           now,
           "qk-report-summarizer",
           JSON.stringify({ report_id }),
-          "pending"
+          "pending",
+          11
         ).run();
       }
 
-      // --------------------------------------------
-      // B) Structure SECOND
-      // --------------------------------------------
       const structureRow = await db.prepare(`
         SELECT structure
         FROM ALPHA_01_Reports
@@ -102,13 +102,14 @@ export default {
 
       if (!structureValid) {
         await db.prepare(`
-          INSERT INTO PROC_01_Job_queue (date, worker, input, status)
-          VALUES (?, ?, ?, ?)
+          INSERT INTO PROC_01_Job_queue (date, worker, input, status, wave)
+          VALUES (?, ?, ?, ?, ?)
         `).bind(
           now,
           "qk-structure-builder",
           JSON.stringify({ report_id }),
-          "pending"
+          "pending",
+          10
         ).run();
       }
 
