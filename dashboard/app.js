@@ -805,6 +805,13 @@ function renderSignalCard(s, type) {
       <div class="signal-detail">
         <p class="signal-explanation">${s.explanation || 'No explanation available'}</p>
         ${priceChange ? `<p class="signal-price">Price today:${priceChange}</p>` : ''}
+        ${s.attribution ? `
+          <div class="attribution-box attribution-${s.attribution.movement_type}">
+            <strong>Why it moved (${s.attribution.movement_type}):</strong>
+            ${s.attribution.ticker_return != null ? `${s.attribution.ticker_return >= 0 ? '+' : ''}${s.attribution.ticker_return.toFixed(2)}% today` : ''}
+            ${s.attribution.company_alpha != null ? `<span class="alpha-note">(${s.attribution.company_alpha >= 0 ? '+' : ''}${s.attribution.company_alpha.toFixed(2)}% vs sector)</span>` : ''}
+            ${s.attribution.explanation ? `<br><em>${s.attribution.explanation}</em>` : ''}
+          </div>` : ''}
         ${s.consensus ? `
           <div class="signal-consensus-box">
             <strong>Consensus (${s.consensus.confidence}):</strong> ${s.consensus.narrative || '—'}

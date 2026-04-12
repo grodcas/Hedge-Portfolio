@@ -1901,6 +1901,14 @@ select {
 .signal-explanation { margin-bottom: 0.5rem; }
 .signal-price { color: var(--text-secondary); font-size: 0.85rem; }
 .signal-consensus-box { margin-top: 0.5rem; padding: 0.5rem; background: var(--bg-primary); border-radius: 4px; font-size: 0.8rem; color: var(--text-secondary); }
+
+.attribution-box { margin-top: 0.5rem; padding: 0.5rem 0.75rem; background: var(--bg-primary); border-radius: 4px; font-size: 0.8rem; color: var(--text-secondary); border-left: 3px solid var(--text-muted); }
+.attribution-box em { color: var(--text-primary); font-style: italic; }
+.attribution-box .alpha-note { font-family: 'SF Mono', Consolas, monospace; color: var(--text-muted); margin-left: 0.25rem; }
+.attribution-company { border-left-color: var(--accent-blue); }
+.attribution-sector { border-left-color: var(--accent-yellow); }
+.attribution-macro { border-left-color: var(--accent-purple); }
+.attribution-none { border-left-color: var(--text-muted); opacity: 0.7; }
 .factor-list { margin-top: 0.5rem; }
 .factor-list summary { padding: 0.25rem 0; cursor: pointer; font-size: 0.8rem; color: var(--text-secondary); }
 .factor-list ul { list-style: none; padding: 0.5rem 0 0 1rem; }

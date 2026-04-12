@@ -120,6 +120,9 @@ var JobWorkflow = class extends WorkflowEntrypoint {
             case "consensus-validator":
               res = await this.env.CONSENSUS_VALIDATOR.fetch("https://internal/validate-consensus", { method: "POST", body });
               break;
+            case "event-attribution-engine":
+              res = await this.env.EVENT_ATTRIBUTION_ENGINE.fetch("https://internal/attribute-events", { method: "POST", body });
+              break;
             default:
               throw new Error(`Unknown worker: ${job.worker}`);
           }
@@ -239,6 +242,12 @@ var index_default = {
       // So we insert in REVERSE execution order:
 
       // 1) Signal layer (runs LAST — lowest IDs)
+      // event-attribution-engine runs LAST (needs prices + assessments fresh)
+      await this_env.DB.prepare(`
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
+        VALUES (?, ?, ?, ?)
+      `).bind(now, "event-attribution-engine", "{}", "pending").run();
+
       await this_env.DB.prepare(`
         INSERT INTO PROC_01_Job_queue (date, worker, input, status)
         VALUES (?, ?, ?, ?)

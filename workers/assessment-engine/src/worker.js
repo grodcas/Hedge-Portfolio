@@ -1,21 +1,25 @@
 /**
- * ASSESSMENT ENGINE — Core Scoring System
+ * ASSESSMENT ENGINE — Core Scoring System (v2)
  *
- * Computes a -1.0 to +1.0 composite score per ticker based on 10 factors.
+ * Computes a -1.0 to +1.0 composite score per ticker based on 8 factors.
  * ALL SCORING IS DETERMINISTIC MATH — no AI in the computation.
  * Then uses GPT-4o-mini ONLY to explain the pre-computed score in 2 sentences.
  *
- * Factors:
- * 1. Price position (vs 50DMA/200DMA)           Trust L4, weight 1.5
- * 2. Relative performance (vs sector ETF)        Trust L4, weight 1.5
- * 3. Valuation (P/E vs sector avg)               Trust L3, weight 2.0
- * 4. Earnings momentum (surprise direction)      Trust L3, weight 2.0
- * 5. Analyst consensus (buy ratio)               Trust L3, weight 2.0
- * 6. Insider activity (Form 4)                   Trust L1, weight 3.0
- * 7. News sentiment (avg magnitude)              Trust L5, weight 1.0
- * 8. Press substance (recency)                   Trust L2, weight 2.5
- * 9. SEC filing narrative (trend direction)      Trust L1, weight 3.0
- * 10. Macro alignment (sector in favor)          Trust L4, weight 1.5
+ * Factors (v2 — refactored after Phase 5 review):
+ * 1. Price position (vs 50DMA)                  Trust L4, weight 1.5
+ * 2. Valuation (P/E vs sector avg)               Trust L3, weight 2.0
+ * 3. Earnings momentum (surprise direction)      Trust L3, weight 2.0
+ * 4. Analyst consensus (buy ratio)               Trust L3, weight 2.0
+ * 5. Insider direction (Form 4 BUY/SELL parse)   Trust L1, weight 3.0
+ * 6. News sentiment (BETA_12 avg magnitude)      Trust L5, weight 1.0
+ * 7. Press materiality (sentiment × magnitude)   Trust L2, weight 2.5
+ * 8. Macro alignment (sector in favor)           Trust L4, weight 1.5
+ *
+ * Total weight: 15.5
+ *
+ * Removed from v1:
+ * - Relative performance (same-day noise — now handled by event-attribution-engine)
+ * - SEC narrative keyword matching (too noisy on objective language)
  */
 
 const TICKERS = [
@@ -24,21 +28,16 @@ const TICKERS = [
   "PG", "KO", "HD", "CAT", "BA", "INTC", "AMD", "NFLX", "MS"
 ];
 
+// BRK.B moved to Finance (Berkshire is primarily insurance + financial holdings)
 const SECTOR_MAP = {
   AAPL: "Technology", MSFT: "Technology", GOOGL: "Technology", AMZN: "Technology",
   NVDA: "Technology", META: "Technology", INTC: "Technology", AMD: "Technology", NFLX: "Technology",
-  JPM: "Finance", GS: "Finance", BAC: "Finance", MS: "Finance",
+  TSLA: "Technology",
+  JPM: "Finance", GS: "Finance", BAC: "Finance", MS: "Finance", "BRK.B": "Finance",
   XOM: "Energy", CVX: "Energy",
   UNH: "Healthcare", LLY: "Healthcare", JNJ: "Healthcare",
   PG: "Consumer", KO: "Consumer", HD: "Consumer",
   CAT: "Industrial", BA: "Industrial",
-  TSLA: "Technology", "BRK.B": "Conglomerate"
-};
-
-const SECTOR_ETF = {
-  Technology: "XLK", Finance: "XLF", Energy: "XLE",
-  Healthcare: "XLV", Consumer: "XLP", Industrial: "XLI",
-  Conglomerate: "SPY"
 };
 
 const INGESTOR_URL = "https://portfolio-ingestor.gines-rodriguez-castro.workers.dev";
@@ -51,22 +50,22 @@ export default {
 
     const db = env.DB;
     const today = new Date().toISOString().slice(0, 10);
-    const now = new Date().toISOString();
 
-    console.log(`[ASSESSMENT] Starting for ${TICKERS.length} tickers (${today})`);
+    console.log(`[ASSESSMENT v2] Starting for ${TICKERS.length} tickers (${today})`);
 
     // =========================================================
     // LOAD ALL DATA IN PARALLEL
     // =========================================================
-    const [priceRows, fundRows, earningsRows, recsRows, form4Rows, newsRows, pressRows, trendRows, macroRow] = await Promise.all([
+    const [priceRows, fundRows, earningsRows, recsRows, form4Rows, newsRows, pressRows, macroRow] = await Promise.all([
       db.prepare(`SELECT * FROM PRICE_01_Daily WHERE date = (SELECT MAX(date) FROM PRICE_01_Daily)`).all(),
       db.prepare(`SELECT f.* FROM FUND_01_Fundamentals f INNER JOIN (SELECT ticker, MAX(date) as md FROM FUND_01_Fundamentals GROUP BY ticker) g ON f.ticker=g.ticker AND f.date=g.md`).all(),
       db.prepare(`SELECT e.* FROM FUND_02_Earnings e INNER JOIN (SELECT ticker, MAX(period) as mp FROM FUND_02_Earnings GROUP BY ticker) g ON e.ticker=g.ticker AND e.period=g.mp`).all(),
       db.prepare(`SELECT r.* FROM FUND_03_Recommendations r INNER JOIN (SELECT ticker, MAX(date) as md FROM FUND_03_Recommendations GROUP BY ticker) g ON r.ticker=g.ticker AND r.date=g.md`).all(),
-      db.prepare(`SELECT ticker, type, date FROM ALPHA_01_Reports WHERE type = '4' AND date >= date('now', '-30 days')`).all(),
+      // Form 4: now load full summary text to parse BUY/SELL
+      db.prepare(`SELECT ticker, summary, date FROM ALPHA_01_Reports WHERE type = '4' AND date >= date('now', '-30 days')`).all(),
       db.prepare(`SELECT ticker, sentiment, magnitude FROM BETA_12_News_digest WHERE date = ? AND type = 'ticker'`).bind(today).all(),
-      db.prepare(`SELECT ticker, date FROM ALPHA_03_Press WHERE date >= date('now', '-7 days') ORDER BY date DESC`).all(),
-      db.prepare(`SELECT ticker, summary FROM ALPHA_04_Trends ORDER BY created_at DESC`).all(),
+      // Press: now load sentiment + magnitude
+      db.prepare(`SELECT ticker, date, sentiment, magnitude FROM ALPHA_03_Press WHERE date >= date('now', '-7 days')`).all(),
       db.prepare(`SELECT summary FROM BETA_10_Daily_macro ORDER BY creation_date DESC LIMIT 1`).first(),
     ]);
 
@@ -75,15 +74,15 @@ export default {
     const funds = indexBy(fundRows.results, "ticker");
     const earnings = indexBy(earningsRows.results, "ticker");
     const recs = indexBy(recsRows.results, "ticker");
-    const trends = indexBy(trendRows.results, "ticker");
 
-    // Form 4 counts per ticker
-    const form4Counts = {};
+    // Form 4 summaries grouped by ticker (array of summary strings)
+    const form4ByTicker = {};
     for (const r of (form4Rows.results || [])) {
-      form4Counts[r.ticker] = (form4Counts[r.ticker] || 0) + 1;
+      if (!form4ByTicker[r.ticker]) form4ByTicker[r.ticker] = [];
+      if (r.summary) form4ByTicker[r.ticker].push(r.summary);
     }
 
-    // News sentiment averages per ticker
+    // News sentiment averages per ticker (from BETA_12)
     const newsSentiment = {};
     const newsCount = {};
     for (const r of (newsRows.results || [])) {
@@ -93,10 +92,15 @@ export default {
       }
     }
 
-    // Press recency per ticker
-    const pressRecent = {};
+    // Press releases grouped by ticker with sentiment+magnitude
+    const pressByTicker = {};
     for (const r of (pressRows.results || [])) {
-      if (!pressRecent[r.ticker]) pressRecent[r.ticker] = r.date;
+      if (!pressByTicker[r.ticker]) pressByTicker[r.ticker] = [];
+      pressByTicker[r.ticker].push({
+        date: r.date,
+        sentiment: r.sentiment,
+        magnitude: r.magnitude,
+      });
     }
 
     // Parse macro intelligence for sector alignment
@@ -121,7 +125,7 @@ export default {
     }
 
     // =========================================================
-    // COMPUTE FACTORS PER TICKER
+    // COMPUTE FACTORS PER TICKER (8 factors)
     // =========================================================
     const assessments = [];
 
@@ -134,133 +138,189 @@ export default {
       const e = earnings[ticker];
       const r = recs[ticker];
       const sector = SECTOR_MAP[ticker];
-      const sectorEtf = SECTOR_ETF[sector];
-      const etfPrice = prices[sectorEtf];
-      const spyPrice = prices["SPY"];
 
-      // Factor 1: Price position (vs 50DMA/200DMA)
-      let f1 = 0, f1reason = "No price/fundamental data";
-      if (p && f) {
-        if (f.dma_50 && p.close > f.dma_50 * 1.02) { f1 = 1; f1reason = `Close ${p.close.toFixed(1)} above 50DMA ${f.dma_50.toFixed(1)}`; }
-        else if (f.dma_50 && p.close < f.dma_50 * 0.98) { f1 = -1; f1reason = `Close ${p.close.toFixed(1)} below 50DMA ${f.dma_50.toFixed(1)}`; }
-        else { f1reason = `Close near 50DMA`; }
+      // -------------------------------------------------------
+      // Factor 1: Price position (vs 50DMA)
+      // -------------------------------------------------------
+      let f1 = 0, f1reason = "No price/DMA data";
+      if (p && f?.dma_50) {
+        if (p.close > f.dma_50 * 1.02) {
+          f1 = 1;
+          f1reason = `Close ${p.close.toFixed(1)} above 50DMA ${f.dma_50.toFixed(1)}`;
+        } else if (p.close < f.dma_50 * 0.98) {
+          f1 = -1;
+          f1reason = `Close ${p.close.toFixed(1)} below 50DMA ${f.dma_50.toFixed(1)}`;
+        } else {
+          f1reason = `Close near 50DMA ${f.dma_50.toFixed(1)}`;
+        }
         sources.push("PRICE_01_Daily", "FUND_01_Fundamentals");
       }
       factors.push({ name: "Price position", value: f1, weight: 1.5, trust: 4, reason: f1reason });
 
-      // Factor 2: Relative performance (ticker vs sector ETF)
-      let f2 = 0, f2reason = "No price data for comparison";
-      if (p && etfPrice && p.open > 0 && etfPrice.open > 0) {
-        const tickerRet = (p.close - p.open) / p.open * 100;
-        const etfRet = (etfPrice.close - etfPrice.open) / etfPrice.open * 100;
-        const alpha = tickerRet - etfRet;
-        if (alpha > 0.5) { f2 = 1; f2reason = `+${alpha.toFixed(1)}% vs ${sectorEtf}`; }
-        else if (alpha < -0.5) { f2 = -1; f2reason = `${alpha.toFixed(1)}% vs ${sectorEtf}`; }
-        else { f2reason = `In line with ${sectorEtf} (${alpha.toFixed(1)}%)`; }
-        sources.push("PRICE_01_Daily");
-      }
-      factors.push({ name: "Relative performance", value: f2, weight: 1.5, trust: 4, reason: f2reason });
-
-      // Factor 3: Valuation (P/E vs sector average)
-      let f3 = 0, f3reason = "No P/E data";
-      if (f?.pe_ratio && f.pe_ratio > 0 && sectorPE[sector]) {
+      // -------------------------------------------------------
+      // Factor 2: Valuation (P/E vs sector average)
+      // -------------------------------------------------------
+      let f2 = 0, f2reason = "No P/E data";
+      if (f?.pe_ratio && f.pe_ratio > 0 && sectorPE[sector] && sectorPEcount[sector] > 1) {
         const ratio = f.pe_ratio / sectorPE[sector];
-        if (ratio < 0.8) { f3 = 1; f3reason = `P/E ${f.pe_ratio.toFixed(1)} below sector avg ${sectorPE[sector].toFixed(1)}`; }
-        else if (ratio > 1.2) { f3 = -1; f3reason = `P/E ${f.pe_ratio.toFixed(1)} above sector avg ${sectorPE[sector].toFixed(1)}`; }
-        else { f3reason = `P/E ${f.pe_ratio.toFixed(1)} near sector avg ${sectorPE[sector].toFixed(1)}`; }
+        if (ratio < 0.8) {
+          f2 = 1;
+          f2reason = `P/E ${f.pe_ratio.toFixed(1)} below sector avg ${sectorPE[sector].toFixed(1)}`;
+        } else if (ratio > 1.2) {
+          f2 = -1;
+          f2reason = `P/E ${f.pe_ratio.toFixed(1)} above sector avg ${sectorPE[sector].toFixed(1)}`;
+        } else {
+          f2reason = `P/E ${f.pe_ratio.toFixed(1)} near sector avg ${sectorPE[sector].toFixed(1)}`;
+        }
         sources.push("FUND_01_Fundamentals");
       }
-      factors.push({ name: "Valuation", value: f3, weight: 2.0, trust: 3, reason: f3reason });
+      factors.push({ name: "Valuation", value: f2, weight: 2.0, trust: 3, reason: f2reason });
 
-      // Factor 4: Earnings momentum (last surprise)
-      let f4 = 0, f4reason = "No earnings data";
+      // -------------------------------------------------------
+      // Factor 3: Earnings momentum (last surprise)
+      // -------------------------------------------------------
+      let f3 = 0, f3reason = "No earnings data";
       if (e?.surprise_pct != null) {
-        if (e.surprise_pct > 2) { f4 = 1; f4reason = `Last surprise +${e.surprise_pct.toFixed(1)}%`; }
-        else if (e.surprise_pct < -2) { f4 = -1; f4reason = `Last surprise ${e.surprise_pct.toFixed(1)}%`; }
-        else { f4reason = `Last surprise ${e.surprise_pct.toFixed(1)}% (in line)`; }
+        if (e.surprise_pct > 2) {
+          f3 = 1;
+          f3reason = `Last surprise +${e.surprise_pct.toFixed(1)}%`;
+        } else if (e.surprise_pct < -2) {
+          f3 = -1;
+          f3reason = `Last surprise ${e.surprise_pct.toFixed(1)}%`;
+        } else {
+          f3reason = `Last surprise ${e.surprise_pct.toFixed(1)}% (in line)`;
+        }
         sources.push("FUND_02_Earnings");
       }
-      factors.push({ name: "Earnings momentum", value: f4, weight: 2.0, trust: 3, reason: f4reason });
+      factors.push({ name: "Earnings momentum", value: f3, weight: 2.0, trust: 3, reason: f3reason });
 
-      // Factor 5: Analyst consensus (buy ratio)
-      let f5 = 0, f5reason = "No analyst data";
+      // -------------------------------------------------------
+      // Factor 4: Analyst consensus (buy ratio)
+      // -------------------------------------------------------
+      let f4 = 0, f4reason = "No analyst data";
       if (r) {
         const total = (r.strong_buy || 0) + (r.buy || 0) + (r.hold || 0) + (r.sell || 0) + (r.strong_sell || 0);
         if (total > 0) {
           const buyRatio = ((r.strong_buy || 0) + (r.buy || 0)) / total;
-          if (buyRatio > 0.6) { f5 = 1; f5reason = `${Math.round(buyRatio * 100)}% buy/strong-buy`; }
-          else if (buyRatio < 0.4) { f5 = -1; f5reason = `Only ${Math.round(buyRatio * 100)}% buy/strong-buy`; }
-          else { f5reason = `${Math.round(buyRatio * 100)}% buy/strong-buy (mixed)`; }
+          if (buyRatio > 0.6) {
+            f4 = 1;
+            f4reason = `${Math.round(buyRatio * 100)}% buy/strong-buy`;
+          } else if (buyRatio < 0.4) {
+            f4 = -1;
+            f4reason = `Only ${Math.round(buyRatio * 100)}% buy/strong-buy`;
+          } else {
+            f4reason = `${Math.round(buyRatio * 100)}% buy/strong-buy (mixed)`;
+          }
           sources.push("FUND_03_Recommendations");
         }
       }
-      factors.push({ name: "Analyst consensus", value: f5, weight: 2.0, trust: 3, reason: f5reason });
+      factors.push({ name: "Analyst consensus", value: f4, weight: 2.0, trust: 3, reason: f4reason });
 
-      // Factor 6: Insider activity (Form 4 filings in last 30 days)
-      let f6 = 0, f6reason = "No recent Form 4 filings";
-      const f4Count = form4Counts[ticker] || 0;
-      if (f4Count > 0) {
-        // Simplified: presence of Form 4 = activity. Direction needs parsing.
-        f6 = 0; // Neutral — we can't determine buy/sell without parsing
-        f6reason = `${f4Count} Form 4 filings in last 30 days`;
+      // -------------------------------------------------------
+      // Factor 5: Insider direction (parse Form 4 summaries for BUY/SELL)
+      // -------------------------------------------------------
+      let f5 = 0, f5reason = "No recent Form 4 filings";
+      const form4Summaries = form4ByTicker[ticker] || [];
+      if (form4Summaries.length > 0) {
+        let buys = 0, sells = 0;
+        for (const s of form4Summaries) {
+          const text = (s || "").toUpperCase();
+          // form4-summarizer writes explicit "BUY"/"SELL" and "DIRECTION: buy/sell"
+          const hasBuy = text.includes("DIRECTION: BUY") || text.includes("DIRECTION:BUY") ||
+                         text.includes("PURCHASE") || text.match(/\bBUY\b/);
+          const hasSell = text.includes("DIRECTION: SELL") || text.includes("DIRECTION:SELL") ||
+                          text.includes("DISPOSED") || text.match(/\bSELL\b/);
+          // Prefer the stronger signal — if both appear, skip (balanced/ambiguous)
+          if (hasBuy && !hasSell) buys++;
+          else if (hasSell && !hasBuy) sells++;
+        }
+        if (buys > sells) {
+          f5 = 1;
+          f5reason = `${buys} insider buy(s) vs ${sells} sell(s)`;
+        } else if (sells > buys) {
+          f5 = -1;
+          f5reason = `${sells} insider sell(s) vs ${buys} buy(s)`;
+        } else {
+          f5reason = `${buys} buys / ${sells} sells (balanced)`;
+        }
         sources.push("ALPHA_01_Reports");
       }
-      factors.push({ name: "Insider activity", value: f6, weight: 3.0, trust: 1, reason: f6reason });
+      factors.push({ name: "Insider direction", value: f5, weight: 3.0, trust: 1, reason: f5reason });
 
-      // Factor 7: News sentiment (average magnitude from today's digest)
-      let f7 = 0, f7reason = "No news today";
+      // -------------------------------------------------------
+      // Factor 6: News sentiment (from BETA_12 filter agent)
+      // -------------------------------------------------------
+      let f6 = 0, f6reason = "No news today";
       if (newsCount[ticker] > 0) {
         const avgMag = newsSentiment[ticker] / newsCount[ticker];
-        if (avgMag > 0.3) { f7 = 1; f7reason = `News sentiment +${avgMag.toFixed(2)} (${newsCount[ticker]} items)`; }
-        else if (avgMag < -0.3) { f7 = -1; f7reason = `News sentiment ${avgMag.toFixed(2)} (${newsCount[ticker]} items)`; }
-        else { f7reason = `News sentiment neutral ${avgMag.toFixed(2)}`; }
+        if (avgMag > 0.3) {
+          f6 = 1;
+          f6reason = `News sentiment +${avgMag.toFixed(2)} (${newsCount[ticker]} items)`;
+        } else if (avgMag < -0.3) {
+          f6 = -1;
+          f6reason = `News sentiment ${avgMag.toFixed(2)} (${newsCount[ticker]} items)`;
+        } else {
+          f6reason = `News sentiment neutral ${avgMag.toFixed(2)}`;
+        }
         sources.push("BETA_12_News_digest");
       }
-      factors.push({ name: "News sentiment", value: f7, weight: 1.0, trust: 5, reason: f7reason });
+      factors.push({ name: "News sentiment", value: f6, weight: 1.0, trust: 5, reason: f6reason });
 
-      // Factor 8: Press substance (recency of press releases)
-      let f8 = 0, f8reason = "No recent press releases";
-      if (pressRecent[ticker]) {
-        const daysAgo = Math.floor((Date.now() - new Date(pressRecent[ticker]).getTime()) / 86400000);
-        if (daysAgo <= 2) { f8 = 1; f8reason = `Press release ${daysAgo}d ago`; }
-        else if (daysAgo <= 7) { f8 = 0; f8reason = `Press release ${daysAgo}d ago`; }
-        sources.push("ALPHA_03_Press");
+      // -------------------------------------------------------
+      // Factor 7: Press materiality (content-based sentiment × magnitude)
+      // -------------------------------------------------------
+      let f7 = 0, f7reason = "No recent press releases";
+      const pressItems = pressByTicker[ticker] || [];
+      if (pressItems.length > 0) {
+        // Weighted average: direction × magnitude
+        let weightedSum = 0;
+        let totalMag = 0;
+        for (const press of pressItems) {
+          if (press.magnitude != null && press.sentiment) {
+            const dir = press.sentiment === "bullish" ? 1 : press.sentiment === "bearish" ? -1 : 0;
+            weightedSum += dir * press.magnitude;
+            totalMag += press.magnitude;
+          }
+        }
+        if (totalMag > 0) {
+          const avg = weightedSum / totalMag;
+          if (avg > 0.3) {
+            f7 = 1;
+            f7reason = `Material bullish press (avg ${avg.toFixed(2)}, ${pressItems.length} items)`;
+          } else if (avg < -0.3) {
+            f7 = -1;
+            f7reason = `Material bearish press (avg ${avg.toFixed(2)}, ${pressItems.length} items)`;
+          } else {
+            f7reason = `Mixed press signals (${avg.toFixed(2)})`;
+          }
+          sources.push("ALPHA_03_Press");
+        } else {
+          f7reason = `${pressItems.length} press release(s) but no sentiment data yet`;
+        }
       }
-      factors.push({ name: "Press substance", value: f8, weight: 2.5, trust: 2, reason: f8reason });
+      factors.push({ name: "Press materiality", value: f7, weight: 2.5, trust: 2, reason: f7reason });
 
-      // Factor 9: SEC filing narrative (trend direction from ALPHA_04)
-      let f9 = 0, f9reason = "No trend data";
-      const trend = trends[ticker];
-      if (trend?.summary) {
-        const s = trend.summary.toLowerCase();
-        const positiveWords = ["growth", "improving", "strong", "increased", "beat", "above", "outperform", "momentum"];
-        const negativeWords = ["decline", "weakening", "missed", "below", "risk", "deteriorat", "concern", "pressure"];
-        const posCount = positiveWords.filter(w => s.includes(w)).length;
-        const negCount = negativeWords.filter(w => s.includes(w)).length;
-        if (posCount > negCount + 1) { f9 = 1; f9reason = `Trend narrative positive (${posCount} pos vs ${negCount} neg signals)`; }
-        else if (negCount > posCount + 1) { f9 = -1; f9reason = `Trend narrative negative (${negCount} neg vs ${posCount} pos signals)`; }
-        else { f9reason = `Trend narrative mixed (${posCount} pos, ${negCount} neg)`; }
-        sources.push("ALPHA_04_Trends");
-      }
-      factors.push({ name: "SEC narrative", value: f9, weight: 3.0, trust: 1, reason: f9reason });
-
-      // Factor 10: Macro alignment (is this sector favored?)
-      let f10 = 0, f10reason = "No macro intelligence";
+      // -------------------------------------------------------
+      // Factor 8: Macro alignment (is this sector favored by macro intelligence?)
+      // -------------------------------------------------------
+      let f8 = 0, f8reason = "No macro intelligence";
       if (macroIntel?.portfolio_action) {
         const pa = macroIntel.portfolio_action;
         const overweight = (pa.overweight || []).map(s => s.toLowerCase());
         const underweight = (pa.underweight || []).map(s => s.toLowerCase());
         const sectorLower = sector.toLowerCase();
         if (overweight.some(s => s.includes(sectorLower) || sectorLower.includes(s))) {
-          f10 = 1; f10reason = `${sector} sector in overweight recommendation`;
+          f8 = 1;
+          f8reason = `${sector} sector in overweight recommendation`;
         } else if (underweight.some(s => s.includes(sectorLower) || sectorLower.includes(s))) {
-          f10 = -1; f10reason = `${sector} sector in underweight recommendation`;
+          f8 = -1;
+          f8reason = `${sector} sector in underweight recommendation`;
         } else {
-          f10reason = `${sector} sector not mentioned in macro action`;
+          f8reason = `${sector} sector not mentioned in macro action`;
         }
         sources.push("BETA_10_Daily_macro");
       }
-      factors.push({ name: "Macro alignment", value: f10, weight: 1.5, trust: 4, reason: f10reason });
+      factors.push({ name: "Macro alignment", value: f8, weight: 1.5, trust: 4, reason: f8reason });
 
       // =========================================================
       // COMPUTE COMPOSITE SCORE
@@ -282,7 +342,7 @@ export default {
       });
     }
 
-    console.log(`[ASSESSMENT] Computed scores for ${assessments.length} tickers`);
+    console.log(`[ASSESSMENT v2] Computed scores for ${assessments.length} tickers`);
 
     // =========================================================
     // AI EXPLANATIONS (GPT-4o-mini, batched 5 at a time)
@@ -316,13 +376,13 @@ export default {
               const j = await res.json();
               a.explanation = j.choices?.[0]?.message?.content?.trim() || null;
             } catch (err) {
-              console.error(`[ASSESSMENT] Explanation failed for ${a.ticker}: ${err.message}`);
+              console.error(`[ASSESSMENT v2] Explanation failed for ${a.ticker}: ${err.message}`);
             }
           })
         );
         if (i + 5 < assessments.length) await sleep(200);
       }
-      console.log(`[ASSESSMENT] Generated ${assessments.filter(a => a.explanation).length} explanations`);
+      console.log(`[ASSESSMENT v2] Generated ${assessments.filter(a => a.explanation).length} explanations`);
     }
 
     // =========================================================
@@ -345,10 +405,10 @@ export default {
       });
       if (res.ok) {
         const data = await res.json();
-        console.log(`[ASSESSMENT] Ingested ${data.inserted} assessments`);
+        console.log(`[ASSESSMENT v2] Ingested ${data.inserted} assessments`);
       }
     } catch (err) {
-      console.error(`[ASSESSMENT] Ingest failed: ${err.message}`);
+      console.error(`[ASSESSMENT v2] Ingest failed: ${err.message}`);
     }
 
     return Response.json({

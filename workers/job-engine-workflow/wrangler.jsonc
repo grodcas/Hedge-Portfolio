@@ -144,6 +144,11 @@
       "binding": "CONSENSUS_VALIDATOR",
       "service": "consensus-validator",
       "environment": "production"
+    },
+    {
+      "binding": "EVENT_ATTRIBUTION_ENGINE",
+      "service": "event-attribution-engine",
+      "environment": "production"
     }
   ],
   "d1_databases": [

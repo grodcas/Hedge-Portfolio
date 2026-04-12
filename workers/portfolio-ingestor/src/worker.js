@@ -232,7 +232,7 @@ export default {
         if (path === "/query/press") {
           const dateParam = url.searchParams.get("date");
           const { results } = await db.prepare(`
-            SELECT id, ticker, date, heading, summary, created_at
+            SELECT id, ticker, date, heading, summary, sentiment, magnitude, created_at
             FROM ALPHA_03_Press
             ${dateParam ? "WHERE date = ?" : ""}
             ORDER BY date DESC, created_at DESC
@@ -248,6 +248,8 @@ export default {
               date: row.date,
               heading: row.heading,
               summary: row.summary,
+              sentiment: row.sentiment,
+              magnitude: row.magnitude,
               created_at: row.created_at
             });
           }
@@ -668,6 +670,29 @@ export default {
           return Response.json(parsed, { headers: corsHeaders });
         }
 
+        // -------- GET /query/attributions --------
+        if (path === "/query/attributions") {
+          const date = url.searchParams.get("date");
+          const ticker = url.searchParams.get("ticker");
+
+          let rows;
+          if (ticker) {
+            rows = await db.prepare(`SELECT * FROM SIGNAL_04_Attributions WHERE ticker = ? ORDER BY date DESC LIMIT 30`).bind(ticker).all();
+          } else if (date) {
+            rows = await db.prepare(`SELECT * FROM SIGNAL_04_Attributions WHERE date = ?`).bind(date).all();
+          } else {
+            const latest = await db.prepare(`SELECT MAX(date) as d FROM SIGNAL_04_Attributions`).first();
+            if (!latest?.d) return Response.json([], { headers: corsHeaders });
+            rows = await db.prepare(`SELECT * FROM SIGNAL_04_Attributions WHERE date = ?`).bind(latest.d).all();
+          }
+
+          const parsed = (rows.results || []).map(r => ({
+            ...r,
+            candidates: r.candidates_json ? JSON.parse(r.candidates_json) : [],
+          }));
+          return Response.json(parsed, { headers: corsHeaders });
+        }
+
         // -------- GET /query/portfolio-signals --------
         if (path === "/query/portfolio-signals") {
           const date = url.searchParams.get("date") || new Date().toISOString().slice(0, 10);
@@ -677,11 +702,12 @@ export default {
           const check = await db.prepare(`SELECT MAX(date) as d FROM SIGNAL_01_Assessment WHERE date <= ?`).bind(date).first();
           if (check?.d) workingDate = check.d;
 
-          const [assessments, probabilities, consensus, prices] = await Promise.all([
+          const [assessments, probabilities, consensus, prices, attributions] = await Promise.all([
             db.prepare(`SELECT * FROM SIGNAL_01_Assessment WHERE date = ? ORDER BY score DESC`).bind(workingDate).all(),
             db.prepare(`SELECT * FROM SIGNAL_02_Probability WHERE date = ?`).bind(workingDate).all(),
             db.prepare(`SELECT * FROM SIGNAL_03_Consensus WHERE date = ?`).bind(workingDate).all(),
             db.prepare(`SELECT * FROM PRICE_01_Daily WHERE date = (SELECT MAX(date) FROM PRICE_01_Daily WHERE date <= ?)`).bind(workingDate).all(),
+            db.prepare(`SELECT * FROM SIGNAL_04_Attributions WHERE date = ?`).bind(workingDate).all(),
           ]);
 
           // Index by ticker
@@ -691,6 +717,8 @@ export default {
           for (const c of (consensus.results || [])) consMap[c.target] = c;
           const priceMap = {};
           for (const pr of (prices.results || [])) priceMap[pr.ticker] = pr;
+          const attrMap = {};
+          for (const a of (attributions.results || [])) attrMap[a.ticker] = a;
 
           const tickers = (assessments.results || []).map(a => {
             const price = priceMap[a.ticker];
@@ -716,6 +744,16 @@ export default {
               price: price ? {
                 close: price.close,
                 return_pct: ret,
+              } : null,
+              attribution: attrMap[a.ticker] ? {
+                movement_type: attrMap[a.ticker].movement_type,
+                ticker_return: attrMap[a.ticker].ticker_return,
+                sector_return: attrMap[a.ticker].sector_return,
+                spy_return: attrMap[a.ticker].spy_return,
+                company_alpha: attrMap[a.ticker].company_alpha,
+                explanation: attrMap[a.ticker].explanation,
+                top_event_type: attrMap[a.ticker].top_event_type,
+                top_event_lag: attrMap[a.ticker].top_event_lag,
               } : null,
             };
           });
@@ -826,10 +864,12 @@ export default {
 
           await db.prepare(
             `INSERT INTO ALPHA_03_Press
-             (id, ticker, date, heading, summary, created_at)
-             VALUES (?, ?, ?, ?, ?, ?)
+             (id, ticker, date, heading, summary, sentiment, magnitude, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(id) DO UPDATE SET
                summary=excluded.summary,
+               sentiment=excluded.sentiment,
+               magnitude=excluded.magnitude,
                created_at=excluded.created_at`
           ).bind(
             id,
@@ -837,6 +877,8 @@ export default {
             x.date,
             x.heading,
             x.summary ?? null,
+            x.sentiment ?? null,
+            typeof x.magnitude === "number" ? x.magnitude : null,
             now
           ).run();
         }
@@ -1314,6 +1356,44 @@ export default {
           c.dominant_narrative || "", c.consensus_level || 0,
           c.missed_factors || "[]", c.strongest_counter || "",
           c.confidence || "MEDIUM", c.search_sources || "[]", now
+        ).run();
+        inserted++;
+      }
+      return Response.json({ ok: true, inserted }, { headers: corsHeaders });
+    }
+
+    // -------- SIGNAL_04_Attributions --------
+    if (which === "attributions") {
+      const items = Array.isArray(body) ? body : [body];
+      let inserted = 0;
+      for (const a of items) {
+        const id = await shortHash(`${a.ticker}|attr|${a.date}`);
+        await db.prepare(`
+          INSERT INTO SIGNAL_04_Attributions
+            (id, ticker, date, movement_type, ticker_return, sector_return, spy_return,
+             company_alpha, top_event_type, top_event_id, top_event_date, top_event_lag,
+             top_event_weight, explanation, candidates_json, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            movement_type = excluded.movement_type,
+            ticker_return = excluded.ticker_return,
+            sector_return = excluded.sector_return,
+            spy_return = excluded.spy_return,
+            company_alpha = excluded.company_alpha,
+            top_event_type = excluded.top_event_type,
+            top_event_id = excluded.top_event_id,
+            top_event_date = excluded.top_event_date,
+            top_event_lag = excluded.top_event_lag,
+            top_event_weight = excluded.top_event_weight,
+            explanation = excluded.explanation,
+            candidates_json = excluded.candidates_json,
+            created_at = excluded.created_at
+        `).bind(
+          id, a.ticker, a.date, a.movement_type,
+          a.ticker_return ?? null, a.sector_return ?? null, a.spy_return ?? null, a.company_alpha ?? null,
+          a.top_event_type ?? null, a.top_event_id ?? null, a.top_event_date ?? null,
+          a.top_event_lag ?? null, a.top_event_weight ?? null,
+          a.explanation ?? null, a.candidates_json ?? "[]", now
         ).run();
         inserted++;
       }
