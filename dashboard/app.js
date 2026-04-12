@@ -34,10 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Portfolio sort handler
-  document.getElementById('portfolioSort')?.addEventListener('change', (e) => {
-    updatePortfolioTab(e.target.value);
-  });
 
   // Content validation handler - now just refreshes from D1
   document.getElementById('runContentValidation')?.addEventListener('click', () => {
@@ -723,79 +719,169 @@ function getNextFOMCDate() {
 
 // ============ PORTFOLIO TAB ============
 
-function updatePortfolioTab(sortBy = 'earnings') {
-  const grid = document.getElementById('portfolioGrid');
-  grid.innerHTML = '';
+async function updatePortfolioTab() {
+  // Fetch signals, sector performance from new endpoints
+  try {
+    const [signalsRes, sectorRes] = await Promise.all([
+      fetch(`/api/portfolio-signals/${currentDate}`).catch(() => null),
+      fetch('/api/sector-performance').catch(() => null),
+    ]);
 
-  const trends = dashboardData.tickerTrends || {};
-  const calendar = dashboardData.earningsCalendar || getDefaultEarningsCalendar();
+    const signals = signalsRes && signalsRes.ok ? await signalsRes.json() : null;
+    const sectorPerf = sectorRes && sectorRes.ok ? await sectorRes.json() : null;
 
-  // Build portfolio data with earnings info
-  const portfolioData = [];
-  const tickers = Object.keys(trends).length > 0 ? Object.keys(trends) : PORTFOLIO_TICKERS;
-
-  tickers.forEach(ticker => {
-    const trendData = trends[ticker] || {};
-    const earningsDate = calendar[ticker]?.nextEarnings || getEstimatedEarnings(ticker);
-    const daysUntil = earningsDate ? Math.ceil((new Date(earningsDate) - new Date()) / (1000 * 60 * 60 * 24)) : 999;
-
-    portfolioData.push({
-      ticker,
-      summary: trendData.summary || `No trend data available for ${ticker}`,
-      lastUpdate: trendData.created_at || trendData.date || '--',
-      earningsDate,
-      earningsType: calendar[ticker]?.type || '10-Q',
-      daysUntilEarnings: daysUntil
-    });
-  });
-
-  // Sort
-  if (sortBy === 'earnings') {
-    portfolioData.sort((a, b) => a.daysUntilEarnings - b.daysUntilEarnings);
-  } else if (sortBy === 'ticker') {
-    portfolioData.sort((a, b) => a.ticker.localeCompare(b.ticker));
-  } else if (sortBy === 'update') {
-    portfolioData.sort((a, b) => new Date(b.lastUpdate) - new Date(a.lastUpdate));
+    renderSectorBar(sectorPerf);
+    renderSignals(signals);
+    renderTickersTable(signals);
+    updateOverviewPerformance(signals, sectorPerf);
+  } catch (err) {
+    console.error('Portfolio tab error:', err);
+    document.getElementById('sectorBar').innerHTML = '<span class="no-data">Run pipeline to populate signals</span>';
+    document.getElementById('buySignals').innerHTML = '<span class="no-data">No data</span>';
+    document.getElementById('sellSignals').innerHTML = '<span class="no-data">No data</span>';
+    document.getElementById('tickersTableBody').innerHTML = '<tr><td colspan="5" class="no-data">Run assessment-engine to populate signals</td></tr>';
   }
-
-  // Render cards
-  portfolioData.forEach(data => {
-    grid.appendChild(createPortfolioCard(data));
-  });
 }
 
-function createPortfolioCard(data) {
-  const card = document.createElement('div');
-  card.className = 'portfolio-card';
+function renderSectorBar(sectorPerf) {
+  const bar = document.getElementById('sectorBar');
+  if (!sectorPerf?.sectors) {
+    bar.innerHTML = '<span class="no-data">No sector price data yet</span>';
+    return;
+  }
+  const sectors = Object.entries(sectorPerf.sectors);
+  bar.innerHTML = sectors.map(([name, data]) => {
+    const ret = data.return_pct;
+    const cls = ret > 0 ? 'sector-up' : ret < 0 ? 'sector-down' : 'sector-flat';
+    const sign = ret > 0 ? '+' : '';
+    const val = ret != null ? `${sign}${ret.toFixed(2)}%` : '--';
+    return `<div class="sector-cell ${cls}"><span class="sector-name">${name}</span><span class="sector-val">${val}</span></div>`;
+  }).join('') +
+  (sectorPerf.spy_return != null
+    ? `<div class="sector-cell sector-spy"><span class="sector-name">SPY</span><span class="sector-val">${sectorPerf.spy_return >= 0 ? '+' : ''}${sectorPerf.spy_return.toFixed(2)}%</span></div>`
+    : '');
+}
 
-  // Determine temperature class
-  let tempClass = 'cool';
-  if (data.daysUntilEarnings <= 7) tempClass = 'hot';
-  else if (data.daysUntilEarnings <= 21) tempClass = 'warm';
+function renderSignals(signals) {
+  const buyEl = document.getElementById('buySignals');
+  const sellEl = document.getElementById('sellSignals');
 
-  // Temperature marker position (0-80px range, closer = more right)
-  const markerPos = Math.max(0, Math.min(80, 80 - (data.daysUntilEarnings / 60) * 80));
+  if (!signals) {
+    buyEl.innerHTML = '<span class="no-data">No assessments yet. Run assessment-engine.</span>';
+    sellEl.innerHTML = '<span class="no-data">No assessments yet. Run assessment-engine.</span>';
+    return;
+  }
 
-  card.innerHTML = `
-    <div class="portfolio-card-header">
-      <span class="portfolio-ticker">${data.ticker}</span>
-      <div class="earnings-countdown">
-        <span class="earnings-date">${data.earningsType} - ${data.earningsDate || 'TBD'}</span>
-        <span class="earnings-days ${tempClass}">
-          ${data.daysUntilEarnings > 900 ? 'TBD' : data.daysUntilEarnings + ' days'}
-        </span>
-        <div class="earnings-temp-bar">
-          <div class="earnings-temp-marker" style="left: ${markerPos}px"></div>
-        </div>
+  const buys = signals.buy_signals || [];
+  const sells = signals.sell_signals || [];
+
+  buyEl.innerHTML = buys.length
+    ? buys.map(s => renderSignalCard(s, 'buy')).join('')
+    : '<span class="no-data">No strong buy signals today</span>';
+  sellEl.innerHTML = sells.length
+    ? sells.map(s => renderSignalCard(s, 'sell')).join('')
+    : '<span class="no-data">No strong sell signals today</span>';
+}
+
+function renderSignalCard(s, type) {
+  const scoreAbs = Math.abs(s.score);
+  const bars = Math.round(scoreAbs * 10);
+  const barFilled = '█'.repeat(bars);
+  const barEmpty = '░'.repeat(10 - bars);
+  const consClass = s.consensus?.confidence === 'LOW' ? 'consensus-low'
+                  : s.consensus?.confidence === 'HIGH' ? 'consensus-high' : 'consensus-medium';
+  const consIcon = s.consensus?.confidence === 'LOW' ? '⚠' : s.consensus?.confidence === 'HIGH' ? '✓' : '○';
+  const priceChange = s.price?.return_pct != null
+    ? ` (${s.price.return_pct >= 0 ? '+' : ''}${s.price.return_pct.toFixed(2)}%)` : '';
+
+  return `
+    <details class="signal-card signal-${type}">
+      <summary>
+        <span class="signal-ticker">${s.ticker}</span>
+        <span class="signal-score">${s.score > 0 ? '+' : ''}${s.score.toFixed(2)}</span>
+        <span class="signal-bar">${barFilled}${barEmpty}</span>
+        <span class="signal-consensus ${consClass}" title="${s.consensus?.narrative || 'No consensus data'}">${consIcon}</span>
+      </summary>
+      <div class="signal-detail">
+        <p class="signal-explanation">${s.explanation || 'No explanation available'}</p>
+        ${priceChange ? `<p class="signal-price">Price today:${priceChange}</p>` : ''}
+        ${s.consensus ? `
+          <div class="signal-consensus-box">
+            <strong>Consensus (${s.consensus.confidence}):</strong> ${s.consensus.narrative || '—'}
+            ${s.consensus.counter ? `<br><em>Counter-argument:</em> ${s.consensus.counter}` : ''}
+          </div>` : ''}
+        ${s.factors?.length ? `
+          <details class="factor-list">
+            <summary>Factor breakdown (${s.factors.filter(f => f.value !== 0).length} active)</summary>
+            <ul>
+              ${s.factors.filter(f => f.value !== 0).map(f =>
+                `<li class="factor-${f.value > 0 ? 'pos' : 'neg'}">${f.name}: ${f.value > 0 ? '+1' : '-1'} (${f.reason})</li>`
+              ).join('')}
+            </ul>
+          </details>` : ''}
       </div>
-    </div>
-    <div class="portfolio-trend">${data.summary}</div>
-    <div class="portfolio-meta">
-      <span>Last updated: ${data.lastUpdate}</span>
-    </div>
+    </details>
   `;
+}
 
-  return card;
+function renderTickersTable(signals) {
+  const tbody = document.getElementById('tickersTableBody');
+  if (!signals?.tickers?.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="no-data">No signals yet. Run assessment-engine.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = signals.tickers.map(t => {
+    const scoreClass = t.score > 0.1 ? 'score-pos' : t.score < -0.1 ? 'score-neg' : 'score-neutral';
+    const driver = (t.factors || []).filter(f => f.value !== 0).sort((a, b) => Math.abs(b.value * b.weight) - Math.abs(a.value * a.weight))[0];
+    const driverText = driver ? `${driver.name}` : 'All neutral';
+    const vsSec = t.factors?.find(f => f.name === 'Relative performance');
+    const vsSecText = vsSec?.reason || '--';
+    const consBadge = t.consensus
+      ? `<span class="cons-badge cons-${t.consensus.confidence.toLowerCase()}">${t.consensus.confidence}</span>`
+      : '<span class="cons-badge">—</span>';
+    return `<tr>
+      <td><strong>${t.ticker}</strong></td>
+      <td class="${scoreClass}">${t.score > 0 ? '+' : ''}${t.score.toFixed(2)}</td>
+      <td>${vsSecText}</td>
+      <td>${driverText}</td>
+      <td>${consBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function updateOverviewPerformance(signals, sectorPerf) {
+  const perfDate = document.getElementById('perfDate');
+  if (perfDate) perfDate.textContent = signals?.date || currentDate;
+
+  // Top gainers / losers from signals + prices
+  const gainersEl = document.getElementById('topGainers');
+  const losersEl = document.getElementById('topLosers');
+  if (gainersEl && losersEl && signals?.tickers) {
+    const withPrice = signals.tickers.filter(t => t.price?.return_pct != null);
+    const gainers = [...withPrice].sort((a, b) => b.price.return_pct - a.price.return_pct).slice(0, 5);
+    const losers = [...withPrice].sort((a, b) => a.price.return_pct - b.price.return_pct).slice(0, 5);
+    gainersEl.innerHTML = gainers.length
+      ? gainers.map(t => `<div class="perf-row"><span>${t.ticker}</span><span class="perf-pos">+${t.price.return_pct.toFixed(2)}%</span></div>`).join('')
+      : '<span class="no-data">No price data</span>';
+    losersEl.innerHTML = losers.length
+      ? losers.map(t => `<div class="perf-row"><span>${t.ticker}</span><span class="perf-neg">${t.price.return_pct.toFixed(2)}%</span></div>`).join('')
+      : '<span class="no-data">No price data</span>';
+  }
+
+  const spyEl = document.getElementById('perfSpy');
+  if (spyEl && sectorPerf?.spy_return != null) {
+    const ret = sectorPerf.spy_return;
+    spyEl.textContent = `${ret >= 0 ? '+' : ''}${ret.toFixed(2)}%`;
+    spyEl.className = `perf-spy ${ret >= 0 ? 'perf-pos' : 'perf-neg'}`;
+  } else if (spyEl) {
+    spyEl.textContent = '--';
+  }
+
+  const buyCount = document.getElementById('perfBuyCount');
+  const sellCount = document.getElementById('perfSellCount');
+  if (buyCount) buyCount.textContent = signals?.buy_signals?.length || 0;
+  if (sellCount) sellCount.textContent = signals?.sell_signals?.length || 0;
 }
 
 function getEstimatedEarnings(ticker) {

@@ -357,6 +357,28 @@ app.get("/api/sector-performance", async (req, res) => {
   }
 });
 
+// Get portfolio signals (assessments + probabilities + consensus + prices) from D1
+app.get("/api/portfolio-signals/:date", async (req, res) => {
+  try {
+    const { date } = req.params;
+    const data = await fetchFromWorker(`/query/portfolio-signals?date=${date}`);
+    res.json(data);
+  } catch (error) {
+    handleD1Error(res, `/api/portfolio-signals/${req.params.date}`, error);
+  }
+});
+
+// Get consensus validation results
+app.get("/api/consensus/:date", async (req, res) => {
+  try {
+    const { date } = req.params;
+    const data = await fetchFromWorker(`/query/consensus?date=${date}`);
+    res.json(data);
+  } catch (error) {
+    handleD1Error(res, `/api/consensus/${req.params.date}`, error);
+  }
+});
+
 // ============ MAIN DASHBOARD ENDPOINT (ALL DATA FROM D1) ============
 
 app.get("/api/dashboard/:date", async (req, res) => {

@@ -1849,3 +1849,89 @@ select {
 .layer-bar { font-family: 'SF Mono', Consolas, monospace; color: var(--accent-yellow); letter-spacing: 2px; }
 .layer-score { font-size: 0.8rem; color: var(--text-secondary); font-family: 'SF Mono', Consolas, monospace; }
 .layer-detail { padding: 0.5rem 1rem 0.75rem; color: var(--text-secondary); font-size: 0.85rem; }
+
+/* ============ PORTFOLIO v2 ============ */
+
+.portfolio-v2 { display: flex; flex-direction: column; gap: 1rem; }
+
+.sector-bar { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.sector-cell {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 0.5rem 0.75rem; border-radius: 4px; min-width: 90px;
+  background: var(--bg-tertiary); border: 1px solid var(--border-color);
+}
+.sector-name { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; }
+.sector-val { font-family: 'SF Mono', Consolas, monospace; font-weight: 600; font-size: 0.95rem; }
+.sector-up { border-left: 3px solid var(--accent-green); }
+.sector-up .sector-val { color: var(--accent-green); }
+.sector-down { border-left: 3px solid var(--accent-red); }
+.sector-down .sector-val { color: var(--accent-red); }
+.sector-spy { border-left: 3px solid var(--accent-blue); font-weight: 700; }
+
+.signals-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 800px) { .signals-grid { grid-template-columns: 1fr; } }
+
+.signals-header.buy-header { color: var(--accent-green); }
+.signals-header.sell-header { color: var(--accent-red); }
+
+.signals-list { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.signal-card {
+  border: 1px solid var(--border-color); border-radius: 6px;
+  background: var(--bg-tertiary);
+}
+.signal-buy { border-left: 3px solid var(--accent-green); }
+.signal-sell { border-left: 3px solid var(--accent-red); }
+.signal-card summary {
+  display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem;
+  cursor: pointer; list-style: none;
+}
+.signal-card summary::-webkit-details-marker { display: none; }
+.signal-ticker { font-weight: 700; min-width: 3rem; }
+.signal-score { font-family: 'SF Mono', Consolas, monospace; font-weight: 600; min-width: 3.5rem; }
+.signal-buy .signal-score { color: var(--accent-green); }
+.signal-sell .signal-score { color: var(--accent-red); }
+.signal-bar { font-family: 'SF Mono', Consolas, monospace; letter-spacing: 1px; color: var(--text-secondary); flex: 1; }
+.signal-consensus { font-size: 1rem; font-weight: 700; cursor: help; }
+.consensus-high { color: var(--accent-green); }
+.consensus-medium { color: var(--accent-yellow); }
+.consensus-low { color: var(--accent-red); }
+
+.signal-detail { padding: 0.5rem 0.75rem 0.75rem 1rem; border-top: 1px solid var(--border-color); font-size: 0.875rem; }
+.signal-explanation { margin-bottom: 0.5rem; }
+.signal-price { color: var(--text-secondary); font-size: 0.85rem; }
+.signal-consensus-box { margin-top: 0.5rem; padding: 0.5rem; background: var(--bg-primary); border-radius: 4px; font-size: 0.8rem; color: var(--text-secondary); }
+.factor-list { margin-top: 0.5rem; }
+.factor-list summary { padding: 0.25rem 0; cursor: pointer; font-size: 0.8rem; color: var(--text-secondary); }
+.factor-list ul { list-style: none; padding: 0.5rem 0 0 1rem; }
+.factor-list li { padding: 0.2rem 0; font-size: 0.8rem; }
+.factor-pos { color: var(--accent-green); }
+.factor-neg { color: var(--accent-red); }
+
+.tickers-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.tickers-table th, .tickers-table td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border-color); }
+.tickers-table th { color: var(--text-secondary); font-weight: 500; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.5px; }
+.score-pos { color: var(--accent-green); font-weight: 600; font-family: 'SF Mono', Consolas, monospace; }
+.score-neg { color: var(--accent-red); font-weight: 600; font-family: 'SF Mono', Consolas, monospace; }
+.score-neutral { color: var(--text-secondary); font-family: 'SF Mono', Consolas, monospace; }
+.cons-badge { padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 600; background: var(--bg-tertiary); }
+.cons-high { background: rgba(63, 185, 80, 0.2); color: var(--accent-green); }
+.cons-medium { background: rgba(210, 153, 34, 0.2); color: var(--accent-yellow); }
+.cons-low { background: rgba(248, 81, 73, 0.2); color: var(--accent-red); }
+
+/* ============ OVERVIEW PERFORMANCE ============ */
+
+.overview-performance { margin-bottom: 1rem; }
+.perf-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+.perf-date { color: var(--text-secondary); font-family: 'SF Mono', Consolas, monospace; font-size: 0.85rem; }
+.perf-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+@media (max-width: 800px) { .perf-grid { grid-template-columns: repeat(2, 1fr); } }
+.perf-item { padding: 0.5rem; background: var(--bg-tertiary); border-radius: 4px; }
+.perf-label { font-size: 0.7rem; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.5px; display: block; margin-bottom: 0.4rem; }
+.perf-list { display: flex; flex-direction: column; gap: 0.25rem; }
+.perf-row { display: flex; justify-content: space-between; font-size: 0.85rem; font-family: 'SF Mono', Consolas, monospace; }
+.perf-pos { color: var(--accent-green); }
+.perf-neg { color: var(--accent-red); }
+.perf-spy { font-size: 1.5rem; font-weight: 700; font-family: 'SF Mono', Consolas, monospace; }
+.perf-signals { font-size: 1rem; font-weight: 600; }
+.perf-signals .sep { color: var(--text-muted); margin: 0 0.25rem; }

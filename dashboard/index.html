@@ -41,6 +41,36 @@
     <main class="content">
       <!-- Overview Tab -->
       <section id="overview" class="tab-content active">
+        <!-- Portfolio Performance Snapshot -->
+        <div class="card overview-performance">
+          <div class="perf-header">
+            <h3>Portfolio Performance (Today)</h3>
+            <span class="perf-date" id="perfDate">--</span>
+          </div>
+          <div class="perf-grid">
+            <div class="perf-item">
+              <span class="perf-label">Top Gainers</span>
+              <div class="perf-list" id="topGainers"></div>
+            </div>
+            <div class="perf-item">
+              <span class="perf-label">Top Losers</span>
+              <div class="perf-list" id="topLosers"></div>
+            </div>
+            <div class="perf-item">
+              <span class="perf-label">S&P 500</span>
+              <div class="perf-spy" id="perfSpy">--</div>
+            </div>
+            <div class="perf-item">
+              <span class="perf-label">Signals</span>
+              <div class="perf-signals">
+                <span id="perfBuyCount">--</span> buy
+                <span class="sep">/</span>
+                <span id="perfSellCount">--</span> sell
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="overview-grid">
           <!-- Health Cards -->
           <div class="card health-card">
@@ -391,20 +421,48 @@
 
       <!-- Portfolio Tab (New) -->
       <section id="portfolio" class="tab-content">
-        <div class="portfolio-tab-container">
-          <div class="portfolio-header">
-            <h3>Portfolio Trends (ALPHA_04)</h3>
-            <div class="portfolio-sort">
-              <label>Sort by:</label>
-              <select id="portfolioSort">
-                <option value="earnings">Next Earnings</option>
-                <option value="ticker">Ticker</option>
-                <option value="update">Last Update</option>
-              </select>
+        <div class="portfolio-v2">
+          <!-- Sector Performance Bar -->
+          <div class="card">
+            <h3>Sector Performance Today</h3>
+            <div class="sector-bar" id="sectorBar">
+              <span class="loading">Loading...</span>
             </div>
           </div>
-          <div class="portfolio-grid" id="portfolioGrid">
-            <!-- Dynamically populated ticker trend cards -->
+
+          <!-- Buy / Sell Signals (two columns) -->
+          <div class="signals-grid">
+            <div class="card">
+              <h3 class="signals-header buy-header">Buy Signals</h3>
+              <div class="signals-list" id="buySignals">
+                <span class="loading">Loading...</span>
+              </div>
+            </div>
+            <div class="card">
+              <h3 class="signals-header sell-header">Sell Signals</h3>
+              <div class="signals-list" id="sellSignals">
+                <span class="loading">Loading...</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- All 25 tickers table -->
+          <div class="card">
+            <h3>All Portfolio Tickers</h3>
+            <table class="tickers-table">
+              <thead>
+                <tr>
+                  <th>Ticker</th>
+                  <th>Score</th>
+                  <th>vs Sector</th>
+                  <th>Driver</th>
+                  <th>Consensus</th>
+                </tr>
+              </thead>
+              <tbody id="tickersTableBody">
+                <tr><td colspan="5" class="loading">Loading...</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
