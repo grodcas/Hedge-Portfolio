@@ -22,6 +22,7 @@
   "d1_databases": [
     {
       "binding": "HEDGE_DB",
+      "database_name": "portfolio-db",
       "database_id": "e306b0a8-7d5e-4032-b46e-9b50fc6c4f99"
     }
   ]
