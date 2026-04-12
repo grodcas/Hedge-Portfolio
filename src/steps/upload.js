@@ -25,28 +25,37 @@ export async function upload(config, logger, ingestedData) {
       { name: "whitehouse", data: ingestedData.whitehouse, endpoint: "/ingest/whitehouse" }
     ];
 
-    for (const u of uploads) {
-      if (u.data) {
+    // Upload all endpoints in PARALLEL — independent ingestor POSTs
+    const uploadResults = await Promise.all(
+      uploads.map(async (u) => {
+        if (!u.data) return { name: u.name, status: "skipped" };
         try {
           const response = await fetch(`${INGEST_BASE}${u.endpoint}`, {
             method: "POST",
             body: JSON.stringify(u.data),
             headers: { "Content-Type": "application/json" }
           });
-
           if (response.ok) {
-            logger.log("UPLOAD", `${u.name}: OK`, "ok");
-            stepResult.uploaded++;
-          } else {
-            logger.log("UPLOAD", `${u.name}: HTTP ${response.status}`, "warn");
-            stepResult.hasWarnings = true;
+            return { name: u.name, status: "ok" };
           }
+          return { name: u.name, status: "warn", code: response.status };
         } catch (err) {
-          logger.log("UPLOAD", `${u.name}: ${err.message}`, "fail");
-          stepResult.hasErrors = true;
+          return { name: u.name, status: "fail", error: err.message };
         }
+      })
+    );
+
+    for (const r of uploadResults) {
+      if (r.status === "ok") {
+        logger.log("UPLOAD", `${r.name}: OK`, "ok");
+        stepResult.uploaded++;
+      } else if (r.status === "warn") {
+        logger.log("UPLOAD", `${r.name}: HTTP ${r.code}`, "warn");
+        stepResult.hasWarnings = true;
+      } else if (r.status === "fail") {
+        logger.log("UPLOAD", `${r.name}: ${r.error}`, "fail");
+        stepResult.hasErrors = true;
       }
-      logger.updateStep(6, Math.round((stepResult.uploaded / uploads.length) * 100));
     }
 
     logger.completeStep(6, stepResult.uploaded);

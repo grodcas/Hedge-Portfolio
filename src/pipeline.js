@@ -52,33 +52,55 @@ async function main(options = {}) {
   let hasErrors = false;
 
   try {
-    // Step 1: Press Releases
-    const pressResult = await ingestPress(config, logger, results);
+    // Steps 1-6: Scrape all independent data sources in PARALLEL
+    // These have no dependencies on each other — each hits a different
+    // external source (company IR, WH, Edgar, BLS/FRED, CBOE/COT/AAII).
+    // Running them sequentially wastes ~3 minutes; Promise.all bounds the
+    // whole stage to the slowest single scraper (Edgar, ~90s).
+    logger.log("PIPELINE", "Starting parallel scraping of 6 data sources...");
+    const parallelStart = Date.now();
+
+    const [pressResult, whResult, newsResult, edgarResult, macroResult, sentimentResult] =
+      await Promise.all([
+        ingestPress(config, logger, results).catch(err => {
+          logger.log("PRESS", `Step failed: ${err.message}`, "fail");
+          return { data: null, validation: null, error: err.message };
+        }),
+        ingestWhitehouse(config, logger, results).catch(err => {
+          logger.log("WH", `Step failed: ${err.message}`, "fail");
+          return { data: null, validation: null, error: err.message };
+        }),
+        ingestNews(config, logger, results).catch(err => {
+          logger.log("NEWS", `Step failed: ${err.message}`, "fail");
+          return { data: null, validation: null, error: err.message };
+        }),
+        ingestEdgar(config, logger, results).catch(err => {
+          logger.log("EDGAR", `Step failed: ${err.message}`, "fail");
+          return { data: null, validation: null, comparison: null, error: err.message };
+        }),
+        ingestMacro(config, logger, results).catch(err => {
+          logger.log("MACRO", `Step failed: ${err.message}`, "fail");
+          return { data: null, validation: null, error: err.message };
+        }),
+        ingestSentiment(config, logger, results).catch(err => {
+          logger.log("SENTIMENT", `Step failed: ${err.message}`, "fail");
+          return { data: null, validation: null, error: err.message };
+        }),
+      ]);
+
+    const parallelElapsed = ((Date.now() - parallelStart) / 1000).toFixed(1);
+    logger.log("PIPELINE", `Parallel scraping complete in ${parallelElapsed}s`, "ok");
+
     results.validation.press = pressResult.validation;
     results.ingestedData.press = pressResult.data;
-
-    // Step 2: White House
-    const whResult = await ingestWhitehouse(config, logger, results);
     results.validation.policy = whResult.validation;
     results.ingestedData.whitehouse = whResult.data;
-
-    // Step 3: News
-    const newsResult = await ingestNews(config, logger, results);
     results.validation.news = newsResult.validation;
     results.ingestedData.news = newsResult.data;
-
-    // Step 4: SEC Edgar
-    const edgarResult = await ingestEdgar(config, logger, results);
     results.validation.sec = { results: edgarResult.validation, comparison: edgarResult.comparison };
     results.ingestedData.sec = edgarResult.data;
-
-    // Step 5: Macro
-    const macroResult = await ingestMacro(config, logger, results);
     results.validation.macro = macroResult.validation;
     results.ingestedData.macro = macroResult.data;
-
-    // Step 6: Sentiment
-    const sentimentResult = await ingestSentiment(config, logger, results);
     results.validation.sentiment = sentimentResult.validation;
     results.ingestedData.sentiment = sentimentResult.data;
 
