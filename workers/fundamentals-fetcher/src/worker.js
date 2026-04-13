@@ -133,10 +133,15 @@ async function fetchOverview(ticker, apiKey, today) {
 
   const data = await res.json();
 
-  // Alpha Vantage returns {} or { "Note": "..." } on limit/error
+  // Alpha Vantage rate-limit / error responses have various shapes:
+  //   { "Note": "..." }           — legacy rate limit
+  //   { "Information": "..." }    — current rate limit format
+  //   { "Error Message": "..." }  — bad symbol / invalid call
+  //   {}                          — quota exhausted or stalled
   if (!data.Symbol && !data.PERatio) {
-    if (data.Note) throw new Error(`Rate limit: ${data.Note.slice(0, 100)}`);
-    if (data["Error Message"]) throw new Error(`Error: ${data["Error Message"].slice(0, 100)}`);
+    if (data.Information) throw new Error(`RateLimit: ${data.Information.slice(0, 150)}`);
+    if (data.Note) throw new Error(`Note: ${data.Note.slice(0, 150)}`);
+    if (data["Error Message"]) throw new Error(`Error: ${data["Error Message"].slice(0, 150)}`);
     throw new Error(`Empty response for ${ticker}`);
   }
 
