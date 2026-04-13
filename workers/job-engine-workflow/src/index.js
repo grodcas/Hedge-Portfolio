@@ -3,6 +3,39 @@ var __name = (target, value) => __defProp(target, "name", { value, configurable:
 
 // src/index.js
 import { WorkflowEntrypoint } from "cloudflare:workers";
+
+// =========================================================
+// PER-WORKER RETRY POLICY
+// =========================================================
+// AI-heavy workers make expensive paid API calls on every invocation.
+// A Cloudflare retry would re-run the whole batch (25 tickers × GPT-4o-mini,
+// 33 × gpt-5-mini, etc.), burning tokens on transient failures.
+// These workers: retries = 0 (fail fast, skip, continue).
+//
+// Free-API workers and pure-math workers are cheap to retry and benefit
+// from transient network error recovery.
+// These workers: retries = 2 with a short delay.
+//
+// Unlisted workers default to retries = 0 (safe default).
+var RETRY_POLICY = {
+  // Free-API / pure-math workers — cheap to retry
+  "price-fetcher":              { limit: 2, delay: "30 seconds" },
+  "earnings-fetcher":           { limit: 2, delay: "30 seconds" },
+  "fundamentals-fetcher":       { limit: 2, delay: "30 seconds" }, // idempotent via D1 check
+  "probability-engine":         { limit: 2, delay: "5 seconds" },
+  "event-attribution-engine":   { limit: 2, delay: "5 seconds" },
+  // Orchestrators that only queue sub-jobs (no AI calls themselves)
+  "beta-trend-orchestrator":    { limit: 2, delay: "5 seconds" },
+  "beta-gen-orchestrator":      { limit: 2, delay: "5 seconds" },
+  "report-orchestrator":        { limit: 2, delay: "5 seconds" },
+  "trend-orchestrator":         { limit: 2, delay: "5 seconds" },
+  // Everything else (AI-heavy) defaults to { limit: 0 } below.
+};
+
+function retryConfigFor(worker) {
+  return RETRY_POLICY[worker] || { limit: 0, delay: "5 seconds" };
+}
+
 var JobWorkflow = class extends WorkflowEntrypoint {
   static {
     __name(this, "JobWorkflow");
@@ -30,39 +63,101 @@ var JobWorkflow = class extends WorkflowEntrypoint {
       }
 
       const currentWave = waveRow.w;
-      // Fetch all pending jobs in the current wave
+      // Fetch all pending jobs in the current wave (including requires)
       const waveJobs = await step.do(`fetch-wave-${currentWave}-jobs`, async () => {
         const { results } = await this.env.DB.prepare(`
-          SELECT id, worker, input FROM PROC_01_Job_queue
+          SELECT id, worker, input, requires FROM PROC_01_Job_queue
           WHERE status = 'pending' AND wave = ?
           ORDER BY id
         `).bind(currentWave).all();
         return results || [];
       });
 
-      console.log(`WAVE ${currentWave}: running ${waveJobs.length} jobs in parallel`);
+      console.log(`WAVE ${currentWave}: considering ${waveJobs.length} jobs`);
 
-      // Run all jobs in this wave in parallel via step.do fan-out
+      // Resolve "requires" gates: check if each job's dependencies succeeded.
+      // Mark jobs as 'skipped' if any required worker has failed or was itself skipped.
+      const readyJobs = [];
+      for (const job of waveJobs) {
+        const requires = (job.requires || "").split(",").map(s => s.trim()).filter(Boolean);
+        if (requires.length === 0) {
+          readyJobs.push(job);
+          continue;
+        }
+
+        // For each required worker, fetch its current status from earlier waves of this run
+        const placeholders = requires.map(() => "?").join(",");
+        const depResult = await step.do(`check-deps-${job.worker}-${job.id}`, async () => {
+          const { results } = await this.env.DB.prepare(`
+            SELECT worker, status FROM PROC_01_Job_queue
+            WHERE worker IN (${placeholders}) AND wave < ?
+            ORDER BY id DESC
+          `).bind(...requires, currentWave).all();
+          return results || [];
+        });
+
+        // Keep only the latest status per required worker
+        const statusByWorker = {};
+        for (const r of depResult) {
+          if (!(r.worker in statusByWorker)) statusByWorker[r.worker] = r.status;
+        }
+
+        const failedDeps = requires.filter(r =>
+          !statusByWorker[r] || !["done"].includes(statusByWorker[r])
+        );
+
+        if (failedDeps.length > 0) {
+          console.log(`SKIP: ${job.worker} — missing/failed deps: ${failedDeps.join(",")}`);
+          await step.do(`mark-skipped-${job.worker}-${job.id}`, async () => {
+            await this.env.DB.prepare(
+              "UPDATE PROC_01_Job_queue SET status='skipped', last_update=datetime('now') WHERE id=?"
+            ).bind(job.id).run();
+          });
+        } else {
+          readyJobs.push(job);
+        }
+      }
+
+      console.log(`WAVE ${currentWave}: running ${readyJobs.length} jobs in parallel (${waveJobs.length - readyJobs.length} skipped)`);
+
+      // Run all ready jobs in this wave in parallel via step.do fan-out.
+      // CRITICAL: each step.do has its own retry config per worker, and the
+      // inner catch swallows errors (marks failed but does NOT re-throw) so
+      // one bad job does not halt the wave or the workflow.
       await Promise.all(
-        waveJobs.map(job =>
-          step.do(`execute-${job.worker}-${job.id}`, async () => {
-            console.log(`PROCESSING: ${job.worker} (ID: ${job.id}, wave ${currentWave})`);
-            await this.env.DB.prepare("UPDATE PROC_01_Job_queue SET status='running', last_update=datetime('now') WHERE id=?").bind(job.id).run();
-            try {
-              const res = await this.runJob(job.worker, job.input || "{}");
-              if (!res.ok) {
-                const errText = await res.text();
-                throw new Error(`Worker ${job.worker} failed (${res.status}): ${errText}`);
+        readyJobs.map(job => {
+          const retryConfig = retryConfigFor(job.worker);
+          return step.do(
+            `execute-${job.worker}-${job.id}`,
+            { retries: retryConfig, timeout: "15 minutes" },
+            async () => {
+              console.log(`PROCESSING: ${job.worker} (ID: ${job.id}, wave ${currentWave}, retries=${retryConfig.limit})`);
+              await this.env.DB.prepare(
+                "UPDATE PROC_01_Job_queue SET status='running', last_update=datetime('now') WHERE id=?"
+              ).bind(job.id).run();
+              try {
+                const res = await this.runJob(job.worker, job.input || "{}");
+                if (!res.ok) {
+                  const errText = await res.text();
+                  throw new Error(`Worker ${job.worker} failed (${res.status}): ${errText.slice(0, 300)}`);
+                }
+                await this.env.DB.prepare(
+                  "UPDATE PROC_01_Job_queue SET status='done', last_update=datetime('now') WHERE id=?"
+                ).bind(job.id).run();
+                console.log(`DONE: ${job.worker}`);
+              } catch (err) {
+                console.error(`FAILED: ${job.worker}`, err.message);
+                await this.env.DB.prepare(
+                  "UPDATE PROC_01_Job_queue SET status='failed', last_update=datetime('now') WHERE id=?"
+                ).bind(job.id).run();
+                // NOTE: we do NOT re-throw. Fail-forward — other wave jobs
+                // continue, and the workflow advances to the next wave.
+                // Dependents of this worker will be skipped via the
+                // "requires" gate when their wave starts.
               }
-              await this.env.DB.prepare("UPDATE PROC_01_Job_queue SET status='done', last_update=datetime('now') WHERE id=?").bind(job.id).run();
-              console.log(`DONE: ${job.worker}`);
-            } catch (err) {
-              console.error(`FAILED: ${job.worker}`, err.message);
-              await this.env.DB.prepare("UPDATE PROC_01_Job_queue SET status='failed', last_update=datetime('now') WHERE id=?").bind(job.id).run();
-              throw err;
             }
-          })
-        )
+          );
+        })
       );
     }
   }
@@ -180,10 +275,10 @@ var index_default = {
     if (action === "daily_update") {
       const now = new Date().toISOString();
 
-      // Clear all old jobs before starting fresh
-      await this_env.DB.prepare(`DELETE FROM PROC_01_Job_queue WHERE status = 'done'`).run();
+      // Clear all old jobs before starting fresh — includes failed/skipped
+      // from previous runs so stale state doesn't accumulate.
       await this_env.DB.prepare(`
-        DELETE FROM PROC_01_Job_queue WHERE status IN ('pending', 'running')
+        DELETE FROM PROC_01_Job_queue WHERE status IN ('done','pending','running','failed','skipped')
       `).run();
 
       // 1) Fire news funnel (RSS + Finnhub → GPT filter → Gemini summaries → D1)
@@ -202,31 +297,35 @@ var index_default = {
       // Wave 3000: assessment + event-attribution (parallel; need prices + news)
       // Wave 4000: probability + consensus (parallel; need SIGNAL_01)
 
-      const insertJob = async (worker, wave, input = "{}") => {
+      const insertJob = async (worker, wave, requires = null, input = "{}") => {
         await this_env.DB.prepare(`
-          INSERT INTO PROC_01_Job_queue (date, worker, input, status, wave)
-          VALUES (?, ?, ?, ?, ?)
-        `).bind(now, worker, input, "pending", wave).run();
+          INSERT INTO PROC_01_Job_queue (date, worker, input, status, wave, requires)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).bind(now, worker, input, "pending", wave, requires).run();
       };
 
-      // Wave 1000 — data fetchers + AI synthesizers (~7 min bounded by price-fetcher)
-      // All data fetchers run in parallel; they hit independent external APIs
-      // and each has its own idempotency/rate-limit protection.
+      // Wave 1000 — data fetchers (independent, no dependencies)
       await insertJob("fundamentals-fetcher", 1000);
       await insertJob("price-fetcher", 1000);
       await insertJob("earnings-fetcher", 1000);
       await insertJob("beta-trend-orchestrator", 1000);
 
-      // Wave 2000 — macro intelligence
+      // Wave 2000 — macro intelligence (no hard deps; reads BETA_03/04/12
+      //   which are pre-populated or from the parallel news funnel).
+      //   Still runs even if data fetchers failed — it uses what's there.
       await insertJob("macro-intelligence-builder", 2000);
 
       // Wave 3000 — assessment + event-attribution
-      await insertJob("assessment-engine", 3000);
-      await insertJob("event-attribution-engine", 3000);
+      //   assessment-engine reads PRICE_01, FUND_02, FUND_03, BETA_10.
+      //     Requires price-fetcher + earnings-fetcher + macro-intel to succeed.
+      //   event-attribution-engine reads PRICE_01, BETA_12, ALPHA_01/03.
+      //     Requires price-fetcher to succeed (events without prices = nothing to attribute).
+      await insertJob("assessment-engine", 3000, "price-fetcher,earnings-fetcher,macro-intelligence-builder");
+      await insertJob("event-attribution-engine", 3000, "price-fetcher");
 
-      // Wave 4000 — probability + consensus
-      await insertJob("probability-engine", 4000);
-      await insertJob("consensus-validator", 4000);
+      // Wave 4000 — probability + consensus (need SIGNAL_01 from assessment)
+      await insertJob("probability-engine", 4000, "assessment-engine");
+      await insertJob("consensus-validator", 4000, "assessment-engine");
     }
     const instanceId = `run-${Date.now()}`;
     await this_env.WORKFLOW.create({ id: instanceId });

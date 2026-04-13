@@ -20,6 +20,28 @@ export default {
 
     console.log(`[NEWS FUNNEL] Starting for ${today}`);
 
+    // ---------- IDEMPOTENCY: skip if BETA_12 already has today's digest ----------
+    // News funnel makes ~33 gpt-5-mini calls + ~40 Gemini calls per run.
+    // That's the most expensive single stage. Retries would burn ~$0.10 each.
+    // If BETA_12_News_digest already has rows for today, skip entirely.
+    try {
+      const existing = await db.prepare(
+        `SELECT COUNT(*) AS n FROM BETA_12_News_digest WHERE date = ?`
+      ).bind(today).first();
+      if ((existing?.n || 0) > 0) {
+        console.log(`[NEWS FUNNEL] BETA_12 already has ${existing.n} rows for ${today} — skipping`);
+        return Response.json({
+          ok: true,
+          date: today,
+          skipped: true,
+          reason: "already_complete",
+          existing_rows: existing.n,
+        });
+      }
+    } catch (err) {
+      console.warn(`[NEWS FUNNEL] Idempotency check failed, proceeding: ${err.message}`);
+    }
+
     // =========================================================
     // STAGE 1: GATHER HEADLINES
     // =========================================================

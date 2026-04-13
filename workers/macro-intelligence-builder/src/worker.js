@@ -139,7 +139,6 @@ RULES:
       { type: "macro", count: (macroRows.results || []).length },
       { type: "sentiment", count: (sentRows.results || []).length },
       { type: "news_digest", count: (newsDigestRows.results || []).length },
-      { type: "five_layers", present: !!macroNewsRow },
     ];
 
     await db.prepare(`

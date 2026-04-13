@@ -28,6 +28,31 @@ export default {
     const today = new Date().toISOString().slice(0, 10);
     console.log(`[EARNINGS] Starting for ${TICKERS.length} tickers (${today})`);
 
+    // ---------- IDEMPOTENCY: skip if already fetched today ----------
+    // Finnhub free tier is 60/min — not a hard daily quota — but retries
+    // re-burn ~50 API calls per run, which is wasteful. Use D1 to detect
+    // "already fetched today" via FUND_02_Earnings.created_at.
+    try {
+      const existing = await env.DB.prepare(
+        `SELECT COUNT(DISTINCT ticker) AS n FROM FUND_02_Earnings
+         WHERE date(COALESCE(created_at, '1970-01-01')) = ?`
+      ).bind(today).first();
+      if ((existing?.n || 0) >= TICKERS.length) {
+        console.log(`[EARNINGS] All ${TICKERS.length} tickers already fetched today — skipping`);
+        return Response.json({
+          ok: true,
+          earnings_count: 0,
+          recommendations_count: 0,
+          errors: 0,
+          skipped: true,
+          reason: "already_complete",
+          date: today,
+        });
+      }
+    } catch (err) {
+      console.warn(`[EARNINGS] Idempotency check failed, proceeding cautiously: ${err.message}`);
+    }
+
     // Fetch all in parallel — 50 calls well within 60/min
     const earningsResults = [];
     const recsResults = [];
