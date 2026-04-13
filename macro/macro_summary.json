@@ -2,61 +2,61 @@
   "Macro": [
     {
       "heading": "CPI",
-      "date": "2026-01-01",
+      "date": "2026-03-01",
       "summary": {
-        "previous CPI Headline": 324.054,
-        "current CPI Headline": 325.252,
-        "pct_change CPI Headline": 0.36969147117456846,
-        "previous CPI Core": 330.506,
-        "current CPI Core": 331.95,
-        "pct_change CPI Core": 0.43690583529497706,
-        "previous CPI Food": 346.815,
-        "current CPI Food": 346.613,
-        "pct_change CPI Food": -0.05824430892550732,
-        "previous CPI Shelter": 420.134,
-        "current CPI Shelter": 421.526,
-        "pct_change CPI Shelter": 0.3313228636577844
+        "previous CPI Headline": 326.785,
+        "current CPI Headline": 330.213,
+        "pct_change CPI Headline": 1.0490077573940044,
+        "previous CPI Core": 333.242,
+        "current CPI Core": 334.391,
+        "pct_change CPI Core": 0.34479447368579014,
+        "previous CPI Food": 346.309,
+        "current CPI Food": 345.203,
+        "pct_change CPI Food": -0.31936796329291217,
+        "previous CPI Shelter": 422.776,
+        "current CPI Shelter": 424.45,
+        "pct_change CPI Shelter": 0.39595435880938795
       }
     },
     {
       "heading": "PPI",
-      "date": "2026-01-01",
+      "date": "2026-02-01",
       "summary": {
-        "previous PPI Final Demand": 151.446,
-        "current PPI Final Demand": 152.174,
-        "pct_change PPI Final Demand": 0.48069939120215033,
-        "previous PPI Goods": 150.629,
-        "current PPI Goods": 151.853,
-        "pct_change PPI Goods": 0.8125925286631512,
-        "previous PPI Services": 149.797,
-        "current PPI Services": 151.351,
-        "pct_change PPI Services": 1.037403953350202
+        "previous PPI Final Demand": 152.19,
+        "current PPI Final Demand": 153.231,
+        "pct_change PPI Final Demand": 0.6840134042972579,
+        "previous PPI Goods": 151.87,
+        "current PPI Goods": 153.186,
+        "pct_change PPI Goods": 0.8665305853690672,
+        "previous PPI Services": 151.283,
+        "current PPI Services": 152.168,
+        "pct_change PPI Services": 0.5849963313789517
       }
     },
     {
       "heading": "Employment",
-      "date": "2026-02-01",
+      "date": "2026-03-01",
       "summary": {
-        "previous Nonfarm Payrolls": 158558,
-        "current Nonfarm Payrolls": 158466,
-        "pct_change Nonfarm Payrolls": -0.05802293167169112,
-        "previous Unemployment Rate": 4.3,
-        "current Unemployment Rate": 4.4,
-        "pct_change Unemployment Rate": 2.32558139534885
+        "previous Nonfarm Payrolls": 158459,
+        "current Nonfarm Payrolls": 158637,
+        "pct_change Nonfarm Payrolls": 0.11233189657892577,
+        "previous Unemployment Rate": 4.4,
+        "current Unemployment Rate": 4.3,
+        "pct_change Unemployment Rate": -2.2727272727272845
       }
     },
     {
       "heading": "Bank Reserves",
-      "date": "2026-03-04",
+      "date": "2026-04-08",
       "summary": {
-        "previous Bank Reserves": 2965765,
-        "current Bank Reserves": 3015531,
-        "pct_change Bank Reserves": 1.6780156216018465
+        "previous Bank Reserves": 3026708,
+        "current Bank Reserves": 3116247,
+        "pct_change Bank Reserves": 2.958296604760023
       }
     },
     {
       "heading": "Interest Rates",
-      "date": "2026-03-06",
+      "date": "2026-04-09",
       "summary": {
         "previous Fed Funds Rate": 3.64,
         "current Fed Funds Rate": 3.64,
@@ -67,51 +67,51 @@
     },
     {
       "heading": "Consumer Sentiment",
-      "date": "2026-02-01",
+      "date": "2026-04-01",
       "summary": {
-        "previous Consumer Sentiment": 56.4,
-        "current Consumer Sentiment": 56.6,
-        "pct_change Consumer Sentiment": 0.35460992907801925
+        "previous Consumer Sentiment": 53.3,
+        "current Consumer Sentiment": 47.6,
+        "pct_change Consumer Sentiment": -10.694183864915564
       }
     },
     {
       "heading": "Inflation Expectations",
-      "date": "2026-02-01",
+      "date": "2026-04-01",
       "summary": {
-        "previous 1Y Inflation Expectations": 4,
-        "current 1Y Inflation Expectations": 3.4,
-        "pct_change 1Y Inflation Expectations": -15.000000000000002,
-        "previous 5Y Inflation Expectations": 3.3,
-        "current 5Y Inflation Expectations": 3.3,
-        "pct_change 5Y Inflation Expectations": 0
+        "previous 1Y Inflation Expectations": 3.8,
+        "current 1Y Inflation Expectations": 4.8,
+        "pct_change 1Y Inflation Expectations": 26.31578947368421,
+        "previous 5Y Inflation Expectations": 3.2,
+        "current 5Y Inflation Expectations": 3.4,
+        "pct_change 5Y Inflation Expectations": 6.249999999999992
       }
     },
     {
       "heading": "Gamma Regime (VIX)",
-      "date": "2026-03-10",
+      "date": "2026-04-10",
       "summary": {
-        "VIX9D": 24.84000015258789,
-        "VIX": 24.1299991607666,
-        "VIX3M": 24.81999969482422,
+        "VIX9D": 16.360000610351562,
+        "VIX": 19.229999542236328,
+        "VIX3M": 21.860000610351562,
         "Gamma Regime": "POSITIVE"
       }
     },
     {
       "heading": "FOMC",
-      "date": "2026-01-28",
+      "date": "2026-03-18",
       "summary": {
         "title": "Federal Reserve issues FOMC statement",
-        "link": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260128a.htm",
+        "link": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260318a.htm",
         "paragraphs": [
-          "January 28, 2026",
-          "For release at 2:00 p.m. EST",
-          "Available indicators suggest that economic activity has been expanding at a solid pace. Job gains have remained low, and the unemployment rate has shown some signs of stabilization. Inflation remains somewhat elevated.",
-          "The Committee seeks to achieve maximum employment and inflation at the rate of 2 percent over the longer run. Uncertainty about the economic outlook remains elevated. The Committee is attentive to the risks to both sides of its dual mandate.",
+          "March 18, 2026",
+          "For release at 2:00 p.m. EDT",
+          "Available indicators suggest that economic activity has been expanding at a solid pace. Job gains have remained low, and the unemployment rate has been little changed in recent months. Inflation remains somewhat elevated.",
+          "The Committee seeks to achieve maximum employment and inflation at the rate of 2 percent over the longer run. Uncertainty about the economic outlook remains elevated. The implications of developments in the Middle East for the U.S. economy are uncertain. The Committee is attentive to the risks to both sides of its dual mandate.",
           "In support of its goals, the Committee decided to maintain the target range for the federal funds rate at 3‑1/2 to 3‑3/4 percent. In considering the extent and timing of additional adjustments to the target range for the federal funds rate, the Committee will carefully assess incoming data, the evolving outlook, and the balance of risks. The Committee is strongly committed to supporting maximum employment and returning inflation to its 2 percent objective.",
           "In assessing the appropriate stance of monetary policy, the Committee will continue to monitor the implications of incoming information for the economic outlook. The Committee would be prepared to adjust the stance of monetary policy as appropriate if risks emerge that could impede the attainment of the Committee's goals. The Committee's assessments will take into account a wide range of information, including readings on labor market conditions, inflation pressures and inflation expectations, and financial and international developments.",
-          "Voting for the monetary policy action were Jerome H. Powell, Chair; John C. Williams, Vice Chair; Michael S. Barr; Michelle W. Bowman; Lisa D. Cook; Beth M. Hammack; Philip N. Jefferson; Neel Kashkari; Lorie K. Logan; and Anna Paulson. Voting against this action were Stephen I. Miran and Christopher J. Waller, who preferred to lower the target range for the federal funds rate by 1/4 percentage point at this meeting.",
+          "Voting for the monetary policy action were Jerome H. Powell, Chair; John C. Williams, Vice Chair; Michael S. Barr; Michelle W. Bowman; Lisa D. Cook; Beth M. Hammack; Philip N. Jefferson; Neel Kashkari; Lorie K. Logan; Anna Paulson; and Christopher J. Waller. Voting against this action was Stephen I. Miran, who preferred to lower the target range for the federal funds rate by 1/4 percentage point at this meeting.",
           "For media inquiries, please email [email protected] or call 202-452-2955.",
-          "Implementation Note issued January 28, 2026"
+          "Implementation Note issued March 18, 2026"
         ]
       }
     }

@@ -3,6 +3,7 @@ import "dotenv/config";
 import express from "express";
 import { fileURLToPath } from "url";
 import path from "path";
+import fs from "fs";
 import open from "open";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -136,24 +137,6 @@ app.get("/api/sentiment/:date", async (req, res) => {
   }
 });
 
-// Get news data from D1
-app.get("/api/news/:date", async (req, res) => {
-  try {
-    const data = await fetchFromWorker("/query/news");
-
-    if (!data || Object.keys(data).length === 0) {
-      return res.status(404).json({
-        error: "No news data available",
-        source: "D1",
-        hint: "Run the pipeline to ingest news data"
-      });
-    }
-
-    res.json({ ...data, source: "D1" });
-  } catch (error) {
-    handleD1Error(res, `/api/news/${req.params.date}`, error);
-  }
-});
 
 // Get press releases from D1
 app.get("/api/press/:date", async (req, res) => {
@@ -211,25 +194,6 @@ app.get("/api/daily-macro/:date", async (req, res) => {
     res.json({ ...data, source: "D1" });
   } catch (error) {
     handleD1Error(res, `/api/daily-macro/${req.params.date}`, error);
-  }
-});
-
-// Get daily news from D1 (ALPHA_05_Daily_news)
-app.get("/api/daily-news/:date", async (req, res) => {
-  try {
-    const data = await fetchFromWorker("/query/daily-news");
-
-    if (!data || Object.keys(data).length === 0) {
-      return res.status(404).json({
-        error: "No daily news available",
-        source: "D1",
-        hint: "Run the pipeline to populate daily news"
-      });
-    }
-
-    res.json({ ...data, source: "D1" });
-  } catch (error) {
-    handleD1Error(res, `/api/daily-news/${req.params.date}`, error);
   }
 });
 
@@ -368,6 +332,62 @@ app.get("/api/portfolio-signals/:date", async (req, res) => {
   }
 });
 
+// Get latest local pipeline run log (per-step status + streaming log feed)
+// Reads the most-recently-modified ingest_*.json file from /logs.
+const LOGS_DIR = path.resolve(__dirname, "..", "logs");
+
+// Pipeline stage definitions: which stages run in parallel (wave) and their expected order.
+// Mirrors src/pipeline.js — stages 1-6 run in parallel, 7-10 sequential.
+const PIPELINE_STAGES = [
+  { name: "Press Releases",     wave: 1, parallel: true  },
+  { name: "White House/FOMC",   wave: 1, parallel: true  },
+  { name: "News",               wave: 1, parallel: true  },
+  { name: "SEC Edgar",          wave: 1, parallel: true  },
+  { name: "Macro Indicators",   wave: 1, parallel: true  },
+  { name: "Sentiment",          wave: 1, parallel: true  },
+  { name: "Upload + Workflow",  wave: 2, parallel: false },
+  { name: "Summarization",      wave: 3, parallel: false },
+  { name: "Fact Verification",  wave: 4, parallel: false },
+  { name: "Dashboard Sync",     wave: 5, parallel: false },
+];
+
+app.get("/api/pipeline-logs", (req, res) => {
+  try {
+    if (!fs.existsSync(LOGS_DIR)) {
+      return res.json({ file: null, stages: PIPELINE_STAGES, steps: {}, logs: [], note: "No /logs directory yet" });
+    }
+
+    const files = fs.readdirSync(LOGS_DIR)
+      .filter(f => f.startsWith("ingest_") && f.endsWith(".json"))
+      .map(f => {
+        const full = path.join(LOGS_DIR, f);
+        return { file: f, full, mtime: fs.statSync(full).mtimeMs };
+      })
+      .sort((a, b) => b.mtime - a.mtime);
+
+    if (files.length === 0) {
+      return res.json({ file: null, stages: PIPELINE_STAGES, steps: {}, logs: [], note: "No pipeline runs recorded yet" });
+    }
+
+    const latest = files[0];
+    const raw = JSON.parse(fs.readFileSync(latest.full, "utf-8"));
+
+    // Trim validations payload — not needed here, and can be large.
+    const { validations, ...rest } = raw;
+
+    res.json({
+      file: latest.file,
+      mtime: new Date(latest.mtime).toISOString(),
+      stages: PIPELINE_STAGES,
+      recentFiles: files.slice(0, 10).map(f => f.file),
+      ...rest,
+    });
+  } catch (err) {
+    console.error(`[pipeline-logs] ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get pipeline health (job queue status grouped by wave)
 app.get("/api/pipeline-health", async (req, res) => {
   try {
@@ -401,11 +421,9 @@ app.get("/api/dashboard/:date", async (req, res) => {
     validation: null,
     macro: null,
     sentiment: null,
-    news: null,
     press: null,
     whitehouse: null,
     dailyMacro: null,
-    dailyNews: {},
     macroTrend: null,
     tickerTrends: {},
     reports: {},
@@ -443,7 +461,6 @@ app.get("/api/dashboard/:date", async (req, res) => {
           result.dailyMacro = data.dailyMacro || null;
           result.macroTrend = data.macroTrend || null;
           result.tickerTrends = data.tickerTrends || {};
-          result.dailyNews = data.dailyNews || {};
           if (data.macro) result.macro = data.macro;
           if (data.sentiment) result.sentiment = data.sentiment;
           console.log("[D1] Loaded combined data");
@@ -480,20 +497,7 @@ app.get("/api/dashboard/:date", async (req, res) => {
         console.error(`[D1 ERROR] whitehouse: ${err.message}`);
       }),
 
-    // 5. News
-    fetchFromWorker("/query/news")
-      .then(data => {
-        if (data && Object.keys(data).length > 0) {
-          result.news = data;
-          console.log(`[D1] Loaded news`);
-        }
-      })
-      .catch(err => {
-        result.errors.push({ endpoint: "news", error: err.message });
-        console.error(`[D1 ERROR] news: ${err.message}`);
-      }),
-
-    // 6. AI verification
+    // 5. AI verification
     fetchFromWorker(`/query/verification?date=${date}`)
       .then(data => {
         if (data && data.results) {
@@ -551,7 +555,7 @@ app.get("/api/dashboard/:date", async (req, res) => {
 
   // Check if we got any data at all
   const hasData = result.validation || result.macro || result.press ||
-                  result.news || result.dailyMacro || Object.keys(result.tickerTrends).length > 0;
+                  result.newsDigest || result.dailyMacro || Object.keys(result.tickerTrends).length > 0;
 
   if (!hasData && result.errors.length > 0) {
     console.error(`[Dashboard] NO DATA AVAILABLE - All D1 fetches failed`);
@@ -564,7 +568,7 @@ app.get("/api/dashboard/:date", async (req, res) => {
   }
 
   // Log summary
-  console.log(`[Dashboard] Loaded for ${date}: validation=${!!result.validation}, macro=${!!result.macro}, press=${!!result.press}, news=${!!result.news}, verification=${!!result.verification_ai}`);
+  console.log(`[Dashboard] Loaded for ${date}: validation=${!!result.validation}, macro=${!!result.macro}, press=${!!result.press}, newsDigest=${!!result.newsDigest}, verification=${!!result.verification_ai}`);
   if (result.errors.length > 0) {
     console.log(`[Dashboard] Partial errors: ${result.errors.map(e => e.endpoint).join(', ')}`);
   }

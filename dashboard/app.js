@@ -298,8 +298,197 @@ async function updatePipelineHealth() {
   }
 }
 
+// ============ PIPELINE RUN LOG (maintenance panel) ============
+
+let pipelineLogsState = {
+  data: null,
+  filter: "all",
+  timer: null,
+};
+
+function formatHMS(iso) {
+  if (!iso) return "--";
+  try { return new Date(iso).toLocaleTimeString("en-US", { hour12: false }); }
+  catch { return "--"; }
+}
+
+function durationMs(a, b) {
+  if (!a || !b) return null;
+  return new Date(b).getTime() - new Date(a).getTime();
+}
+
+function fmtDuration(ms) {
+  if (ms == null) return "";
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`;
+}
+
+function renderPipelineStageGrid(data) {
+  const grid = document.getElementById("pipelineStageGrid");
+  if (!grid) return;
+
+  const stages = data.stages || [];
+  const steps = data.steps || {};
+  const runStart = data.startTime;
+
+  // Group stages by wave
+  const byWave = {};
+  for (const s of stages) {
+    (byWave[s.wave] ||= []).push(s);
+  }
+
+  const waveNums = Object.keys(byWave).sort((a, b) => Number(a) - Number(b));
+
+  grid.innerHTML = "";
+  for (const wNum of waveNums) {
+    const waveStages = byWave[wNum];
+    const row = document.createElement("div");
+    row.className = "stage-wave-row";
+
+    const label = document.createElement("div");
+    label.className = "stage-wave-label";
+    label.innerHTML = `<span>Wave ${wNum}</span><span class="wave-mode">${waveStages[0].parallel ? "parallel" : "sequential"}</span>`;
+    row.appendChild(label);
+
+    const cells = document.createElement("div");
+    cells.className = "stage-wave-cells";
+
+    for (const s of waveStages) {
+      const step = steps[s.name];
+      const status = step?.status || "pending";
+      const items = step?.items;
+      const completedAt = step?.completedAt;
+      const dur = completedAt && runStart ? fmtDuration(durationMs(runStart, completedAt)) : "";
+
+      const cell = document.createElement("div");
+      cell.className = `stage-cell stage-${status}`;
+
+      const icon = {
+        done: "✓",
+        running: "●",
+        warning: "!",
+        failed: "✗",
+        pending: "○",
+      }[status] || "○";
+
+      cell.innerHTML = `
+        <div class="stage-cell-top">
+          <span class="stage-icon">${icon}</span>
+          <span class="stage-name">${s.name}</span>
+        </div>
+        <div class="stage-cell-bot">
+          <span class="stage-status">${status}</span>
+          ${items != null ? `<span class="stage-items">${items} items</span>` : ""}
+          ${dur ? `<span class="stage-dur">${dur}</span>` : ""}
+        </div>
+      `;
+      cells.appendChild(cell);
+    }
+    row.appendChild(cells);
+    grid.appendChild(row);
+  }
+
+  if (waveNums.length === 0) {
+    grid.innerHTML = '<span class="no-data">No stage data</span>';
+  }
+}
+
+function renderPipelineLogFeed(data) {
+  const feed = document.getElementById("pipelineLogFeed");
+  const countEl = document.getElementById("pipelineLogCount");
+  if (!feed) return;
+
+  const logs = data.logs || [];
+  const filter = pipelineLogsState.filter;
+
+  const filtered = filter === "all"
+    ? logs
+    : logs.filter(l => l.status === filter);
+
+  if (countEl) countEl.textContent = `${filtered.length} / ${logs.length} entries`;
+
+  if (filtered.length === 0) {
+    feed.innerHTML = '<span class="no-data">No entries for this filter</span>';
+    return;
+  }
+
+  // Most recent first
+  feed.innerHTML = filtered.slice().reverse().map(l => {
+    const status = l.status || "info";
+    const msg = (l.message || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return `
+      <div class="log-row log-${status}">
+        <span class="log-time">${l.time || ""}</span>
+        <span class="log-cat">${l.category || ""}</span>
+        <span class="log-msg">${msg}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderPipelineLogsHeader(data) {
+  const fileEl = document.getElementById("pipelineLogsFile");
+  if (!fileEl) return;
+  if (!data || !data.file) {
+    fileEl.textContent = data?.note || "no run recorded";
+    return;
+  }
+  const startTxt = data.startTime ? `started ${formatHMS(data.startTime)}` : "";
+  const endTxt = data.endTime ? `· ended ${formatHMS(data.endTime)}` : "· running...";
+  const totalDur = data.startTime && data.endTime
+    ? ` · ${fmtDuration(durationMs(data.startTime, data.endTime))}`
+    : "";
+  fileEl.textContent = `${data.file} · ${startTxt} ${endTxt}${totalDur}`;
+}
+
+async function updatePipelineLogs() {
+  try {
+    const res = await fetch("/api/pipeline-logs");
+    if (!res.ok) return;
+    const data = await res.json();
+    pipelineLogsState.data = data;
+    renderPipelineLogsHeader(data);
+    renderPipelineStageGrid(data);
+    renderPipelineLogFeed(data);
+  } catch (err) {
+    console.error("Pipeline logs fetch failed:", err);
+  }
+}
+
+function startPipelineLogsPolling() {
+  if (pipelineLogsState.timer) return;
+  const tick = () => {
+    const chk = document.getElementById("pipelineLogsAutoRefresh");
+    const validationActive = document.getElementById("validation")?.classList.contains("active");
+    if (chk?.checked && validationActive) updatePipelineLogs();
+  };
+  pipelineLogsState.timer = setInterval(tick, 5000);
+}
+
+function initPipelineLogsControls() {
+  const refreshBtn = document.getElementById("pipelineLogsRefreshBtn");
+  if (refreshBtn && !refreshBtn._wired) {
+    refreshBtn.addEventListener("click", updatePipelineLogs);
+    refreshBtn._wired = true;
+  }
+  document.querySelectorAll(".log-filter-btn").forEach(btn => {
+    if (btn._wired) return;
+    btn._wired = true;
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".log-filter-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      pipelineLogsState.filter = btn.dataset.logFilter;
+      if (pipelineLogsState.data) renderPipelineLogFeed(pipelineLogsState.data);
+    });
+  });
+  startPipelineLogsPolling();
+}
+
 function updateValidation() {
   updatePipelineHealth(); // Run once when validation tab is loaded
+  updatePipelineLogs();
+  initPipelineLogsControls();
   const val = dashboardData.validation;
   if (!val) return;
 

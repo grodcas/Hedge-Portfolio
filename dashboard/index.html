@@ -135,11 +135,45 @@
         <!-- Pipeline Health Panel (auto-refreshes every 10s when pipeline running) -->
         <div class="card pipeline-health-card">
           <div class="section-header">
-            <h3>Pipeline Health</h3>
+            <h3>Pipeline Health <span class="sub-label">(Cloudflare workflow queue)</span></h3>
             <span class="pipeline-summary" id="pipelineSummary">--</span>
           </div>
           <div class="pipeline-waves" id="pipelineWaves">
             <span class="loading">Loading...</span>
+          </div>
+        </div>
+
+        <!-- Maintenance: Pipeline Run Log (local pipeline stages + streaming logs) -->
+        <div class="card pipeline-logs-card">
+          <div class="section-header">
+            <h3>Pipeline Run Log <span class="sub-label">(local run — stages, timing, errors)</span></h3>
+            <div class="pipeline-logs-meta">
+              <span id="pipelineLogsFile" class="pipeline-logs-file">--</span>
+              <label class="autoRefreshLabel">
+                <input type="checkbox" id="pipelineLogsAutoRefresh" checked> auto-refresh
+              </label>
+              <button id="pipelineLogsRefreshBtn" class="btn btn-secondary btn-sm">Refresh</button>
+            </div>
+          </div>
+
+          <!-- Stage grid: one row per wave, stages in a wave run in parallel -->
+          <div class="pipeline-stage-grid" id="pipelineStageGrid">
+            <span class="loading">Loading...</span>
+          </div>
+
+          <!-- Streaming log feed -->
+          <div class="pipeline-log-feed-header">
+            <strong>Log Feed</strong>
+            <div class="log-filter-buttons">
+              <button class="log-filter-btn active" data-log-filter="all">All</button>
+              <button class="log-filter-btn" data-log-filter="fail">Errors</button>
+              <button class="log-filter-btn" data-log-filter="warn">Warnings</button>
+              <button class="log-filter-btn" data-log-filter="ok">OK</button>
+            </div>
+            <span id="pipelineLogCount" class="log-count">0 entries</span>
+          </div>
+          <div class="pipeline-log-feed" id="pipelineLogFeed">
+            <span class="loading">No log data yet</span>
           </div>
         </div>
 

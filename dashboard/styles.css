@@ -1979,3 +1979,56 @@ select {
 .perf-spy { font-size: 1.5rem; font-weight: 700; font-family: 'SF Mono', Consolas, monospace; }
 .perf-signals { font-size: 1rem; font-weight: 600; }
 .perf-signals .sep { color: var(--text-muted); margin: 0 0.25rem; }
+
+/* ============ PIPELINE RUN LOG (maintenance panel) ============ */
+.pipeline-logs-card { margin-top: 1rem; }
+.pipeline-logs-card .sub-label { color: var(--text-muted); font-size: 0.75rem; font-weight: 400; margin-left: 0.35rem; }
+.pipeline-logs-meta { display: flex; align-items: center; gap: 0.75rem; font-size: 0.8rem; color: var(--text-muted); }
+.pipeline-logs-file { font-family: 'SF Mono', Consolas, monospace; font-size: 0.75rem; }
+.autoRefreshLabel { display: flex; align-items: center; gap: 0.25rem; cursor: pointer; }
+.btn-sm { padding: 0.25rem 0.6rem; font-size: 0.75rem; }
+
+.pipeline-stage-grid { display: flex; flex-direction: column; gap: 0.5rem; margin: 0.75rem 0 1rem; }
+.stage-wave-row { display: flex; align-items: stretch; gap: 0.75rem; padding: 0.5rem; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 4px; }
+.stage-wave-label { display: flex; flex-direction: column; justify-content: center; min-width: 80px; font-size: 0.75rem; color: var(--text-muted); border-right: 1px solid var(--border-color); padding-right: 0.75rem; }
+.stage-wave-label span:first-child { font-weight: 600; color: var(--text-primary); font-size: 0.85rem; }
+.stage-wave-label .wave-mode { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.stage-wave-cells { display: flex; flex-wrap: wrap; gap: 0.5rem; flex: 1; }
+
+.stage-cell { flex: 1 1 160px; min-width: 140px; padding: 0.5rem 0.75rem; border-radius: 4px; background: var(--bg-tertiary); border-left: 3px solid var(--border-color); }
+.stage-cell-top { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.2rem; }
+.stage-icon { font-size: 1rem; font-weight: 700; width: 1rem; text-align: center; }
+.stage-name { font-size: 0.8rem; font-weight: 600; color: var(--text-primary); }
+.stage-cell-bot { display: flex; gap: 0.5rem; font-size: 0.7rem; color: var(--text-muted); flex-wrap: wrap; }
+.stage-status { text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+
+.stage-cell.stage-done { border-left-color: #2ea043; }
+.stage-cell.stage-done .stage-icon { color: #2ea043; }
+.stage-cell.stage-running { border-left-color: #1f6feb; background: #0d2247; }
+.stage-cell.stage-running .stage-icon { color: #58a6ff; animation: pulse 1.2s ease-in-out infinite; }
+.stage-cell.stage-warning { border-left-color: #d29922; }
+.stage-cell.stage-warning .stage-icon { color: #d29922; }
+.stage-cell.stage-failed { border-left-color: #f85149; background: #2d0f10; }
+.stage-cell.stage-failed .stage-icon { color: #f85149; }
+.stage-cell.stage-pending { opacity: 0.6; }
+
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+.pipeline-log-feed-header { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color); }
+.pipeline-log-feed-header strong { font-size: 0.85rem; }
+.log-filter-buttons { display: flex; gap: 0.25rem; flex: 1; }
+.log-filter-btn { padding: 0.2rem 0.55rem; font-size: 0.7rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; }
+.log-filter-btn.active { background: #1f6feb; color: #fff; border-color: #1f6feb; }
+.log-count { font-size: 0.7rem; color: var(--text-muted); font-family: 'SF Mono', Consolas, monospace; }
+
+.pipeline-log-feed { max-height: 320px; overflow-y: auto; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 4px; padding: 0.5rem; margin-top: 0.5rem; font-family: 'SF Mono', Consolas, monospace; font-size: 0.72rem; }
+.log-row { display: grid; grid-template-columns: 60px 90px 1fr; gap: 0.5rem; padding: 0.15rem 0.3rem; border-left: 2px solid transparent; }
+.log-row + .log-row { border-top: 1px solid rgba(255,255,255,0.03); }
+.log-time { color: var(--text-muted); }
+.log-cat { color: #8957e5; font-weight: 600; text-transform: uppercase; font-size: 0.65rem; align-self: center; }
+.log-msg { color: var(--text-primary); white-space: pre-wrap; word-break: break-word; }
+.log-row.log-ok { border-left-color: #2ea043; }
+.log-row.log-fail { border-left-color: #f85149; background: rgba(248, 81, 73, 0.08); }
+.log-row.log-fail .log-msg { color: #ffb3b0; }
+.log-row.log-warn { border-left-color: #d29922; background: rgba(210, 153, 34, 0.06); }
+.log-row.log-info { border-left-color: #484f58; }
