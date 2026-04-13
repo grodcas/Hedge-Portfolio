@@ -3,7 +3,15 @@
  *
  * Fetches fundamental data (P/E, EPS, margins, etc.) for 25 portfolio tickers.
  * Rate limit: 25 calls/day total, 5/min burst.
- * Runs as separate trigger (NOT in daily_update) due to daily limit.
+ *
+ * IDEMPOTENCY PROTECTION:
+ * Alpha Vantage has a hard 25 calls/day limit. If this worker runs twice in
+ * one day (e.g., because of a Cloudflare Workflow retry), the second run
+ * could burn the entire daily quota. Before making any API calls, we check
+ * D1 FUND_01_Fundamentals for today's date — if we already have data for
+ * all 25 tickers, we skip entirely. If partial, we only fetch the missing ones.
+ *
+ * Runs as part of daily_update (wave 1000) alongside other data fetchers.
  * Posts results to portfolio-ingestor /ingest/fundamentals.
  */
 
@@ -24,12 +32,34 @@ async function runFundamentalsFetcher(env) {
   const today = new Date().toISOString().slice(0, 10);
   console.log(`[FUNDAMENTALS] Starting for ${TICKERS.length} tickers (${today})`);
 
+  // ---------- IDEMPOTENCY: skip tickers already fetched today ----------
+  // Protects the 25/day Alpha Vantage quota from being burned on retries.
+  let tickersToFetch = [...TICKERS];
+  try {
+    const { results: existing } = await env.DB.prepare(
+      `SELECT ticker FROM FUND_01_Fundamentals WHERE date = ?`
+    ).bind(today).all();
+    const alreadyHave = new Set((existing || []).map(r => r.ticker));
+    tickersToFetch = TICKERS.filter(t => !alreadyHave.has(t));
+
+    if (alreadyHave.size > 0) {
+      console.log(`[FUNDAMENTALS] Already have ${alreadyHave.size} tickers for ${today}: ${[...alreadyHave].join(",")}`);
+    }
+    if (tickersToFetch.length === 0) {
+      console.log(`[FUNDAMENTALS] All 25 tickers already fetched today — skipping, protecting Alpha Vantage quota`);
+      return { ok: true, date: today, fetched: 0, skipped: 25, reason: "already_complete" };
+    }
+    console.log(`[FUNDAMENTALS] Fetching ${tickersToFetch.length} missing ticker(s)`);
+  } catch (err) {
+    console.warn(`[FUNDAMENTALS] Idempotency check failed, proceeding cautiously: ${err.message}`);
+  }
+
   const results = [];
   const errors = [];
 
   // Batch 5 at a time (5/min burst), 62s between batches
-  for (let i = 0; i < TICKERS.length; i += 5) {
-    const batch = TICKERS.slice(i, i + 5);
+  for (let i = 0; i < tickersToFetch.length; i += 5) {
+    const batch = tickersToFetch.slice(i, i + 5);
     const batchResults = await Promise.allSettled(
       batch.map(ticker => fetchOverview(ticker, apiKey, today))
     );
@@ -45,13 +75,13 @@ async function runFundamentalsFetcher(env) {
       }
     }
 
-    if (i + 5 < TICKERS.length) {
+    if (i + 5 < tickersToFetch.length) {
       console.log(`[FUNDAMENTALS] Batch ${Math.floor(i / 5) + 1} done, waiting 62s...`);
       await sleep(62000);
     }
   }
 
-  console.log(`[FUNDAMENTALS] Fetched ${results.length}/${TICKERS.length}`);
+  console.log(`[FUNDAMENTALS] Fetched ${results.length}/${tickersToFetch.length}`);
 
   // POST to portfolio-ingestor
   if (results.length > 0) {
@@ -91,10 +121,6 @@ export default {
     return Response.json(result, { status: result.ok ? 200 : 500 });
   },
 
-  async scheduled(event, env, ctx) {
-    console.log(`[FUNDAMENTALS] Cron fired at ${new Date().toISOString()}`);
-    ctx.waitUntil(runFundamentalsFetcher(env));
-  },
 };
 
 async function fetchOverview(ticker, apiKey, today) {

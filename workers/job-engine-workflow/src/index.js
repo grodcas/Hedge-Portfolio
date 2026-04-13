@@ -210,6 +210,9 @@ var index_default = {
       };
 
       // Wave 1000 — data fetchers + AI synthesizers (~7 min bounded by price-fetcher)
+      // All data fetchers run in parallel; they hit independent external APIs
+      // and each has its own idempotency/rate-limit protection.
+      await insertJob("fundamentals-fetcher", 1000);
       await insertJob("price-fetcher", 1000);
       await insertJob("earnings-fetcher", 1000);
       await insertJob("beta-trend-orchestrator", 1000);
