@@ -1,8 +1,8 @@
 /**
  * MACRO INTELLIGENCE BUILDER
  *
- * Synthesizes BETA_03 (macro) + BETA_04 (sentiment) + BETA_11 (5-layer news)
- * + BETA_12 (macro headlines) into a STRUCTURED JSON with:
+ * Synthesizes BETA_03 (macro) + BETA_04 (sentiment) + BETA_12 (macro headlines)
+ * into a STRUCTURED JSON with:
  *   - regime
  *   - sp500_direction probabilities
  *   - what_happened / whats_next / portfolio_action
@@ -25,10 +25,9 @@ export default {
     console.log(`[MACRO INTEL] Starting for ${today}`);
 
     // Load inputs
-    const [macroRows, sentRows, macroNewsRow, newsDigestRows] = await Promise.all([
+    const [macroRows, sentRows, newsDigestRows] = await Promise.all([
       db.prepare(`SELECT type, date, summary FROM BETA_03_Macro ORDER BY date DESC LIMIT 20`).all(),
       db.prepare(`SELECT type, date, summary FROM BETA_04_Sentiment ORDER BY date DESC LIMIT 10`).all(),
-      db.prepare(`SELECT * FROM BETA_11_Macro_news ORDER BY created_at DESC LIMIT 1`).first(),
       db.prepare(`SELECT title, summary, category, sentiment, magnitude FROM BETA_12_News_digest WHERE date = ? AND type = 'macro' ORDER BY rank LIMIT 10`).bind(today).all(),
     ]);
 
@@ -49,23 +48,6 @@ export default {
       `- [${n.category}] ${n.title} (${n.sentiment}, ${n.magnitude})`
     ).join("\n");
 
-    // Parse 5-layer news if available
-    let layersContext = "";
-    if (macroNewsRow) {
-      try {
-        const layers = {
-          calendar: JSON.parse(macroNewsRow.layer_calendar || "{}"),
-          geopolitics: JSON.parse(macroNewsRow.layer_geopolitics || "{}"),
-          regulatory: JSON.parse(macroNewsRow.layer_regulatory || "{}"),
-          sectors: JSON.parse(macroNewsRow.layer_sectors || "{}"),
-          wave: JSON.parse(macroNewsRow.layer_wave || "{}"),
-        };
-        layersContext = Object.entries(layers).map(([k, v]) =>
-          `${k}: sentiment=${v.sentiment}, magnitude=${v.magnitude}, events=${(v.events || []).length}`
-        ).join("\n");
-      } catch {}
-    }
-
     const prompt = `You are a macro analyst. Output JSON ONLY. No commentary, no markdown.
 
 INPUT DATA
@@ -75,9 +57,6 @@ ${macroData || "No data"}
 
 Sentiment indicators:
 ${sentData || "No data"}
-
-5-layer news intelligence:
-${layersContext || "No data"}
 
 Top macro headlines today:
 ${macroNews || "No data"}

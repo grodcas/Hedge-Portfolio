@@ -62,39 +62,6 @@ export default {
           }, { headers: corsHeaders });
         }
 
-        // -------- GET /query/macro-news --------
-        if (path === "/query/macro-news") {
-          const row = await db.prepare(`
-            SELECT id, date, layer_calendar, layer_geopolitics, layer_regulatory,
-                   layer_sectors, layer_wave, summary, overall_sentiment,
-                   overall_magnitude, sector_sentiments, created_at
-            FROM BETA_11_Macro_news
-            ORDER BY date DESC
-            LIMIT 1
-          `).first();
-
-          if (!row) {
-            return Response.json({ error: "No data" }, { status: 404, headers: corsHeaders });
-          }
-
-          return Response.json({
-            id: row.id,
-            date: row.date,
-            layers: {
-              economic_calendar: row.layer_calendar ? JSON.parse(row.layer_calendar) : null,
-              geopolitics: row.layer_geopolitics ? JSON.parse(row.layer_geopolitics) : null,
-              regulatory_fiscal: row.layer_regulatory ? JSON.parse(row.layer_regulatory) : null,
-              sector_pulse: row.layer_sectors ? JSON.parse(row.layer_sectors) : null,
-              the_wave: row.layer_wave ? JSON.parse(row.layer_wave) : null
-            },
-            summary: row.summary,
-            overall_sentiment: row.overall_sentiment,
-            overall_magnitude: row.overall_magnitude,
-            sector_sentiments: row.sector_sentiments ? JSON.parse(row.sector_sentiments) : {},
-            created_at: row.created_at
-          }, { headers: corsHeaders });
-        }
-
         // -------- GET /query/ticker-trends --------
         if (path === "/query/ticker-trends") {
           const { results } = await db.prepare(`
@@ -118,33 +85,6 @@ export default {
           return Response.json(byTicker, { headers: corsHeaders });
         }
 
-        // -------- GET /query/daily-news --------
-        if (path === "/query/daily-news") {
-          const { results } = await db.prepare(`
-            SELECT id, ticker, summary, todays_important, last_important, last_important_date, sentiment, magnitude, created_at
-            FROM ALPHA_05_Daily_news
-            ORDER BY created_at DESC
-          `).all();
-
-          // Group by ticker, keep latest per ticker
-          const byTicker = {};
-          for (const row of results) {
-            if (!byTicker[row.ticker]) {
-              byTicker[row.ticker] = {
-                id: row.id,
-                summary: row.summary,
-                todays_important: row.todays_important,
-                last_important: row.last_important,
-                last_important_date: row.last_important_date,
-                sentiment: row.sentiment,
-                magnitude: row.magnitude,
-                date: row.created_at?.slice(0, 10)
-              };
-            }
-          }
-
-          return Response.json(byTicker, { headers: corsHeaders });
-        }
 
         // -------- GET /query/reports --------
         if (path === "/query/reports") {
@@ -280,34 +220,6 @@ export default {
           }, { headers: corsHeaders });
         }
 
-        // -------- GET /query/news --------
-        if (path === "/query/news") {
-          const { results } = await db.prepare(`
-            SELECT id, tickers, date, source, title, summary, sentiment, magnitude, created_at
-            FROM BETA_01_News
-            ORDER BY date DESC
-            LIMIT 50
-          `).all();
-
-          // Group by source
-          const bySource = {};
-          for (const row of results) {
-            if (!bySource[row.source]) bySource[row.source] = [];
-            bySource[row.source].push({
-              id: row.id,
-              tickers: row.tickers ? JSON.parse(row.tickers) : [],
-              date: row.date,
-              title: row.title,
-              summary: row.summary,
-              sentiment: row.sentiment,
-              magnitude: row.magnitude,
-              created_at: row.created_at
-            });
-          }
-
-          return Response.json(bySource, { headers: corsHeaders });
-        }
-
         // -------- GET /query/pipeline-validation --------
         if (path === "/query/pipeline-validation") {
           const dateParam = url.searchParams.get("date") || new Date().toISOString().slice(0, 10);
@@ -410,11 +322,10 @@ export default {
 
         // -------- GET /query/all (dashboard combined) --------
         if (path === "/query/all") {
-          const [dailyMacro, macroTrend, tickerTrends, dailyNews, macro, sentiment] = await Promise.all([
+          const [dailyMacro, macroTrend, tickerTrends, macro, sentiment] = await Promise.all([
             db.prepare(`SELECT id, structure, summary, creation_date FROM BETA_10_Daily_macro ORDER BY creation_date DESC LIMIT 1`).first(),
             db.prepare(`SELECT id, summary, created_at FROM BETA_09_Trend ORDER BY created_at DESC LIMIT 1`).first(),
             db.prepare(`SELECT id, ticker, summary, created_at FROM ALPHA_04_Trends ORDER BY created_at DESC`).all(),
-            db.prepare(`SELECT id, ticker, summary, todays_important, last_important, last_important_date, created_at FROM ALPHA_05_Daily_news ORDER BY created_at DESC`).all(),
             db.prepare(`SELECT id, date, type, summary, created_at FROM BETA_03_Macro ORDER BY date DESC LIMIT 20`).all(),
             db.prepare(`SELECT id, date, type, summary, created_at FROM BETA_04_Sentiment ORDER BY date DESC LIMIT 20`).all()
           ]);
@@ -424,21 +335,6 @@ export default {
           for (const row of tickerTrends.results || []) {
             if (!trendsMap[row.ticker]) {
               trendsMap[row.ticker] = { id: row.id, summary: row.summary, created_at: row.created_at };
-            }
-          }
-
-          // Process daily news
-          const newsMap = {};
-          for (const row of dailyNews.results || []) {
-            if (!newsMap[row.ticker]) {
-              newsMap[row.ticker] = {
-                id: row.id,
-                summary: row.summary,
-                todays_important: row.todays_important,
-                last_important: row.last_important,
-                last_important_date: row.last_important_date,
-                date: row.created_at?.slice(0, 10)
-              };
             }
           }
 
@@ -455,7 +351,6 @@ export default {
               date: macroTrend.created_at
             } : null,
             tickerTrends: trendsMap,
-            dailyNews: newsMap,
             macro: {
               Macro: (macro.results || []).map(r => ({
                 id: r.id,
@@ -940,33 +835,6 @@ export default {
     }
 
 
-    if (which === "daily-news") {
-      for (const x of body) {
-        const id = await shortHash(`${x.ticker}|${today}`);
-
-        await db.prepare(
-          `INSERT INTO ALPHA_05_Daily_news
-           (id, ticker, summary, todays_important, last_important, last_important_date, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET
-             summary=excluded.summary,
-             todays_important=excluded.todays_important,
-             last_important=excluded.last_important,
-             last_important_date=excluded.last_important_date,
-             created_at=excluded.created_at`
-        ).bind(
-          id,
-          x.ticker,
-          x.summary ?? null,
-          x.todays_important ?? null,
-          x.last_important ?? null,
-          x.last_important_date ?? today,
-          now
-        ).run();
-      }
-    }
-
-
     // -------- ALPHA_04_Trends --------
     if (which === "trends") {
       for (const x of body) {
@@ -994,37 +862,6 @@ export default {
     ========================= */
 
     // -------- BETA_01_News --------
-    if (which === "news") {
-      for (const [source, items] of Object.entries(body)) {
-        for (const x of items) {
-          const title = x.heading ?? x.title;
-          const id = await shortHash(`${source}|${x.date}|${title}`);
-
-          await db.prepare(
-            `INSERT INTO BETA_01_News
-             (id, tickers, date, source, title, summary, sentiment, magnitude, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT(id) DO UPDATE SET
-               summary=excluded.summary,
-               sentiment=excluded.sentiment,
-               magnitude=excluded.magnitude,
-               created_at=excluded.created_at`
-          ).bind(
-            id,
-            JSON.stringify(x.tickers ?? []),
-            x.date,
-            source,
-            title,
-            x.summary ?? null,
-            x.sentiment ?? null,
-            x.magnitude ?? null,
-            now
-          ).run();
-        }
-      }
-    }
-
-
     // -------- BETA_02_WH --------
     if (which === "whitehouse") {
       for (const x of body.WhiteHouse) {

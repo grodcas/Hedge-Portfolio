@@ -17,7 +17,7 @@ export async function upload(config, logger, ingestedData) {
   logger.log("UPLOAD", "Uploading data to ingestor...");
 
   if (!config.skipIngestion) {
-    // News is no longer uploaded locally — handled server-side by news-orchestrator (GPT-5-mini web search)
+    // News is handled server-side by news-funnel-orchestrator (Gemini-based RSS + Finnhub funnel)
     const uploads = [
       { name: "macro", data: ingestedData.macro, endpoint: "/ingest/macro" },
       { name: "sentiment", data: ingestedData.sentiment, endpoint: "/ingest/sentiment" },

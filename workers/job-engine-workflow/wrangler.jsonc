@@ -21,11 +21,6 @@
       "environment": "production"
     },
     {
-      "binding": "macro_news_summarizer",
-      "service": "macro-news-summarizer",
-      "environment": "production"
-    },
-    {
       "binding": "beta_sentiment_processor",
       "service": "sentiment-summarizer",
       "environment": "production"
@@ -48,16 +43,6 @@
     {
       "binding": "form4_summarizer",
       "service": "form4-summarizer",
-      "environment": "production"
-    },
-    {
-      "binding": "NEWS_ORCHESTRATOR",
-      "service": "news-orchestrator",
-      "environment": "production"
-    },
-    {
-      "binding": "news_summarizer",
-      "service": "news-summarizer",
       "environment": "production"
     },
     {
@@ -93,16 +78,6 @@
     {
       "binding": "DAILY_MACRO_SUMMARIZER",
       "service": "daily-macro-summarizer",
-      "environment": "production"
-    },
-    {
-      "binding": "MACRO_NEWS_ORCHESTRATOR",
-      "service": "macro-news-orchestrator",
-      "environment": "production"
-    },
-    {
-      "binding": "NEWS_SEARCH_UNIFIED",
-      "service": "news-search-unified",
       "environment": "production"
     },
     {

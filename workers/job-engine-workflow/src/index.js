@@ -74,8 +74,6 @@ var JobWorkflow = class extends WorkflowEntrypoint {
         return await this.env.beta_macro_processor.fetch("https://internal/process-macro", { method: "POST", body });
       case "beta-sentiment-processor":
         return await this.env.beta_sentiment_processor.fetch("https://internal/process-sentiment", { method: "POST", body });
-      case "macro-news-summarizer":
-        return await this.env.macro_news_summarizer.fetch("https://internal/process-news", { method: "POST", body });
       case "beta-gen-processor":
         return await this.env.beta_gen_processor.fetch("https://internal/process-gen", { method: "POST", body });
       case "beta-trend-processor":
@@ -88,8 +86,6 @@ var JobWorkflow = class extends WorkflowEntrypoint {
       // --- ALPHA ORCHESTRATORS ---
       case "report-orchestrator":
         return await this.env.REPORT_ORCHESTRATOR.fetch("https://internal/process-report", { method: "POST", body });
-      case "news-orchestrator":
-        return await this.env.NEWS_ORCHESTRATOR.fetch("https://internal/process-daily-news", { method: "POST", body });
       case "trend-orchestrator":
         return await this.env.TREND_ORCHESTRATOR.fetch("https://internal/process-trend", { method: "POST", body });
       // --- SUMMARIZERS & BUILDERS ---
@@ -103,8 +99,6 @@ var JobWorkflow = class extends WorkflowEntrypoint {
         return await this.env.qk_structure_builder.fetch("https://internal/build-structure", { method: "POST", body });
       case "qk-report-summarizer":
         return await this.env.qk_report_summarizer.fetch("https://internal/summarize-report", { method: "POST", body });
-      case "news-summarizer":
-        return await this.env.news_summarizer.fetch("https://internal/daily-news", { method: "POST", body });
       case "trend-builder":
         return await this.env.trend_builder.fetch("https://internal/build-trend", { method: "POST", body });
       case "daily-macro-summarizer":
@@ -153,19 +147,6 @@ var index_default = {
     if (action === "report") {
       await this_env.REPORT_ORCHESTRATOR.fetch("https://internal/process-report", { method: "POST", body: JSON.stringify(body) });
     }
-    if (action === "daily_news") {
-      // Unified news worker handles ticker + macro + calendar in parallel
-      try {
-        const mode = body.mode || "deep";
-        const newsRes = await this_env.NEWS_SEARCH_UNIFIED.fetch(`https://internal/run?mode=${mode}`, {
-          method: "POST", headers: { "Content-Type": "application/json" }, body: "{}"
-        });
-        const newsResult = await newsRes.json();
-        return Response.json({ ok: true, news: newsResult });
-      } catch (err) {
-        return Response.json({ ok: false, error: err.message });
-      }
-    }
     if (action === "trend") {
       await this_env.TREND_ORCHESTRATOR.fetch("https://internal/process-trend", { method: "POST", body: JSON.stringify(body) });
     }
@@ -181,26 +162,6 @@ var index_default = {
         INSERT INTO PROC_01_Job_queue (date, worker, input, status)
         VALUES (?, ?, ?, ?)
       `).bind(now, "daily-macro-summarizer", "{}", "pending").run();
-    }
-    if (action === "macro_news") {
-      const now = new Date().toISOString();
-      const inputDate = body.date || now.slice(0, 10);
-      await this_env.DB.prepare(`
-        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
-        VALUES (?, ?, ?, ?)
-      `).bind(now, "macro-news-summarizer", JSON.stringify({ date: inputDate }), "pending").run();
-    }
-    if (action === "macro_news_search") {
-      // Handled by unified news worker now
-      try {
-        const newsRes = await this_env.NEWS_SEARCH_UNIFIED.fetch("https://internal/run?mode=deep", {
-          method: "POST", headers: { "Content-Type": "application/json" }, body: "{}"
-        });
-        const newsResult = await newsRes.json();
-        return Response.json({ ok: true, news: newsResult });
-      } catch (err) {
-        return Response.json({ ok: false, error: err.message });
-      }
     }
     if (action === "fundamentals") {
       const now = new Date().toISOString();
@@ -218,7 +179,6 @@ var index_default = {
     }
     if (action === "daily_update") {
       const now = new Date().toISOString();
-      const inputDate = body.date || now.slice(0, 10);
 
       // Clear all old jobs before starting fresh
       await this_env.DB.prepare(`DELETE FROM PROC_01_Job_queue WHERE status = 'done'`).run();
@@ -252,7 +212,6 @@ var index_default = {
       // Wave 1000 — data fetchers + AI synthesizers (~7 min bounded by price-fetcher)
       await insertJob("price-fetcher", 1000);
       await insertJob("earnings-fetcher", 1000);
-      await insertJob("macro-news-summarizer", 1000, JSON.stringify({ date: inputDate }));
       await insertJob("beta-trend-orchestrator", 1000);
 
       // Wave 2000 — macro intelligence
