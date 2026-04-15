@@ -293,10 +293,11 @@ var index_default = {
       await insertJob("beta-trend-orchestrator", 1000);
       await insertJob("news-funnel-orchestrator", 1000);
 
-      // Wave 2000 — macro intelligence. Requires news funnel so that BETA_12
-      //   is populated before macro-intel reads it. Without this gate, a
-      //   failed news funnel would silently produce an empty-input intel blob.
-      await insertJob("macro-intelligence-builder", 2000, "news-funnel-orchestrator");
+      // Wave 2000 — macro intelligence (v2: MACRO_STATE + SPY + BETA_12).
+      //   Requires:
+      //     - news-funnel-orchestrator (BETA_12 today headlines for the today call)
+      //     - price-fetcher (PRICE_01 SPY bars for window chart + today move)
+      await insertJob("macro-intelligence-builder", 2000, "news-funnel-orchestrator,price-fetcher");
 
       // Wave 3000 — assessment + event-attribution
       //   assessment-engine reads PRICE_01, FUND_02, FUND_03, BETA_10.

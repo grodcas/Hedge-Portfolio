@@ -292,6 +292,18 @@ app.get("/api/prices/:date", async (req, res) => {
   }
 });
 
+// Get ticker price history (SPY chart on macro tab)
+app.get("/api/ticker-history/:ticker", async (req, res) => {
+  try {
+    const { ticker } = req.params;
+    const days = parseInt(req.query.days || "60", 10);
+    const data = await fetchFromWorker(`/query/prices?ticker=${ticker}&range=${days}`);
+    res.json(data);
+  } catch (error) {
+    handleD1Error(res, `/api/ticker-history/${req.params.ticker}`, error);
+  }
+});
+
 // Get sector performance from D1
 app.get("/api/sector-performance", async (req, res) => {
   try {

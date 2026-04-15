@@ -825,121 +825,170 @@ function truncate(str, len) {
   return str.length > len ? str.substring(0, len) + '...' : str;
 }
 
-// ============ MACRO TAB (v2) ============
+// ============ MACRO TAB (v3 — window-scoped regime + today) ============
 
-function updateMacroTab() {
-  // Try to parse structured macro intelligence from dailyMacro summary
+const REGIME_LABELS = {
+  bullish: 'BULLISH', cautious_bullish: 'CAUTIOUS BULLISH',
+  neutral: 'NEUTRAL', cautious_bearish: 'CAUTIOUS BEARISH', bearish: 'BEARISH',
+};
+
+function setBullets(el, items, emptyMsg) {
+  el.innerHTML = '';
+  if (!items?.length) {
+    el.innerHTML = `<li class="no-data">${emptyMsg}</li>`;
+    return;
+  }
+  for (const raw of items) {
+    const li = document.createElement('li');
+    if (raw && typeof raw === 'object') {
+      li.textContent = raw.text || '';
+      const bias = raw.bias || 'neutral';
+      li.className = `bullet-${bias}`;
+    } else {
+      li.textContent = String(raw || '');
+      li.className = 'bullet-neutral';
+    }
+    el.appendChild(li);
+  }
+}
+
+function renderSpyChart(svg, bars, windowStart, windowEnd) {
+  svg.innerHTML = '';
+  if (!bars || bars.length === 0) {
+    svg.innerHTML = '<text x="200" y="100" text-anchor="middle" fill="#888" font-size="11">No SPY history</text>';
+    return;
+  }
+  const inWindow = bars.filter(b => (!windowStart || b.date >= windowStart) && (!windowEnd || b.date <= windowEnd));
+  const series = inWindow.length >= 2 ? inWindow : bars;
+  const closes = series.map(b => Number(b.close)).filter(v => Number.isFinite(v));
+  if (closes.length < 2) {
+    svg.innerHTML = '<text x="200" y="100" text-anchor="middle" fill="#888" font-size="11">Not enough bars in window</text>';
+    return;
+  }
+  const W = 400, H = 200, pad = 24;
+  const min = Math.min(...closes), max = Math.max(...closes);
+  const span = max - min || 1;
+  const xStep = (W - 2 * pad) / (closes.length - 1);
+  const points = closes.map((v, i) => {
+    const x = pad + i * xStep;
+    const y = pad + (1 - (v - min) / span) * (H - 2 * pad);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const first = closes[0], last = closes[closes.length - 1];
+  const up = last >= first;
+  const stroke = up ? '#2fbf71' : '#e14b4b';
+  const fill = up ? 'rgba(47,191,113,0.12)' : 'rgba(225,75,75,0.12)';
+  // Area path
+  const areaPath = `M${pad},${H - pad} L${points.replace(/ /g, ' L')} L${(pad + (closes.length - 1) * xStep).toFixed(1)},${H - pad} Z`;
+  svg.innerHTML = `
+    <path d="${areaPath}" fill="${fill}" stroke="none"></path>
+    <polyline points="${points}" fill="none" stroke="${stroke}" stroke-width="1.8"></polyline>
+    <text x="${pad}" y="${pad - 6}" fill="#aaa" font-size="10">${series[0].date}  ${first.toFixed(2)}</text>
+    <text x="${W - pad}" y="${pad - 6}" text-anchor="end" fill="#aaa" font-size="10">${series[series.length - 1].date}  ${last.toFixed(2)}</text>
+  `;
+  return { first, last, pct: ((last - first) / first) * 100 };
+}
+
+async function fetchSpyHistory(days = 70) {
+  try {
+    const res = await fetch(`/api/ticker-history/SPY?days=${days}`);
+    if (!res.ok) return [];
+    const rows = await res.json();
+    if (!Array.isArray(rows)) return [];
+    // Dedupe by date (legacy writers used both 12-char and 64-char primary keys)
+    const byDate = new Map();
+    for (const r of rows) byDate.set(r.date, r);
+    return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+  } catch {
+    return [];
+  }
+}
+
+async function updateMacroTab() {
   const dailyMacro = dashboardData.dailyMacro || {};
-  let intel = null;
-
-  // Try JSON parse (new macro-intelligence-builder format)
+  let blob = null;
   try {
     if (dailyMacro.summary && dailyMacro.summary.startsWith('{')) {
-      intel = JSON.parse(dailyMacro.summary);
+      blob = JSON.parse(dailyMacro.summary);
     }
-  } catch (e) { /* not JSON, use fallback */ }
+  } catch {}
 
-  // --- REGIME + PROBABILITIES ---
+  const trend = blob?.trend || null;
+  const today = blob?.today || null;
+
+  // --- REGIME + WINDOW ---
   const regimeEl = document.getElementById('macroRegime');
-  if (intel?.regime) {
-    const regimeLabels = {
-      bullish: 'BULLISH', cautious_bullish: 'CAUTIOUS BULLISH',
-      neutral: 'NEUTRAL', cautious_bearish: 'CAUTIOUS BEARISH', bearish: 'BEARISH'
-    };
-    regimeEl.textContent = regimeLabels[intel.regime] || intel.regime.toUpperCase();
-    regimeEl.className = `regime-badge regime-${intel.regime}`;
+  if (trend?.regime) {
+    regimeEl.textContent = REGIME_LABELS[trend.regime] || trend.regime.toUpperCase();
+    regimeEl.className = `regime-badge regime-${trend.regime}`;
   } else {
     regimeEl.textContent = 'NO DATA';
     regimeEl.className = 'regime-badge';
   }
 
-  document.getElementById('macroSP500').textContent = ''; // Will show price when Phase 1 data available
+  const windowEl = document.getElementById('macroWindow');
+  windowEl.textContent = trend?.window_start && trend?.window_end
+    ? `Window: ${trend.window_start} → ${trend.window_end}`
+    : '';
 
-  if (intel?.sp500_direction) {
-    const dir = intel.sp500_direction;
-    document.getElementById('probUp').style.width = `${(dir.p_up || 0) * 100}%`;
-    document.getElementById('probUpPct').textContent = `${Math.round((dir.p_up || 0) * 100)}%`;
-    document.getElementById('probFlat').style.width = `${(dir.p_flat || 0) * 100}%`;
-    document.getElementById('probFlatPct').textContent = `${Math.round((dir.p_flat || 0) * 100)}%`;
-    document.getElementById('probDown').style.width = `${(dir.p_down || 0) * 100}%`;
-    document.getElementById('probDownPct').textContent = `${Math.round((dir.p_down || 0) * 100)}%`;
+  document.getElementById('macroWindowRationale').textContent = trend?.window_rationale || '';
+
+  // --- PROBABILITIES ---
+  const dir = trend?.sp500_direction || { p_up: 0, p_flat: 0, p_down: 0 };
+  document.getElementById('probUp').style.width = `${(dir.p_up || 0) * 100}%`;
+  document.getElementById('probUpPct').textContent = `${Math.round((dir.p_up || 0) * 100)}%`;
+  document.getElementById('probFlat').style.width = `${(dir.p_flat || 0) * 100}%`;
+  document.getElementById('probFlatPct').textContent = `${Math.round((dir.p_flat || 0) * 100)}%`;
+  document.getElementById('probDown').style.width = `${(dir.p_down || 0) * 100}%`;
+  document.getElementById('probDownPct').textContent = `${Math.round((dir.p_down || 0) * 100)}%`;
+
+  // --- SPY CHART ---
+  const svg = document.getElementById('macroSpyChart');
+  const meta = document.getElementById('macroSpyMeta');
+  const bars = await fetchSpyHistory(70);
+  const stats = renderSpyChart(svg, bars, trend?.window_start, trend?.window_end);
+  if (stats) {
+    const sign = stats.pct >= 0 ? '+' : '';
+    meta.textContent = `Window return: ${sign}${stats.pct.toFixed(2)}%`;
+    meta.className = `spy-chart-meta ${stats.pct >= 0 ? 'up' : 'down'}`;
+  } else {
+    meta.textContent = '';
   }
 
-  // --- WHY IT MOVED ---
-  const whatEl = document.getElementById('whatHappened');
-  whatEl.innerHTML = '';
-  if (intel?.what_happened?.length) {
-    intel.what_happened.forEach(item => {
-      const li = document.createElement('li');
-      li.textContent = item;
-      whatEl.appendChild(li);
-    });
-  } else {
-    // Fallback: show daily macro text summary
-    const li = document.createElement('li');
-    li.textContent = dailyMacro.summary || 'No macro data available. Run the macro pipeline.';
-    whatEl.appendChild(li);
-  }
+  // --- TREND BULLETS ---
+  setBullets(document.getElementById('macroDrivers'), trend?.drivers, 'Run macro-intelligence-builder.');
+  setBullets(document.getElementById('macroNarrative'), trend?.narrative, 'No narrative.');
+  setBullets(document.getElementById('whatsNext'), trend?.whats_next, 'No upcoming catalysts.');
 
-  // --- WHAT'S NEXT ---
-  const nextEl = document.getElementById('whatsNext');
-  nextEl.innerHTML = '';
-  if (intel?.whats_next?.length) {
-    intel.whats_next.forEach(item => {
-      const li = document.createElement('li');
-      li.textContent = item;
-      nextEl.appendChild(li);
-    });
+  // --- TODAY BLOCK ---
+  const todayMoveEl = document.getElementById('macroTodayMove');
+  const tensionEl = document.getElementById('macroTension');
+  if (today) {
+    const pct = Number(today.spy_move_pct) || 0;
+    const sign = pct >= 0 ? '+' : '';
+    todayMoveEl.textContent = `SPY ${sign}${pct.toFixed(2)}%`;
+    todayMoveEl.className = `today-move ${pct > 0.25 ? 'up' : pct < -0.25 ? 'down' : 'flat'}`;
+    if (today.regime_tension && today.regime_tension !== 'none') {
+      tensionEl.textContent = `⚠ Regime tension: ${today.regime_tension.toUpperCase()}${today.tension_note ? ' — ' + today.tension_note : ''}`;
+      tensionEl.className = `tension-flag tension-${today.regime_tension}`;
+    } else {
+      tensionEl.textContent = '';
+      tensionEl.className = 'tension-flag';
+    }
+    setBullets(document.getElementById('macroTodayDrivers'), today.drivers, 'No today drivers.');
+    setBullets(document.getElementById('macroTodayNarrative'), today.narrative, '');
   } else {
-    nextEl.innerHTML = '<li>Run macro-intelligence-builder to generate outlook.</li>';
-  }
-
-  // --- PORTFOLIO ACTION ---
-  const actionEl = document.getElementById('portfolioAction');
-  actionEl.innerHTML = '';
-  if (intel?.portfolio_action) {
-    const pa = intel.portfolio_action;
-    let html = '';
-    if (pa.overweight?.length) html += `<div class="action-item action-overweight"><strong>Overweight:</strong> ${pa.overweight.join(', ')}</div>`;
-    if (pa.underweight?.length) html += `<div class="action-item action-underweight"><strong>Underweight:</strong> ${pa.underweight.join(', ')}</div>`;
-    if (pa.hedge) html += `<div class="action-item action-hedge"><strong>Hedge:</strong> ${pa.hedge}</div>`;
-    actionEl.innerHTML = html || '<span class="no-data">No action recommendations</span>';
-  } else {
-    actionEl.innerHTML = '<span class="no-data">Run macro-intelligence-builder to generate.</span>';
-  }
-
-  // --- 5-LAYER INTELLIGENCE ---
-  const layersEl = document.getElementById('fiveLayers');
-  layersEl.innerHTML = '';
-  const layerNames = ['calendar', 'geopolitics', 'regulatory', 'sectors', 'wave'];
-
-  if (intel?.five_layers) {
-    layerNames.forEach(name => {
-      const layer = intel.five_layers[name];
-      if (!layer) return;
-      const score = Math.max(0, Math.min(5, layer.score || 0));
-      const detail = document.createElement('details');
-      detail.className = 'layer-row';
-      detail.innerHTML = `
-        <summary>
-          <span class="layer-name">${name.charAt(0).toUpperCase() + name.slice(1)}</span>
-          <span class="layer-bar">${'#'.repeat(score)}${'_'.repeat(5 - score)}</span>
-          <span class="layer-score">${score}/5</span>
-        </summary>
-        <div class="layer-detail">${layer.summary || 'No detail'}</div>
-      `;
-      layersEl.appendChild(detail);
-    });
-  } else {
-    // Fallback: show macro news 5-layer data if available
-    layersEl.innerHTML = '<span class="no-data">Run macro-intelligence-builder to generate 5-layer analysis.</span>';
+    todayMoveEl.textContent = '--';
+    tensionEl.textContent = '';
+    setBullets(document.getElementById('macroTodayDrivers'), null, 'No today analysis.');
+    setBullets(document.getElementById('macroTodayNarrative'), null, '');
   }
 
   // --- FOMC COUNTDOWN ---
   const fomcData = dashboardData.calendar?.nextFOMC || getNextFOMCDate();
   const fomcDate = new Date(fomcData.date);
-  const today = new Date();
-  const daysUntil = Math.ceil((fomcDate - today) / (1000 * 60 * 60 * 24));
+  const nowDate = new Date();
+  const daysUntil = Math.ceil((fomcDate - nowDate) / (1000 * 60 * 60 * 24));
 
   document.getElementById('fomcNextDate').textContent = fomcDate.toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'

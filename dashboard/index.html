@@ -388,66 +388,68 @@
         </div>
       </section>
 
-      <!-- Macro Tab (Redesigned v2) -->
+      <!-- Macro Tab (v3 — window-scoped regime + today) -->
       <section id="macro" class="tab-content">
         <div class="macro-v2">
-          <!-- Market Regime Header -->
+          <!-- Regime + Window header (SPY chart on left, regime/probs on right) -->
           <div class="card macro-regime-card">
-            <div class="regime-header">
-              <div>
-                <span class="regime-badge" id="macroRegime">--</span>
-                <span class="regime-sp500" id="macroSP500">S&P 500: --</span>
+            <div class="regime-top">
+              <div class="regime-chart-col">
+                <svg id="macroSpyChart" viewBox="0 0 400 200" preserveAspectRatio="none"></svg>
+                <div class="spy-chart-meta" id="macroSpyMeta"></div>
               </div>
-              <div class="regime-probabilities">
-                <div class="prob-bar">
-                  <span class="prob-label">Up</span>
-                  <div class="prob-fill prob-up" id="probUp" style="width:33%"></div>
-                  <span class="prob-pct" id="probUpPct">--%</span>
+              <div class="regime-info-col">
+                <div>
+                  <span class="regime-badge" id="macroRegime">--</span>
+                  <span class="regime-window" id="macroWindow"></span>
                 </div>
-                <div class="prob-bar">
-                  <span class="prob-label">Flat</span>
-                  <div class="prob-fill prob-flat" id="probFlat" style="width:33%"></div>
-                  <span class="prob-pct" id="probFlatPct">--%</span>
-                </div>
-                <div class="prob-bar">
-                  <span class="prob-label">Down</span>
-                  <div class="prob-fill prob-down" id="probDown" style="width:33%"></div>
-                  <span class="prob-pct" id="probDownPct">--%</span>
+                <div class="regime-probabilities">
+                  <div class="prob-bar">
+                    <span class="prob-label">Up</span>
+                    <div class="prob-fill prob-up" id="probUp" style="width:33%"></div>
+                    <span class="prob-pct" id="probUpPct">--%</span>
+                  </div>
+                  <div class="prob-bar">
+                    <span class="prob-label">Flat</span>
+                    <div class="prob-fill prob-flat" id="probFlat" style="width:33%"></div>
+                    <span class="prob-pct" id="probFlatPct">--%</span>
+                  </div>
+                  <div class="prob-bar">
+                    <span class="prob-label">Down</span>
+                    <div class="prob-fill prob-down" id="probDown" style="width:33%"></div>
+                    <span class="prob-pct" id="probDownPct">--%</span>
+                  </div>
                 </div>
               </div>
             </div>
+            <div class="regime-rationale" id="macroWindowRationale"></div>
           </div>
 
-          <!-- Why It Moved -->
-          <div class="card">
-            <h3>Why It Moved</h3>
-            <ul class="macro-bullets" id="whatHappened">
-              <li class="loading">Loading...</li>
-            </ul>
+          <!-- Trend: drivers / narrative / what's next -->
+          <div class="macro-grid-2">
+            <div class="card">
+              <h3>Drivers</h3>
+              <ul class="macro-bullets" id="macroDrivers"><li class="loading">Loading...</li></ul>
+            </div>
+            <div class="card">
+              <h3>Narrative</h3>
+              <ul class="macro-bullets" id="macroNarrative"><li class="loading">Loading...</li></ul>
+            </div>
           </div>
-
-          <!-- What's Next -->
           <div class="card">
             <h3>What's Next</h3>
-            <ul class="macro-bullets" id="whatsNext">
-              <li class="loading">Loading...</li>
-            </ul>
+            <ul class="macro-bullets" id="whatsNext"><li class="loading">Loading...</li></ul>
           </div>
 
-          <!-- Portfolio Action -->
-          <div class="card">
-            <h3>Portfolio Action</h3>
-            <div class="portfolio-action-grid" id="portfolioAction">
-              <span class="loading">Loading...</span>
+          <!-- Today block -->
+          <div class="card macro-today-card">
+            <div class="today-header">
+              <h3>Today</h3>
+              <span class="today-move" id="macroTodayMove">--</span>
+              <span class="tension-flag" id="macroTension"></span>
             </div>
-          </div>
-
-          <!-- 5-Layer Intelligence -->
-          <div class="card">
-            <h3>5-Layer Intelligence</h3>
-            <div class="five-layers" id="fiveLayers">
-              <span class="loading">Loading...</span>
-            </div>
+            <ul class="macro-bullets" id="macroTodayDrivers"><li class="loading">Loading...</li></ul>
+            <ul class="macro-bullets macro-bullets-narrative" id="macroTodayNarrative"></ul>
           </div>
 
           <!-- FOMC Countdown -->
