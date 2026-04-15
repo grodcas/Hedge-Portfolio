@@ -889,6 +889,147 @@ function renderSpyChart(svg, bars, windowStart, windowEnd) {
   return { first, last, pct: ((last - first) / first) * 100 };
 }
 
+const ACTION_LABELS = {
+  add_risk: 'ADD RISK',
+  trim_risk: 'TRIM RISK',
+  hold: 'HOLD',
+  rotate: 'ROTATE',
+  hedge: 'HEDGE',
+};
+
+function renderRecommendation(reco, catalysts, scenarios) {
+  const actionEl = document.getElementById('recoAction');
+  const confEl = document.getElementById('recoConfidence');
+  const headlineEl = document.getElementById('recoHeadline');
+  const bulletsEl = document.getElementById('recoBullets');
+  const catsEl = document.getElementById('recoCatalysts');
+
+  if (reco) {
+    actionEl.textContent = ACTION_LABELS[reco.action] || (reco.action || '--').toUpperCase();
+    actionEl.className = `reco-action action-${reco.action || 'hold'}`;
+    confEl.textContent = `confidence: ${reco.confidence || '--'}`;
+    confEl.className = `reco-confidence conf-${reco.confidence || 'low'}`;
+    headlineEl.textContent = reco.headline || '';
+    setBullets(bulletsEl, reco.bullets, 'No rationale.');
+  } else {
+    actionEl.textContent = '--';
+    actionEl.className = 'reco-action';
+    confEl.textContent = '';
+    headlineEl.textContent = '';
+    setBullets(bulletsEl, null, 'Run macro-intelligence-builder.');
+  }
+
+  // Catalysts (unbiased event list)
+  catsEl.innerHTML = '';
+  if (!catalysts?.length) {
+    catsEl.innerHTML = '<li class="no-data">No upcoming catalysts.</li>';
+  } else {
+    for (const c of catalysts) {
+      const li = document.createElement('li');
+      li.className = `cat-${c.type || 'release'}`;
+      li.innerHTML = `<span class="cat-date">${c.date || ''}</span><span class="cat-type">${(c.type || '').toUpperCase()}</span><span class="cat-event">${c.event || ''}</span>`;
+      catsEl.appendChild(li);
+    }
+  }
+
+  renderScenariosChart(scenarios);
+}
+
+function renderScenariosChart(sc) {
+  const svg = document.getElementById('scenariosChart');
+  const legend = document.getElementById('scenariosLegend');
+  if (!svg) return;
+  svg.innerHTML = '';
+  legend.innerHTML = '';
+  if (!sc || !sc.bull || !sc.base || !sc.bear) {
+    svg.innerHTML = '<text x="260" y="140" text-anchor="middle" fill="#888" font-size="12">No scenarios</text>';
+    return;
+  }
+
+  const W = 520, H = 280;
+  const padL = 56, padR = 120, padT = 24, padB = 34;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  const now = Number(sc.current_spy) || 0;
+  const bull = { p: Number(sc.bull.probability) || 0, t: Number(sc.bull.target_spy) || now, thesis: sc.bull.thesis };
+  const base = { p: Number(sc.base.probability) || 0, t: Number(sc.base.target_spy) || now, thesis: sc.base.thesis };
+  const bear = { p: Number(sc.bear.probability) || 0, t: Number(sc.bear.target_spy) || now, thesis: sc.bear.thesis };
+
+  const yVals = [now, bull.t, base.t, bear.t];
+  const yMinRaw = Math.min(...yVals);
+  const yMaxRaw = Math.max(...yVals);
+  const pad = Math.max((yMaxRaw - yMinRaw) * 0.2, 5);
+  const yMin = yMinRaw - pad;
+  const yMax = yMaxRaw + pad;
+  const ySpan = yMax - yMin || 1;
+
+  const xStart = padL;
+  const xEnd = padL + plotW;
+  const yOf = v => padT + (1 - (v - yMin) / ySpan) * plotH;
+  const yNow = yOf(now);
+
+  // Horizontal gridlines (5 ticks)
+  let grid = '';
+  for (let i = 0; i <= 4; i++) {
+    const v = yMin + (ySpan * i) / 4;
+    const y = yOf(v);
+    grid += `<line x1="${xStart}" y1="${y}" x2="${xEnd}" y2="${y}" stroke="#2a2f3a" stroke-width="1"/>`;
+    grid += `<text x="${xStart - 8}" y="${y + 3}" text-anchor="end" fill="#888" font-size="10">${v.toFixed(0)}</text>`;
+  }
+  // Baseline (current SPY) — dashed
+  grid += `<line x1="${xStart}" y1="${yNow}" x2="${xEnd}" y2="${yNow}" stroke="#6c7280" stroke-width="1" stroke-dasharray="4,3"/>`;
+  grid += `<text x="${xStart - 8}" y="${yNow + 3}" text-anchor="end" fill="#c8c8c8" font-size="10">${now.toFixed(0)}</text>`;
+
+  // Axis labels
+  grid += `<text x="${xStart}" y="${H - 12}" fill="#888" font-size="10">today</text>`;
+  grid += `<text x="${xEnd}" y="${H - 12}" text-anchor="end" fill="#888" font-size="10">+${sc.horizon_weeks || 4}w</text>`;
+
+  // Envelope (cone) between bull and bear
+  const envelope = `M${xStart},${yNow} L${xEnd},${yOf(bull.t)} L${xEnd},${yOf(bear.t)} Z`;
+  grid += `<path d="${envelope}" fill="url(#scenarioEnv)" stroke="none" opacity="0.55"/>`;
+
+  const colors = { bull: '#2fbf71', base: '#e8c14b', bear: '#e14b4b' };
+
+  function line(scenario, color, y2, prob, label) {
+    const thick = 1.5 + prob * 4; // thicker line for higher probability
+    const ret = ((scenario.t - now) / (now || 1)) * 100;
+    const retStr = `${ret >= 0 ? '+' : ''}${ret.toFixed(1)}%`;
+    return `
+      <line x1="${xStart}" y1="${yNow}" x2="${xEnd}" y2="${y2}" stroke="${color}" stroke-width="${thick}" stroke-linecap="round"/>
+      <circle cx="${xEnd}" cy="${y2}" r="4" fill="${color}"/>
+      <text x="${xEnd + 10}" y="${y2 - 4}" fill="${color}" font-size="11" font-weight="700">${label}  ${scenario.t.toFixed(0)}</text>
+      <text x="${xEnd + 10}" y="${y2 + 10}" fill="#aaa" font-size="10">${(prob * 100).toFixed(0)}%  ${retStr}</text>
+    `;
+  }
+
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="scenarioEnv" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#2a2f3a" stop-opacity="0"/>
+        <stop offset="100%" stop-color="#e8c14b" stop-opacity="0.22"/>
+      </linearGradient>
+    </defs>
+    ${grid}
+    ${line(bull, colors.bull, yOf(bull.t), bull.p, 'BULL')}
+    ${line(base, colors.base, yOf(base.t), base.p, 'BASE')}
+    ${line(bear, colors.bear, yOf(bear.t), bear.p, 'BEAR')}
+  `;
+
+  // Legend with thesis lines
+  legend.innerHTML = `
+    <div class="legend-row legend-bull"><span class="legend-dot"></span><strong>BULL ${(bull.p * 100).toFixed(0)}%</strong> — ${escapeHtml(bull.thesis || '')}</div>
+    <div class="legend-row legend-base"><span class="legend-dot"></span><strong>BASE ${(base.p * 100).toFixed(0)}%</strong> — ${escapeHtml(base.thesis || '')}</div>
+    <div class="legend-row legend-bear"><span class="legend-dot"></span><strong>BEAR ${(bear.p * 100).toFixed(0)}%</strong> — ${escapeHtml(bear.thesis || '')}</div>
+  `;
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
 async function fetchSpyHistory(days = 70) {
   try {
     const res = await fetch(`/api/ticker-history/SPY?days=${days}`);
@@ -958,7 +1099,9 @@ async function updateMacroTab() {
   // --- TREND BULLETS ---
   setBullets(document.getElementById('macroDrivers'), trend?.drivers, 'Run macro-intelligence-builder.');
   setBullets(document.getElementById('macroNarrative'), trend?.narrative, 'No narrative.');
-  setBullets(document.getElementById('whatsNext'), trend?.whats_next, 'No upcoming catalysts.');
+
+  // --- RECOMMENDATION + CATALYSTS + SCENARIOS ---
+  renderRecommendation(blob?.recommendation, blob?.catalysts, blob?.scenarios);
 
   // --- TODAY BLOCK ---
   const todayMoveEl = document.getElementById('macroTodayMove');

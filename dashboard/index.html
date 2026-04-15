@@ -425,7 +425,7 @@
             <div class="regime-rationale" id="macroWindowRationale"></div>
           </div>
 
-          <!-- Trend: drivers / narrative / what's next -->
+          <!-- Trend: drivers / narrative -->
           <div class="macro-grid-2">
             <div class="card">
               <h3>Drivers</h3>
@@ -436,9 +436,32 @@
               <ul class="macro-bullets" id="macroNarrative"><li class="loading">Loading...</li></ul>
             </div>
           </div>
-          <div class="card">
-            <h3>What's Next</h3>
-            <ul class="macro-bullets" id="whatsNext"><li class="loading">Loading...</li></ul>
+
+          <!-- Recommendation & Outlook -->
+          <div class="card macro-reco-card">
+            <div class="reco-header">
+              <h3>Recommendation &amp; Outlook</h3>
+              <div class="reco-header-chips">
+                <span class="reco-action" id="recoAction">--</span>
+                <span class="reco-confidence" id="recoConfidence">--</span>
+              </div>
+            </div>
+            <div class="reco-headline" id="recoHeadline"></div>
+            <div class="reco-body">
+              <div class="reco-left">
+                <h4>Rationale</h4>
+                <ul class="macro-bullets" id="recoBullets"><li class="loading">Loading...</li></ul>
+                <h4>Upcoming catalysts</h4>
+                <ul class="catalysts-list" id="recoCatalysts"><li class="loading">Loading...</li></ul>
+              </div>
+              <div class="reco-right">
+                <h4>Scenarios — 4-week outlook</h4>
+                <div class="scenarios-wrap">
+                  <svg id="scenariosChart" viewBox="0 0 520 280" preserveAspectRatio="xMidYMid meet"></svg>
+                </div>
+                <div class="scenarios-legend" id="scenariosLegend"></div>
+              </div>
+            </div>
           </div>
 
           <!-- Today block -->
@@ -449,7 +472,7 @@
               <span class="tension-flag" id="macroTension"></span>
             </div>
             <ul class="macro-bullets" id="macroTodayDrivers"><li class="loading">Loading...</li></ul>
-            <ul class="macro-bullets macro-bullets-narrative" id="macroTodayNarrative"></ul>
+            <ul class="macro-bullets" id="macroTodayNarrative"></ul>
           </div>
 
           <!-- FOMC Countdown -->

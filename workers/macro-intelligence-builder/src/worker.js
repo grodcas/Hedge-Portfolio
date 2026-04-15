@@ -134,9 +134,8 @@ Output EXACTLY this JSON — no markdown, no prose outside the object:
   "window_start": "YYYY-MM-DD",
   "window_end": "YYYY-MM-DD",
   "window_rationale": "one sentence: why this window, anchored to an event or shift in the data",
-  "drivers":    [{"text": "short bullet", "bias": "bull" | "bear" | "neutral"}],
-  "narrative":  [{"text": "short bullet", "bias": "bull" | "bear" | "neutral"}],
-  "whats_next": [{"text": "short bullet", "bias": "bull" | "bear" | "neutral"}],
+  "drivers":   [{"text": "short bullet", "bias": "bull" | "bear" | "neutral"}],
+  "narrative": [{"text": "short bullet", "bias": "bull" | "bear" | "neutral"}],
   "sp500_direction": {"p_up": 0.0, "p_flat": 0.0, "p_down": 0.0}
 }
 
@@ -144,15 +143,12 @@ RULES
 - Base every conclusion on the data above. Do not invent numbers.
 - window_start must be >= ${windowStart} and window_end must be <= ${today}.
 - p_up + p_flat + p_down must sum to 1.0.
-- drivers: 3-5 items. narrative: 3-5 items. whats_next: 3-5 items.
+- drivers: 3-5 items. narrative: 3-5 items.
 - Each array MUST be sorted by magnitude of market impact, MOST IMPACTFUL FIRST.
-- bias rules:
-    * "bull"    — this bullet pushes markets up
-    * "bear"    — this bullet pushes markets down
-    * "neutral" — genuinely neutral or two-sided; do NOT use as a catch-all
-- For whats_next, bias = expected directional impact if the catalyst resolves as the data currently suggests. Do not hedge — pick the more likely direction.
+- bias: "bull" = pushes markets up, "bear" = pushes markets down, "neutral" = genuinely two-sided.
 - Keep text < 20 words. Concrete, grounded in the data above.
-- If the data is sparse or contradictory, pick "neutral" regime and say so in window_rationale.`;
+- If the data is sparse or contradictory, pick "neutral" regime and say so in window_rationale.
+- Do NOT output upcoming catalysts here — those are produced by the recommendation call downstream.`;
 
     const trend = await callGPT5(apiKey, trendPrompt);
     if (!trend?.regime) {
@@ -224,12 +220,84 @@ RULES
       );
     }
 
+    // ---- Call 3: Recommendation ----
+    const currentSpy = Number(todayBar.close) || 0;
+    const recoPrompt = `You are the same macro analyst. The regime (trend) and today's context are below. Now produce an actionable recommendation, a FACTUAL list of upcoming catalysts, and a three-scenario outlook.
+
+REGIME VERDICT
+${JSON.stringify(trend, null, 2)}
+
+TODAY CONTEXT
+${JSON.stringify(todayOut, null, 2)}
+
+MARKET REFERENCE
+Current SPY close: ${currentSpy.toFixed(2)}
+Horizon: 4 weeks out from ${today}
+
+TASK
+Output EXACTLY this JSON:
+
+{
+  "recommendation": {
+    "headline": "short directional headline (< 12 words)",
+    "action": "add_risk" | "trim_risk" | "hold" | "rotate" | "hedge",
+    "confidence": "low" | "medium" | "high",
+    "bullets": [{"text": "rationale bullet", "bias": "bull" | "bear" | "neutral"}]
+  },
+  "catalysts": [
+    {"event": "short event name", "date": "YYYY-MM-DD", "type": "release" | "meeting" | "earnings" | "geopol"}
+  ],
+  "scenarios": {
+    "horizon_weeks": 4,
+    "current_spy": ${currentSpy.toFixed(2)},
+    "bull": {"probability": 0.0, "target_spy": 0.0, "thesis": "one sentence"},
+    "base": {"probability": 0.0, "target_spy": 0.0, "thesis": "one sentence"},
+    "bear": {"probability": 0.0, "target_spy": 0.0, "thesis": "one sentence"}
+  }
+}
+
+RULES
+- recommendation.bullets: 3-5 items, sorted by importance, each < 20 words.
+- action semantics:
+    * "add_risk"  — raise equity exposure / add duration
+    * "trim_risk" — reduce equity exposure or high-beta
+    * "hold"      — maintain current positioning
+    * "rotate"    — shift between sectors/factors without changing net exposure
+    * "hedge"     — add protection while keeping core exposure
+- catalysts: 3-6 items. Be FACTUAL and UNBIASED — just the event and its date. Do NOT include directional language. Sort chronologically. Only include events within the next 4-6 weeks.
+- scenarios:
+    * probabilities must sum to 1.0
+    * base = the most likely path; bull = upside surprise; bear = downside surprise
+    * target_spy must be grounded in recent range and consistent with the regime
+    * a bullish regime should have bull target > base > bear, and base > current_spy usually
+    * each thesis in one sentence, referencing a specific driver from the trend
+- Everything must be internally consistent with the regime verdict and today's context above.`;
+
+    const reco = await callGPT5(apiKey, recoPrompt);
+    if (!reco?.recommendation || !reco?.scenarios) {
+      return Response.json(
+        { ok: false, error: "Recommendation call returned invalid JSON", reco },
+        { status: 500 },
+      );
+    }
+    // Normalize scenario probabilities
+    const sc = reco.scenarios;
+    const pTotal = (sc.bull?.probability || 0) + (sc.base?.probability || 0) + (sc.bear?.probability || 0);
+    if (pTotal > 0) {
+      sc.bull.probability = sc.bull.probability / pTotal;
+      sc.base.probability = sc.base.probability / pTotal;
+      sc.bear.probability = sc.bear.probability / pTotal;
+    }
+
     // ---- Combine + persist ----
     const blob = {
-      version: "macro-v2",
+      version: "macro-v3",
       built_at: new Date().toISOString(),
       trend,
       today: todayOut,
+      recommendation: reco.recommendation,
+      catalysts: reco.catalysts || [],
+      scenarios: reco.scenarios,
     };
 
     const id = await shortHash(`daily-macro|${today}`);
@@ -254,7 +322,7 @@ RULES
       .run();
 
     console.log(
-      `[MACRO v2] regime=${trend.regime} window=${trend.window_start}..${trend.window_end} tension=${todayOut.regime_tension}`,
+      `[MACRO v3] regime=${trend.regime} window=${trend.window_start}..${trend.window_end} tension=${todayOut.regime_tension} action=${reco.recommendation.action}`,
     );
 
     return Response.json({
@@ -264,6 +332,8 @@ RULES
       window: { start: trend.window_start, end: trend.window_end },
       spy_move_pct: todayOut.spy_move_pct,
       regime_tension: todayOut.regime_tension,
+      action: reco.recommendation.action,
+      confidence: reco.recommendation.confidence,
     });
   },
 };
