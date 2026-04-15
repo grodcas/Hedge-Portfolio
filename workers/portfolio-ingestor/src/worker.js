@@ -62,30 +62,6 @@ export default {
           }, { headers: corsHeaders });
         }
 
-        // -------- GET /query/ticker-trends --------
-        if (path === "/query/ticker-trends") {
-          const { results } = await db.prepare(`
-            SELECT id, ticker, summary, created_at
-            FROM ALPHA_04_Trends
-            ORDER BY created_at DESC
-          `).all();
-
-          // Group by ticker, keep latest per ticker
-          const byTicker = {};
-          for (const row of results) {
-            if (!byTicker[row.ticker]) {
-              byTicker[row.ticker] = {
-                id: row.id,
-                summary: row.summary,
-                created_at: row.created_at
-              };
-            }
-          }
-
-          return Response.json(byTicker, { headers: corsHeaders });
-        }
-
-
         // -------- GET /query/reports --------
         if (path === "/query/reports") {
           const ticker = url.searchParams.get("ticker");
@@ -322,21 +298,12 @@ export default {
 
         // -------- GET /query/all (dashboard combined) --------
         if (path === "/query/all") {
-          const [dailyMacro, macroTrend, tickerTrends, macro, sentiment] = await Promise.all([
+          const [dailyMacro, macroTrend, macro, sentiment] = await Promise.all([
             db.prepare(`SELECT id, structure, summary, creation_date FROM BETA_10_Daily_macro ORDER BY creation_date DESC LIMIT 1`).first(),
             db.prepare(`SELECT id, summary, created_at FROM BETA_09_Trend ORDER BY created_at DESC LIMIT 1`).first(),
-            db.prepare(`SELECT id, ticker, summary, created_at FROM ALPHA_04_Trends ORDER BY created_at DESC`).all(),
             db.prepare(`SELECT id, date, type, summary, created_at FROM BETA_03_Macro ORDER BY date DESC LIMIT 20`).all(),
             db.prepare(`SELECT id, date, type, summary, created_at FROM BETA_04_Sentiment ORDER BY date DESC LIMIT 20`).all()
           ]);
-
-          // Process ticker trends
-          const trendsMap = {};
-          for (const row of tickerTrends.results || []) {
-            if (!trendsMap[row.ticker]) {
-              trendsMap[row.ticker] = { id: row.id, summary: row.summary, created_at: row.created_at };
-            }
-          }
 
           return Response.json({
             dailyMacro: dailyMacro ? {
@@ -350,7 +317,6 @@ export default {
               summary: macroTrend.summary,
               date: macroTrend.created_at
             } : null,
-            tickerTrends: trendsMap,
             macro: {
               Macro: (macro.results || []).map(r => ({
                 id: r.id,

@@ -1,8 +1,6 @@
 # ===== CONFIG =====
 $BaseDir = "cloudflare-workers"
 $Workers = @(
-  "trend-builder",
-  "trend-orchestrator",
   "job-engine-workflow",
   "gen-orchestrator",
   "sentiment-summarizer",

@@ -61,7 +61,6 @@ export async function syncDashboard(config, logger, workflowId) {
   const endpoints = [
     { name: "daily_macro", path: "/query/daily-macro", file: "daily_macro.json" },
     { name: "macro_trend", path: "/query/macro-trend", file: "macro_trend.json" },
-    { name: "ticker_trends", path: "/query/ticker-trends", file: "ticker_trends.json" },
     { name: "daily_news", path: "/query/daily-news", file: "daily_news.json" },
     { name: "reports", path: "/query/reports", file: "reports.json" },
     { name: "earnings_calendar", path: "/query/earnings-calendar", file: "earnings_calendar.json" },

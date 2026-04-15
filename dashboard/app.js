@@ -1607,22 +1607,6 @@ function detectTodayUpdates() {
     });
   }
 
-  // Check Ticker Trends (ALPHA_04) - only tickers updated today
-  if (dashboardData.tickerTrends) {
-    Object.entries(dashboardData.tickerTrends).forEach(([ticker, data]) => {
-      const updateDate = data.created_at || data.date;
-      if (updateDate === today || data.summary) {
-        todayUpdates.push({
-          type: 'ticker-trend',
-          name: `${ticker} Trend`,
-          ticker,
-          summary: data.summary,
-          sources: []
-        });
-      }
-    });
-  }
-
   // Check Reports (ALPHA_01) - only reports filed today
   if (dashboardData.reports) {
     Object.entries(dashboardData.reports).forEach(([ticker, reportData]) => {

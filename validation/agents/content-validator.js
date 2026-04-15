@@ -164,17 +164,6 @@ function getValidationTargets() {
       linkField: "accession_number"
     },
     {
-      id: "ticker-trend",
-      name: "Ticker Trends (ALPHA_04)",
-      description: "Trend summaries vs last 4 report summaries",
-      summaryTable: "ALPHA_04_Trends",
-      summaryField: "summary",
-      sourceTable: "ALPHA_01_Reports",
-      sourceField: "summary",
-      linkField: "ticker",
-      sourceLimit: 4
-    },
-    {
       id: "press-summary",
       name: "Press Release Summaries (ALPHA_03)",
       description: "Press release summaries vs raw HTML",

@@ -30,7 +30,6 @@ var RETRY_POLICY = {
   "beta-trend-orchestrator":    { limit: 2, delay: "5 seconds" },
   "beta-gen-orchestrator":      { limit: 2, delay: "5 seconds" },
   "report-orchestrator":        { limit: 2, delay: "5 seconds" },
-  "trend-orchestrator":         { limit: 2, delay: "5 seconds" },
   // Everything else (AI-heavy) defaults to { limit: 0 } below.
 };
 
@@ -183,8 +182,6 @@ var JobWorkflow = class extends WorkflowEntrypoint {
       // --- ALPHA ORCHESTRATORS ---
       case "report-orchestrator":
         return await this.env.REPORT_ORCHESTRATOR.fetch("https://internal/process-report", { method: "POST", body });
-      case "trend-orchestrator":
-        return await this.env.TREND_ORCHESTRATOR.fetch("https://internal/process-trend", { method: "POST", body });
       // --- SUMMARIZERS & BUILDERS ---
       case "form4-summarizer":
         return await this.env.form4_summarizer.fetch("https://internal/summarize-form4", { method: "POST", body });
@@ -196,8 +193,6 @@ var JobWorkflow = class extends WorkflowEntrypoint {
         return await this.env.qk_structure_builder.fetch("https://internal/build-structure", { method: "POST", body });
       case "qk-report-summarizer":
         return await this.env.qk_report_summarizer.fetch("https://internal/summarize-report", { method: "POST", body });
-      case "trend-builder":
-        return await this.env.trend_builder.fetch("https://internal/build-trend", { method: "POST", body });
       // --- NEWS FUNNEL ---
       case "news-funnel-orchestrator":
         return await this.env.NEWS_FUNNEL_ORCHESTRATOR.fetch("https://internal/run-news-funnel", { method: "POST", body });
@@ -239,9 +234,6 @@ var index_default = {
     const { action } = body;
     if (action === "report") {
       await this_env.REPORT_ORCHESTRATOR.fetch("https://internal/process-report", { method: "POST", body: JSON.stringify(body) });
-    }
-    if (action === "trend") {
-      await this_env.TREND_ORCHESTRATOR.fetch("https://internal/process-trend", { method: "POST", body: JSON.stringify(body) });
     }
     if (action === "gen") {
       await this_env.BETA_GEN_ORCHESTRATOR.fetch("https://internal/process-gen-orchestrator", { method: "POST", body: "{}" });

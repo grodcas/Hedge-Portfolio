@@ -66,16 +66,6 @@
       "environment": "production"
     },
     {
-      "binding": "trend_builder",
-      "service": "trend-builder",
-      "environment": "production"
-    },
-    {
-      "binding": "TREND_ORCHESTRATOR",
-      "service": "trend-orchestrator",
-      "environment": "production"
-    },
-    {
       "binding": "NEWS_FUNNEL_ORCHESTRATOR",
       "service": "news-funnel-orchestrator",
       "environment": "production"

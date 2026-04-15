@@ -216,25 +216,6 @@ app.get("/api/macro-trend/:date", async (req, res) => {
   }
 });
 
-// Get ticker trends from D1 (ALPHA_04_Trends)
-app.get("/api/ticker-trends", async (req, res) => {
-  try {
-    const data = await fetchFromWorker("/query/ticker-trends");
-
-    if (!data || Object.keys(data).length === 0) {
-      return res.status(404).json({
-        error: "No ticker trends available",
-        source: "D1",
-        hint: "Run the pipeline to populate ticker trends"
-      });
-    }
-
-    res.json({ ...data, source: "D1" });
-  } catch (error) {
-    handleD1Error(res, "/api/ticker-trends", error);
-  }
-});
-
 // Get reports from D1 (ALPHA_01_REPORTS)
 app.get("/api/reports/:ticker", async (req, res) => {
   try {
@@ -425,7 +406,6 @@ app.get("/api/dashboard/:date", async (req, res) => {
     whitehouse: null,
     dailyMacro: null,
     macroTrend: null,
-    tickerTrends: {},
     reports: {},
     earningsCalendar: {},
     calendar: { nextFOMC: { date: "2026-05-06" } },
@@ -460,7 +440,6 @@ app.get("/api/dashboard/:date", async (req, res) => {
         if (data) {
           result.dailyMacro = data.dailyMacro || null;
           result.macroTrend = data.macroTrend || null;
-          result.tickerTrends = data.tickerTrends || {};
           if (data.macro) result.macro = data.macro;
           if (data.sentiment) result.sentiment = data.sentiment;
           console.log("[D1] Loaded combined data");
@@ -555,7 +534,7 @@ app.get("/api/dashboard/:date", async (req, res) => {
 
   // Check if we got any data at all
   const hasData = result.validation || result.macro || result.press ||
-                  result.newsDigest || result.dailyMacro || Object.keys(result.tickerTrends).length > 0;
+                  result.newsDigest || result.dailyMacro;
 
   if (!hasData && result.errors.length > 0) {
     console.error(`[Dashboard] NO DATA AVAILABLE - All D1 fetches failed`);
@@ -584,7 +563,6 @@ app.get("/api/content-validation/targets", (req, res) => {
     targets: [
       { type: "daily-macro", name: "Daily Macro Summary" },
       { type: "macro-trend", name: "Weekly Macro Trend" },
-      { type: "ticker-trend", name: "Ticker Trends", perTicker: true },
       { type: "report", name: "SEC Reports", perTicker: true },
       { type: "daily-news", name: "Daily News", perTicker: true }
     ],
@@ -627,22 +605,7 @@ app.post("/api/content-validation/validate-local", async (req, res) => {
     let summaryId = "";
 
     // Fetch data from D1 based on target type
-    if (targetType === "ticker-trend" && ticker) {
-      const trends = await fetchFromWorker("/query/ticker-trends");
-      if (trends[ticker]) {
-        summary = trends[ticker].summary;
-        summaryId = `trend-${ticker}`;
-      }
-
-      const reports = await fetchFromWorker(`/query/reports?ticker=${ticker}`);
-      if (reports[ticker]) {
-        const tickerReports = Array.isArray(reports[ticker]) ? reports[ticker] : [reports[ticker]];
-        sources = tickerReports.slice(0, 4).map((r, i) => ({
-          id: `report-${ticker}-${i}`,
-          text: r.summary || r.text || JSON.stringify(r)
-        }));
-      }
-    } else if (targetType === "daily-macro") {
+    if (targetType === "daily-macro") {
       const macro = await fetchFromWorker("/query/daily-macro");
       if (macro) {
         summary = macro.summary;
