@@ -146,6 +146,19 @@ export default {
       }
     }
 
+    // All-fail guard: if every ticker errored AND no data was written, return
+    // a non-200 so the workflow marks this job 'failed' (not 'done'). Keeps
+    // downstream consumers honest via the requires-gate.
+    if (earningsResults.length === 0 && recsResults.length === 0 && errors.length > 0) {
+      return Response.json({
+        ok: false,
+        error: "all_tickers_failed",
+        errors: errors.length,
+        error_sample: errors.slice(0, 3),
+        date: today,
+      }, { status: 500 });
+    }
+
     return Response.json({
       ok: true,
       earnings_count: earningsResults.length,

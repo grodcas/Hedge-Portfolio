@@ -35,13 +35,14 @@ export default {
     // 3) Enqueue FINAL job FIRST (LIFO)
     // ------------------------------------------------
     await db.prepare(`
-      INSERT INTO PROC_01_Job_queue (date, worker, input, status)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO PROC_01_Job_queue (date, worker, input, status, wave)
+      VALUES (?, ?, ?, ?, ?)
     `).bind(
       now,
       "trend-builder",
       JSON.stringify({ ticker: T }),
-      "pending"
+      "pending",
+      5000
     ).run();
 
     // ------------------------------------------------
@@ -56,13 +57,14 @@ export default {
 
       if (!row?.summary) {
         await db.prepare(`
-          INSERT INTO PROC_01_Job_queue (date, worker, input, status)
-          VALUES (?, ?, ?, ?)
+          INSERT INTO PROC_01_Job_queue (date, worker, input, status, wave)
+          VALUES (?, ?, ?, ?, ?)
         `).bind(
           now,
           "report-orchestrator",
           JSON.stringify({ report_id: r.id }),
-          "pending"
+          "pending",
+          4500
         ).run();
       }
     }

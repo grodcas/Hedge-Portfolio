@@ -13,6 +13,7 @@ import { ingestNews } from "./steps/ingest-news.js";
 import { ingestEdgar } from "./steps/ingest-edgar.js";
 import { ingestMacro } from "./steps/ingest-macro.js";
 import { ingestSentiment } from "./steps/ingest-sentiment.js";
+import { fetchFundamentals } from "./steps/fetch-fundamentals.js";
 import { upload } from "./steps/upload.js";
 import { summarize } from "./steps/summarize.js";
 import { verifyFacts, generateFactReport, uploadVerificationResults } from "./steps/verify-facts.js";
@@ -60,7 +61,7 @@ async function main(options = {}) {
     logger.log("PIPELINE", "Starting parallel scraping of 6 data sources...");
     const parallelStart = Date.now();
 
-    const [pressResult, whResult, newsResult, edgarResult, macroResult, sentimentResult] =
+    const [pressResult, whResult, newsResult, edgarResult, macroResult, sentimentResult, fundResult] =
       await Promise.all([
         ingestPress(config, logger, results).catch(err => {
           logger.log("PRESS", `Step failed: ${err.message}`, "fail");
@@ -86,6 +87,10 @@ async function main(options = {}) {
           logger.log("SENTIMENT", `Step failed: ${err.message}`, "fail");
           return { data: null, validation: null, error: err.message };
         }),
+        fetchFundamentals(config, logger, results).catch(err => {
+          logger.log("FUNDAMENTALS", `Step failed: ${err.message}`, "fail");
+          return { data: null, fetched: 0, errors: 0, error: err.message };
+        }),
       ]);
 
     const parallelElapsed = ((Date.now() - parallelStart) / 1000).toFixed(1);
@@ -103,6 +108,7 @@ async function main(options = {}) {
     results.ingestedData.macro = macroResult.data;
     results.validation.sentiment = sentimentResult.validation;
     results.ingestedData.sentiment = sentimentResult.data;
+    results.ingestedData.fundamentalsMeta = { fetched: fundResult.fetched, errors: fundResult.errors };
 
     // Step 7: Upload
     const uploadResult = await upload(config, logger, results.ingestedData);

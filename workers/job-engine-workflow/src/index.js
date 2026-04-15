@@ -21,9 +21,11 @@ var RETRY_POLICY = {
   // Free-API / pure-math workers — cheap to retry
   "price-fetcher":              { limit: 2, delay: "30 seconds" },
   "earnings-fetcher":           { limit: 2, delay: "30 seconds" },
-  "fundamentals-fetcher":       { limit: 2, delay: "30 seconds" }, // idempotent via D1 check
   "probability-engine":         { limit: 2, delay: "5 seconds" },
   "event-attribution-engine":   { limit: 2, delay: "5 seconds" },
+  // News funnel is AI-heavy but idempotent via BETA_12 row check —
+  // one retry is safe and useful for transient Gemini/OpenAI errors.
+  "news-funnel-orchestrator":   { limit: 1, delay: "30 seconds" },
   // Orchestrators that only queue sub-jobs (no AI calls themselves)
   "beta-trend-orchestrator":    { limit: 2, delay: "5 seconds" },
   "beta-gen-orchestrator":      { limit: 2, delay: "5 seconds" },
@@ -196,8 +198,6 @@ var JobWorkflow = class extends WorkflowEntrypoint {
         return await this.env.qk_report_summarizer.fetch("https://internal/summarize-report", { method: "POST", body });
       case "trend-builder":
         return await this.env.trend_builder.fetch("https://internal/build-trend", { method: "POST", body });
-      case "daily-macro-summarizer":
-        return await this.env.DAILY_MACRO_SUMMARIZER.fetch("https://internal/process-daily-macro", { method: "POST", body });
       // --- NEWS FUNNEL ---
       case "news-funnel-orchestrator":
         return await this.env.NEWS_FUNNEL_ORCHESTRATOR.fetch("https://internal/run-news-funnel", { method: "POST", body });
@@ -206,8 +206,6 @@ var JobWorkflow = class extends WorkflowEntrypoint {
         return await this.env.PRICE_FETCHER.fetch("https://internal/fetch-prices", { method: "POST", body });
       case "earnings-fetcher":
         return await this.env.EARNINGS_FETCHER.fetch("https://internal/fetch-earnings", { method: "POST", body });
-      case "fundamentals-fetcher":
-        return await this.env.FUNDAMENTALS_FETCHER.fetch("https://internal/fetch-fundamentals", { method: "POST", body });
       // --- SIGNAL LAYER ---
       case "macro-intelligence-builder":
         return await this.env.MACRO_INTELLIGENCE_BUILDER.fetch("https://internal/build-macro-intelligence", { method: "POST", body });
@@ -251,13 +249,6 @@ var index_default = {
     if (action === "trend_beta") {
       await this_env.BETA_TREND_ORCHESTRATOR.fetch("https://internal/process-trend-orchestrator", { method: "POST", body: "{}" });
     }
-    if (action === "daily_macro") {
-      const now = new Date().toISOString();
-      await this_env.DB.prepare(`
-        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
-        VALUES (?, ?, ?, ?)
-      `).bind(now, "daily-macro-summarizer", "{}", "pending").run();
-    }
     if (action === "fundamentals") {
       const now = new Date().toISOString();
       await this_env.DB.prepare(`
@@ -275,17 +266,14 @@ var index_default = {
     if (action === "daily_update") {
       const now = new Date().toISOString();
 
-      // Clear all old jobs before starting fresh — includes failed/skipped
-      // from previous runs so stale state doesn't accumulate.
+      // Clear OLD daily_update jobs only — preserve auto-queued SEC processing
+      // (waves 10/11/20 from report-orchestrator) and manual trend-orchestrator
+      // jobs (wave 4500/5000), which are independent of the daily_update flow.
       await this_env.DB.prepare(`
-        DELETE FROM PROC_01_Job_queue WHERE status IN ('done','pending','running','failed','skipped')
+        DELETE FROM PROC_01_Job_queue
+        WHERE wave >= 1000 AND wave < 5000
+          AND status IN ('done','pending','running','failed','skipped')
       `).run();
-
-      // 1) Fire news funnel (RSS + Finnhub → GPT filter → Gemini summaries → D1)
-      // Runs via service binding — does NOT go through job queue
-      this_env.NEWS_FUNNEL_ORCHESTRATOR.fetch("https://internal/run-news-funnel", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: "{}"
-      }).catch(err => console.error("News funnel error:", err.message));
 
       // Wave-based parallelism. Jobs in the same wave run in parallel.
       // Wave numbers use base 1000 to leave room for orchestrator sub-chains
@@ -304,16 +292,19 @@ var index_default = {
         `).bind(now, worker, input, "pending", wave, requires).run();
       };
 
-      // Wave 1000 — data fetchers (independent, no dependencies)
-      await insertJob("fundamentals-fetcher", 1000);
+      // Wave 1000 — data fetchers + news funnel (all independent)
+      //   Note: fundamentals are fetched locally (Alpha Vantage IP rate-limits
+      //   Cloudflare's shared egress pool). See src/steps/fetch-fundamentals.js.
+      //   Local pipeline POSTs FUND_01 before triggering daily_update.
       await insertJob("price-fetcher", 1000);
       await insertJob("earnings-fetcher", 1000);
       await insertJob("beta-trend-orchestrator", 1000);
+      await insertJob("news-funnel-orchestrator", 1000);
 
-      // Wave 2000 — macro intelligence (no hard deps; reads BETA_03/04/12
-      //   which are pre-populated or from the parallel news funnel).
-      //   Still runs even if data fetchers failed — it uses what's there.
-      await insertJob("macro-intelligence-builder", 2000);
+      // Wave 2000 — macro intelligence. Requires news funnel so that BETA_12
+      //   is populated before macro-intel reads it. Without this gate, a
+      //   failed news funnel would silently produce an empty-input intel blob.
+      await insertJob("macro-intelligence-builder", 2000, "news-funnel-orchestrator");
 
       // Wave 3000 — assessment + event-attribution
       //   assessment-engine reads PRICE_01, FUND_02, FUND_03, BETA_10.

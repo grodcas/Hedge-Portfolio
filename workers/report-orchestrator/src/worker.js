@@ -30,13 +30,14 @@ export default {
     // ------------------------------------------------
     if (type === "4") {
       await db.prepare(`
-        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status, wave)
+        VALUES (?, ?, ?, ?, ?)
       `).bind(
         now,
         "form4-summarizer",
         JSON.stringify({ report_id }),
-        "pending"
+        "pending",
+        20
       ).run();
 
       return Response.json({ ok: true });
@@ -47,13 +48,14 @@ export default {
     // ------------------------------------------------
     if (type === "8-K") {
       await db.prepare(`
-        INSERT INTO PROC_01_Job_queue (date, worker, input, status)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO PROC_01_Job_queue (date, worker, input, status, wave)
+        VALUES (?, ?, ?, ?, ?)
       `).bind(
         now,
         "8k-summarizer",
         JSON.stringify({ report_id }),
-        "pending"
+        "pending",
+        20
       ).run();
 
       return Response.json({ ok: true });

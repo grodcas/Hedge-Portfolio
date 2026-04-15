@@ -76,11 +76,6 @@
       "environment": "production"
     },
     {
-      "binding": "DAILY_MACRO_SUMMARIZER",
-      "service": "daily-macro-summarizer",
-      "environment": "production"
-    },
-    {
       "binding": "NEWS_FUNNEL_ORCHESTRATOR",
       "service": "news-funnel-orchestrator",
       "environment": "production"
@@ -93,11 +88,6 @@
     {
       "binding": "EARNINGS_FETCHER",
       "service": "earnings-fetcher",
-      "environment": "production"
-    },
-    {
-      "binding": "FUNDAMENTALS_FETCHER",
-      "service": "fundamentals-fetcher",
       "environment": "production"
     },
     {
