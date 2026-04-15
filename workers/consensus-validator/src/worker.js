@@ -1,8 +1,17 @@
 /**
  * CONSENSUS VALIDATOR — Layer 3.5
  *
- * Validates our pipeline's conclusions against market consensus using
- * Gemini 2.5-flash with Google Search grounding.
+ * Validates our pipeline's short-term ticker trends against EXTERNAL market
+ * consensus using Gemini 2.5-flash with Google Search grounding. Runs only
+ * for tickers whose TICKER_TREND_short fired today — cheap, targeted, and
+ * synchronised with where conviction actually shifted.
+ *
+ * NOTE ON MODEL CHOICE: the portfolio v2 spec says "all gpt-5" but this
+ * worker is the explicit exception. Its value comes from GROUNDING in live
+ * external sources via google_search, which gpt-5 does not expose natively.
+ * We keep Gemini here because an "internal second-opinion LLM" is not the
+ * same product as "what does the outside world actually say" — the latter
+ * is what this worker exists to deliver.
  *
  * ANTI-CONFIRMATION-BIAS design:
  *   1. Neutral search: "What is the outlook for X?" (NOT "Why is X bullish?")
@@ -10,7 +19,7 @@
  *   3. Measure consensus WEIGHT, not just existence
  *   4. Flag any conclusions where we might have missed the dominant narrative
  *
- * Budget: ~6 Gemini calls/day (top 5 strongest signals + 1 macro).
+ * Budget: usually 0-5 calls/day (only tickers where trend-short fired).
  */
 
 const INGESTOR_URL = "https://portfolio-ingestor.gines-rodriguez-castro.workers.dev";
@@ -31,15 +40,18 @@ export default {
 
     console.log(`[CONSENSUS] Starting for ${today}`);
 
-    // Load top 5 strongest assessments (by abs(score))
-    const { results: assessments } = await db.prepare(`
-      SELECT ticker, score, explanation FROM SIGNAL_01_Assessment
-      WHERE date = ?
-      ORDER BY ABS(score) DESC
-      LIMIT 5
+    // Load tickers whose short-term trend fired today. This is the ONLY
+    // trigger for running consensus — it matches the "verify what just
+    // shifted" role of this worker.
+    const { results: firedTrends } = await db.prepare(`
+      SELECT ticker, regime, score, thesis, trigger, trigger_detail
+        FROM TICKER_TREND_short
+       WHERE as_of = ?
+       ORDER BY ABS(score) DESC
     `).bind(today).all();
 
-    // Load today's macro intelligence
+    // Load today's macro intelligence — still validate it daily (macro
+    // recommendation is load-bearing for operations agent in session 3).
     const macroRow = await db.prepare(`
       SELECT summary FROM BETA_10_Daily_macro ORDER BY creation_date DESC LIMIT 1
     `).first();
@@ -48,22 +60,22 @@ export default {
     try {
       if (macroRow?.summary?.startsWith("{")) {
         const intel = JSON.parse(macroRow.summary);
+        const trend = intel.trend || intel; // v2/v3 both supported
         macroConclusion = {
-          regime: intel.regime,
-          direction: intel.sp500_direction,
-          whats_next: intel.whats_next,
+          regime: trend.regime,
+          direction: trend.sp500_direction,
         };
       }
     } catch {}
 
     // Build validation tasks
     const tasks = [];
-    for (const a of (assessments || [])) {
+    for (const t of (firedTrends || [])) {
       tasks.push({
-        target: a.ticker,
+        target: t.ticker,
         type: "ticker",
-        score: a.score,
-        conclusion: a.explanation || `Score: ${a.score}`,
+        score: t.score,
+        conclusion: `${t.regime} (score ${t.score?.toFixed?.(2) ?? t.score}) — ${t.thesis || ""}  [fired: ${t.trigger}]`,
       });
     }
     if (macroConclusion) {
@@ -75,7 +87,11 @@ export default {
       });
     }
 
-    console.log(`[CONSENSUS] Validating ${tasks.length} conclusions`);
+    console.log(`[CONSENSUS] Validating ${tasks.length} conclusions (${firedTrends?.length || 0} fired ticker trends + ${macroConclusion ? 1 : 0} macro)`);
+
+    if (tasks.length === 0) {
+      return Response.json({ ok: true, date: today, validated: 0, note: "no fired trends today" });
+    }
 
     // Run Gemini validations in parallel (6 calls, safe for rate limits)
     const results = await Promise.allSettled(
