@@ -489,50 +489,46 @@
         </div>
       </section>
 
-      <!-- Portfolio Tab (New) -->
+      <!-- Portfolio Tab (v2 — identification + operations) -->
       <section id="portfolio" class="tab-content">
         <div class="portfolio-v2">
-          <!-- Sector Performance Bar -->
+          <!-- 1. Sector Performance + Bargraph -->
           <div class="card">
             <h3>Sector Performance Today</h3>
-            <div class="sector-bar" id="sectorBar">
-              <span class="loading">Loading...</span>
-            </div>
+            <div class="sector-bar" id="sectorBar"><span class="loading">Loading...</span></div>
+            <svg id="sectorBarGraph" viewBox="0 0 700 180" preserveAspectRatio="xMidYMid meet"></svg>
           </div>
 
-          <!-- Buy / Sell Signals (two columns) -->
-          <div class="signals-grid">
-            <div class="card">
-              <h3 class="signals-header buy-header">Buy Signals</h3>
-              <div class="signals-list" id="buySignals">
-                <span class="loading">Loading...</span>
-              </div>
+          <!-- 2. Main Movers of the Day -->
+          <div class="card">
+            <h3>Main Movers</h3>
+            <div class="movers-wrap">
+              <svg id="moversChart" viewBox="0 0 700 260" preserveAspectRatio="xMidYMid meet"></svg>
             </div>
-            <div class="card">
-              <h3 class="signals-header sell-header">Sell Signals</h3>
-              <div class="signals-list" id="sellSignals">
-                <span class="loading">Loading...</span>
-              </div>
-            </div>
+            <div id="moversExplanations"></div>
           </div>
 
-          <!-- All 25 tickers table -->
+          <!-- 3. Operations (unified — no buy/sell split) -->
+          <div class="card">
+            <div class="ops-header">
+              <h3>Operations</h3>
+              <span class="ops-meta" id="opsMeta"></span>
+            </div>
+            <div id="operationsList"><span class="loading">Loading...</span></div>
+          </div>
+
+          <!-- 4. Portfolio Rebalancing -->
+          <div class="card">
+            <h3>Portfolio Rebalancing</h3>
+            <div class="rebalance-summary" id="rebalanceSummary"></div>
+            <svg id="rebalanceChart" viewBox="0 0 700 400" preserveAspectRatio="xMidYMid meet"></svg>
+            <ul class="macro-bullets" id="rebalanceRationale"><li class="loading">Loading...</li></ul>
+          </div>
+
+          <!-- 5. All Portfolio Tickers -->
           <div class="card">
             <h3>All Portfolio Tickers</h3>
-            <table class="tickers-table">
-              <thead>
-                <tr>
-                  <th>Ticker</th>
-                  <th>Score</th>
-                  <th>vs Sector</th>
-                  <th>Driver</th>
-                  <th>Consensus</th>
-                </tr>
-              </thead>
-              <tbody id="tickersTableBody">
-                <tr><td colspan="5" class="loading">Loading...</td></tr>
-              </tbody>
-            </table>
+            <div id="tickersGrid"><span class="loading">Loading...</span></div>
           </div>
         </div>
       </section>

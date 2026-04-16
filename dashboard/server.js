@@ -314,6 +314,35 @@ app.get("/api/sector-performance", async (req, res) => {
   }
 });
 
+// Portfolio v2 endpoints
+app.get("/api/ticker-trends", async (req, res) => {
+  try {
+    const ticker = req.query.ticker;
+    const q = ticker ? `/query/ticker-trends?ticker=${ticker}` : "/query/ticker-trends";
+    res.json(await fetchFromWorker(q));
+  } catch (error) { handleD1Error(res, "/api/ticker-trends", error); }
+});
+app.get("/api/signal-history", async (req, res) => {
+  try {
+    const q = `/query/signal-history?days=${req.query.days || 14}${req.query.ticker ? "&ticker=" + req.query.ticker : ""}`;
+    res.json(await fetchFromWorker(q));
+  } catch (error) { handleD1Error(res, "/api/signal-history", error); }
+});
+app.get("/api/operations", async (req, res) => {
+  try { res.json(await fetchFromWorker("/query/operations")); }
+  catch (error) { handleD1Error(res, "/api/operations", error); }
+});
+app.get("/api/rebalance", async (req, res) => {
+  try { res.json(await fetchFromWorker("/query/rebalance")); }
+  catch (error) { handleD1Error(res, "/api/rebalance", error); }
+});
+app.get("/api/movers", async (req, res) => {
+  try {
+    const date = req.query.date || new Date().toISOString().slice(0, 10);
+    res.json(await fetchFromWorker(`/query/movers?date=${date}`));
+  } catch (error) { handleD1Error(res, "/api/movers", error); }
+});
+
 // Get portfolio signals (assessments + probabilities + consensus + prices) from D1
 app.get("/api/portfolio-signals/:date", async (req, res) => {
   try {

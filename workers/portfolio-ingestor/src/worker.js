@@ -719,6 +719,63 @@ export default {
           }, { headers: corsHeaders });
         }
 
+        // -------- Portfolio v2 queries --------
+
+        if (path === "/query/ticker-trends") {
+          const ticker = url.searchParams.get("ticker");
+          let longRows, shortRows;
+          if (ticker) {
+            longRows = await db.prepare(`SELECT * FROM TICKER_TREND_long WHERE ticker = ?`).bind(ticker).all();
+            shortRows = await db.prepare(`SELECT * FROM TICKER_TREND_short WHERE ticker = ?`).bind(ticker).all();
+          } else {
+            longRows = await db.prepare(`SELECT * FROM TICKER_TREND_long ORDER BY ticker`).all();
+            shortRows = await db.prepare(`SELECT * FROM TICKER_TREND_short ORDER BY ticker`).all();
+          }
+          return Response.json({
+            long: longRows.results || [],
+            short: shortRows.results || [],
+          }, { headers: corsHeaders });
+        }
+
+        if (path === "/query/signal-history") {
+          const ticker = url.searchParams.get("ticker");
+          const days = parseInt(url.searchParams.get("days") || "14");
+          const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+          let rows;
+          if (ticker) {
+            rows = await db.prepare(
+              `SELECT * FROM SIGNAL_HISTORY_daily WHERE ticker = ? AND date >= ? ORDER BY date`
+            ).bind(ticker, since).all();
+          } else {
+            rows = await db.prepare(
+              `SELECT * FROM SIGNAL_HISTORY_daily WHERE date >= ? ORDER BY ticker, date`
+            ).bind(since).all();
+          }
+          return Response.json(rows.results || [], { headers: corsHeaders });
+        }
+
+        if (path === "/query/operations") {
+          const rows = await db.prepare(
+            `SELECT * FROM OPERATION_01_Signals WHERE superseded_by IS NULL ORDER BY sector`
+          ).all();
+          return Response.json(rows.results || [], { headers: corsHeaders });
+        }
+
+        if (path === "/query/rebalance") {
+          const row = await db.prepare(
+            `SELECT * FROM REBALANCE_01 ORDER BY created_at DESC LIMIT 1`
+          ).first();
+          return Response.json(row || {}, { headers: corsHeaders });
+        }
+
+        if (path === "/query/movers") {
+          const date = url.searchParams.get("date") || new Date().toISOString().slice(0, 10);
+          const rows = await db.prepare(
+            `SELECT * FROM MOVER_EXPLANATIONS_daily WHERE date = ? ORDER BY direction, rank`
+          ).bind(date).all();
+          return Response.json(rows.results || [], { headers: corsHeaders });
+        }
+
         return new Response("Not found", { status: 404, headers: corsHeaders });
 
       } catch (err) {

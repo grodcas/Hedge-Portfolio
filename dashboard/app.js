@@ -1153,151 +1153,249 @@ function getNextFOMCDate() {
   return { date: next };
 }
 
-// ============ PORTFOLIO TAB ============
+// ============ PORTFOLIO TAB (v2) ============
 
 async function updatePortfolioTab() {
-  // Fetch signals, sector performance from new endpoints
   try {
-    const [signalsRes, sectorRes] = await Promise.all([
-      fetch(`/api/portfolio-signals/${currentDate}`).catch(() => null),
+    const [sectorRes, trendsRes, sigHistRes, opsRes, rebalRes, moversRes, signalsRes] = await Promise.all([
       fetch('/api/sector-performance').catch(() => null),
+      fetch('/api/ticker-trends').catch(() => null),
+      fetch('/api/signal-history?days=14').catch(() => null),
+      fetch('/api/operations').catch(() => null),
+      fetch('/api/rebalance').catch(() => null),
+      fetch('/api/movers').catch(() => null),
+      fetch(`/api/portfolio-signals/${currentDate}`).catch(() => null),
     ]);
+    const sectorPerf = sectorRes?.ok ? await sectorRes.json() : null;
+    const trends = trendsRes?.ok ? await trendsRes.json() : { long: [], short: [] };
+    const sigHist = sigHistRes?.ok ? await sigHistRes.json() : [];
+    const ops = opsRes?.ok ? await opsRes.json() : [];
+    const rebal = rebalRes?.ok ? await rebalRes.json() : {};
+    const movers = moversRes?.ok ? await moversRes.json() : [];
+    const signals = signalsRes?.ok ? await signalsRes.json() : null;
 
-    const signals = signalsRes && signalsRes.ok ? await signalsRes.json() : null;
-    const sectorPerf = sectorRes && sectorRes.ok ? await sectorRes.json() : null;
-
-    renderSectorBar(sectorPerf);
-    renderSignals(signals);
-    renderTickersTable(signals);
+    renderSectorBarV2(sectorPerf);
+    renderMovers(movers);
+    renderOperations(ops);
+    renderRebalance(rebal);
+    renderTickersGridV2(trends, sigHist, sectorPerf, signals);
     updateOverviewPerformance(signals, sectorPerf);
   } catch (err) {
     console.error('Portfolio tab error:', err);
-    document.getElementById('sectorBar').innerHTML = '<span class="no-data">Run pipeline to populate signals</span>';
-    document.getElementById('buySignals').innerHTML = '<span class="no-data">No data</span>';
-    document.getElementById('sellSignals').innerHTML = '<span class="no-data">No data</span>';
-    document.getElementById('tickersTableBody').innerHTML = '<tr><td colspan="5" class="no-data">Run assessment-engine to populate signals</td></tr>';
   }
 }
 
-function renderSectorBar(sectorPerf) {
+function renderSectorBarV2(sectorPerf) {
   const bar = document.getElementById('sectorBar');
+  const svg = document.getElementById('sectorBarGraph');
   if (!sectorPerf?.sectors) {
     bar.innerHTML = '<span class="no-data">No sector price data yet</span>';
+    svg.innerHTML = '';
     return;
   }
   const sectors = Object.entries(sectorPerf.sectors);
   bar.innerHTML = sectors.map(([name, data]) => {
     const ret = data.return_pct;
     const cls = ret > 0 ? 'sector-up' : ret < 0 ? 'sector-down' : 'sector-flat';
-    const sign = ret > 0 ? '+' : '';
-    const val = ret != null ? `${sign}${ret.toFixed(2)}%` : '--';
-    return `<div class="sector-cell ${cls}"><span class="sector-name">${name}</span><span class="sector-val">${val}</span></div>`;
-  }).join('') +
-  (sectorPerf.spy_return != null
-    ? `<div class="sector-cell sector-spy"><span class="sector-name">SPY</span><span class="sector-val">${sectorPerf.spy_return >= 0 ? '+' : ''}${sectorPerf.spy_return.toFixed(2)}%</span></div>`
-    : '');
+    return `<div class="sector-cell ${cls}"><span class="sector-name">${name}</span><span class="sector-val">${ret > 0 ? '+' : ''}${ret?.toFixed(2) ?? '--'}%</span></div>`;
+  }).join('') + (sectorPerf.spy_return != null
+    ? `<div class="sector-cell sector-spy"><span class="sector-name">SPY</span><span class="sector-val">${sectorPerf.spy_return >= 0 ? '+' : ''}${sectorPerf.spy_return.toFixed(2)}%</span></div>` : '');
+
+  // Horizontal bargraph
+  const all = sectors.map(([n, d]) => ({ name: n, ret: d.return_pct || 0 }));
+  if (sectorPerf.spy_return != null) all.push({ name: 'SPY', ret: sectorPerf.spy_return });
+  all.sort((a, b) => b.ret - a.ret);
+  const maxAbs = Math.max(...all.map(a => Math.abs(a.ret)), 1);
+  const W = 700, H = all.length * 28 + 10, midX = 350;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = `<line x1="${midX}" y1="0" x2="${midX}" y2="${H}" stroke="#444" stroke-width="1"/>` +
+    all.map((s, i) => {
+      const y = i * 28 + 8;
+      const barW = (Math.abs(s.ret) / maxAbs) * (midX - 80);
+      const x = s.ret >= 0 ? midX : midX - barW;
+      const col = s.ret >= 0 ? '#2fbf71' : '#e14b4b';
+      return `<rect x="${x}" y="${y}" width="${barW}" height="18" rx="3" fill="${col}" opacity="0.75"/>
+        <text x="${s.ret >= 0 ? midX - 6 : midX + 6}" y="${y + 13}" text-anchor="${s.ret >= 0 ? 'end' : 'start'}" fill="#ccc" font-size="11">${s.name}</text>
+        <text x="${s.ret >= 0 ? x + barW + 5 : x - 5}" y="${y + 13}" text-anchor="${s.ret >= 0 ? 'start' : 'end'}" fill="${col}" font-size="11" font-weight="600">${s.ret >= 0 ? '+' : ''}${s.ret.toFixed(2)}%</text>`;
+    }).join('');
 }
 
-function renderSignals(signals) {
-  const buyEl = document.getElementById('buySignals');
-  const sellEl = document.getElementById('sellSignals');
-
-  if (!signals) {
-    buyEl.innerHTML = '<span class="no-data">No assessments yet. Run assessment-engine.</span>';
-    sellEl.innerHTML = '<span class="no-data">No assessments yet. Run assessment-engine.</span>';
+function renderMovers(movers) {
+  const svg = document.getElementById('moversChart');
+  const expl = document.getElementById('moversExplanations');
+  if (!Array.isArray(movers) || movers.length === 0) {
+    svg.innerHTML = '<text x="350" y="130" text-anchor="middle" fill="#888" font-size="12">No movers data</text>';
+    expl.innerHTML = '';
     return;
   }
+  const sorted = [...movers].sort((a, b) => (b.move_pct || 0) - (a.move_pct || 0));
+  const maxAbs = Math.max(...sorted.map(m => Math.abs(m.move_pct || 0)), 1);
+  const W = 700, rowH = Math.min(36, 260 / sorted.length), H = sorted.length * rowH + 10, midX = 350;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = `<line x1="${midX}" y1="0" x2="${midX}" y2="${H}" stroke="#444" stroke-width="1"/>` +
+    sorted.map((m, i) => {
+      const y = i * rowH + 4;
+      const pct = m.move_pct || 0;
+      const barW = (Math.abs(pct) / maxAbs) * (midX - 80);
+      const x = pct >= 0 ? midX : midX - barW;
+      const col = pct >= 0 ? '#2fbf71' : '#e14b4b';
+      return `<rect x="${x}" y="${y}" width="${barW}" height="${rowH - 6}" rx="3" fill="${col}" opacity="0.8"/>
+        <text x="${pct >= 0 ? midX - 6 : midX + 6}" y="${y + rowH / 2}" text-anchor="${pct >= 0 ? 'end' : 'start'}" fill="#ccc" font-size="11" font-weight="700">${m.ticker}</text>
+        <text x="${pct >= 0 ? x + barW + 5 : x - 5}" y="${y + rowH / 2}" text-anchor="${pct >= 0 ? 'start' : 'end'}" fill="${col}" font-size="10">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</text>`;
+    }).join('');
 
-  const buys = signals.buy_signals || [];
-  const sells = signals.sell_signals || [];
-
-  buyEl.innerHTML = buys.length
-    ? buys.map(s => renderSignalCard(s, 'buy')).join('')
-    : '<span class="no-data">No strong buy signals today</span>';
-  sellEl.innerHTML = sells.length
-    ? sells.map(s => renderSignalCard(s, 'sell')).join('')
-    : '<span class="no-data">No strong sell signals today</span>';
+  expl.innerHTML = sorted.map(m => {
+    const col = (m.move_pct || 0) >= 0 ? 'bullet-bull' : 'bullet-bear';
+    return `<div class="mover-expl"><span class="mover-ticker">${m.ticker}</span><span class="mover-thesis ${col}">${escapeHtml(m.thesis || '')}</span></div>`;
+  }).join('');
 }
 
-function renderSignalCard(s, type) {
-  const scoreAbs = Math.abs(s.score);
-  const bars = Math.round(scoreAbs * 10);
-  const barFilled = '█'.repeat(bars);
-  const barEmpty = '░'.repeat(10 - bars);
-  const consClass = s.consensus?.confidence === 'LOW' ? 'consensus-low'
-                  : s.consensus?.confidence === 'HIGH' ? 'consensus-high' : 'consensus-medium';
-  const consIcon = s.consensus?.confidence === 'LOW' ? '⚠' : s.consensus?.confidence === 'HIGH' ? '✓' : '○';
-  const priceChange = s.price?.return_pct != null
-    ? ` (${s.price.return_pct >= 0 ? '+' : ''}${s.price.return_pct.toFixed(2)}%)` : '';
+const OP_ACTION_LABELS = { buy: 'BUY', sell: 'SELL', short: 'SHORT' };
+const OP_ACTION_COLORS = { buy: '#2fbf71', sell: '#e8c14b', short: '#e14b4b' };
+const OP_RISK_COLORS = { low: '#2fbf71', medium: '#e8c14b', high: '#e14b4b' };
 
-  return `
-    <details class="signal-card signal-${type}">
-      <summary>
-        <span class="signal-ticker">${s.ticker}</span>
-        <span class="signal-score">${s.score > 0 ? '+' : ''}${s.score.toFixed(2)}</span>
-        <span class="signal-bar">${barFilled}${barEmpty}</span>
-        <span class="signal-consensus ${consClass}" title="${s.consensus?.narrative || 'No consensus data'}">${consIcon}</span>
-      </summary>
-      <div class="signal-detail">
-        <p class="signal-explanation">${s.explanation || 'No explanation available'}</p>
-        ${priceChange ? `<p class="signal-price">Price today:${priceChange}</p>` : ''}
-        ${s.attribution ? `
-          <div class="attribution-box attribution-${s.attribution.movement_type}">
-            <strong>Why it moved (${s.attribution.movement_type}):</strong>
-            ${s.attribution.ticker_return != null ? `${s.attribution.ticker_return >= 0 ? '+' : ''}${s.attribution.ticker_return.toFixed(2)}% today` : ''}
-            ${s.attribution.company_alpha != null ? `<span class="alpha-note">(${s.attribution.company_alpha >= 0 ? '+' : ''}${s.attribution.company_alpha.toFixed(2)}% vs sector)</span>` : ''}
-            ${s.attribution.explanation ? `<br><em>${s.attribution.explanation}</em>` : ''}
-          </div>` : ''}
-        ${s.consensus ? `
-          <div class="signal-consensus-box">
-            <strong>Consensus (${s.consensus.confidence}):</strong> ${s.consensus.narrative || '—'}
-            ${s.consensus.counter ? `<br><em>Counter-argument:</em> ${s.consensus.counter}` : ''}
-          </div>` : ''}
-        ${s.factors?.length ? `
-          <details class="factor-list">
-            <summary>Factor breakdown (${s.factors.filter(f => f.value !== 0).length} active)</summary>
-            <ul>
-              ${s.factors.filter(f => f.value !== 0).map(f =>
-                `<li class="factor-${f.value > 0 ? 'pos' : 'neg'}">${f.name}: ${f.value > 0 ? '+1' : '-1'} (${f.reason})</li>`
-              ).join('')}
-            </ul>
-          </details>` : ''}
+function renderOperations(opsRows) {
+  const el = document.getElementById('operationsList');
+  const meta = document.getElementById('opsMeta');
+  if (!Array.isArray(opsRows) || opsRows.length === 0) {
+    el.innerHTML = '<span class="no-data">No active operations</span>';
+    return;
+  }
+  const totalOps = opsRows.reduce((n, r) => { try { return n + JSON.parse(r.operations).length; } catch { return n; } }, 0);
+  meta.textContent = `${totalOps} operations across ${opsRows.length} sectors`;
+
+  el.innerHTML = opsRows.map(row => {
+    let ops;
+    try { ops = JSON.parse(row.operations); } catch { ops = []; }
+    const age = Math.max(0, (Date.now() - new Date(row.created_at).getTime()) / 86400000);
+    const fade = Math.max(0.3, 1 - age / 14).toFixed(2);
+
+    return `<div class="ops-sector-block" style="opacity:${fade}">
+      <div class="ops-sector-head">
+        <span class="ops-sector-name">${row.sector}</span>
+        <span class="ops-sector-age">${row.created_at?.slice(0, 10) || ''}</span>
       </div>
-    </details>
-  `;
+      ${ops.map(o => {
+        const ct = o.counter_ticker ? ` / ${OP_ACTION_LABELS[o.action_counter] || o.action_counter} ${o.counter_ticker}` : '';
+        let bullets = [];
+        try { bullets = Array.isArray(o.bullets) ? o.bullets : []; } catch {}
+        return `<details class="op-card">
+          <summary>
+            <span class="op-action" style="color:${OP_ACTION_COLORS[o.action] || '#ccc'}">${OP_ACTION_LABELS[o.action] || o.action} ${o.ticker}${ct}</span>
+            <span class="op-risk" style="color:${OP_RISK_COLORS[o.risk] || '#888'}">${(o.risk || '').toUpperCase()}</span>
+          </summary>
+          <div class="op-detail">
+            <p class="op-thesis">${escapeHtml(o.thesis || '')}</p>
+            <ul class="macro-bullets">${bullets.map(b => `<li class="bullet-${(b.bias || 'neutral')}">${escapeHtml(b.text || '')}</li>`).join('')}</ul>
+          </div>
+        </details>`;
+      }).join('')}
+    </div>`;
+  }).join('');
 }
 
-function renderTickersTable(signals) {
-  const tbody = document.getElementById('tickersTableBody');
-  if (!signals?.tickers?.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="no-data">No signals yet. Run assessment-engine.</td></tr>';
+function renderRebalance(rebal) {
+  const svg = document.getElementById('rebalanceChart');
+  const ratEl = document.getElementById('rebalanceRationale');
+  const sumEl = document.getElementById('rebalanceSummary');
+  if (!rebal?.target_weights) {
+    svg.innerHTML = '<text x="350" y="200" text-anchor="middle" fill="#888" font-size="12">No rebalance data</text>';
+    ratEl.innerHTML = '';
+    sumEl.textContent = '';
+    return;
+  }
+  let current, target, deltas, rationale;
+  try { current = JSON.parse(rebal.current_weights); } catch { current = {}; }
+  try { target = JSON.parse(rebal.target_weights); } catch { target = {}; }
+  try { deltas = JSON.parse(rebal.deltas); } catch { deltas = {}; }
+  try { rationale = JSON.parse(rebal.rationale); } catch { rationale = []; }
+
+  let rawBlob = {};
+  try { rawBlob = JSON.parse(rebal.raw_blob); } catch {}
+  sumEl.textContent = rawBlob.summary || '';
+
+  // Show only tickers with |delta| > 0.2
+  const shifted = Object.entries(deltas).filter(([, d]) => Math.abs(d) >= 0.2).sort((a, b) => b[1] - a[1]);
+  if (shifted.length === 0) {
+    svg.innerHTML = '<text x="350" y="200" text-anchor="middle" fill="#888" font-size="12">Portfolio in balance — no shifts needed</text>';
+  } else {
+    const W = 700, rowH = 32, H = shifted.length * rowH + 40, padL = 60;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    const maxW = Math.max(...shifted.map(([, d]) => Math.abs(d)), 1);
+    svg.innerHTML = shifted.map(([ticker, delta], i) => {
+      const y = i * rowH + 20;
+      const cur = Number(current[ticker]) || 0;
+      const tgt = Number(target[ticker]) || 0;
+      const barScale = (W - padL - 140) / (Math.max(...Object.values(target).map(Number), 8));
+      const curW = cur * barScale;
+      const tgtW = tgt * barScale;
+      const col = delta >= 0 ? '#2fbf71' : '#e14b4b';
+      return `<text x="${padL - 6}" y="${y + 14}" text-anchor="end" fill="#ccc" font-size="11" font-weight="600">${ticker}</text>
+        <rect x="${padL}" y="${y}" width="${curW}" height="12" rx="2" fill="#444" opacity="0.6"/>
+        <rect x="${padL}" y="${y + 14}" width="${tgtW}" height="12" rx="2" fill="${col}" opacity="0.7"/>
+        <text x="${padL + Math.max(curW, tgtW) + 8}" y="${y + 9}" fill="#888" font-size="9">now ${cur.toFixed(1)}%</text>
+        <text x="${padL + Math.max(curW, tgtW) + 8}" y="${y + 23}" fill="${col}" font-size="9" font-weight="600">target ${tgt.toFixed(1)}% (${delta >= 0 ? '+' : ''}${delta.toFixed(1)})</text>`;
+    }).join('');
+  }
+
+  setBullets(ratEl, rationale, 'No rationale.');
+}
+
+function render14Bars(sigHist, ticker) {
+  const rows = (sigHist || []).filter(r => r.ticker === ticker).sort((a, b) => a.date.localeCompare(b.date));
+  const bars = [];
+  for (let i = 0; i < 14; i++) {
+    const row = rows[i];
+    if (!row) { bars.push('<span class="bar14 bar14-empty"></span>'); continue; }
+    const mag = Number(row.magnitude) || 0;
+    const sent = Number(row.sentiment_score) || 0;
+    let cls = 'bar14-grey';
+    if (row.earnings_flag) cls = 'bar14-earnings';
+    else if (row.trend_updated) cls = sent >= 0 ? 'bar14-bull' : 'bar14-bear';
+    else if (mag >= 0.4) cls = sent >= 0 ? 'bar14-bull-light' : 'bar14-bear-light';
+    bars.push(`<span class="bar14 ${cls}" title="${row.date}: sent=${sent.toFixed(2)} mag=${mag.toFixed(2)}${row.earnings_flag ? ' EARNINGS' : ''}${row.trend_updated ? ' TREND' : ''}"></span>`);
+  }
+  return `<div class="bars14">${bars.join('')}</div>`;
+}
+
+function renderTickersGridV2(trends, sigHist, sectorPerf, signals) {
+  const grid = document.getElementById('tickersGrid');
+  const longMap = {};
+  const shortMap = {};
+  for (const r of (trends.long || [])) longMap[r.ticker] = r;
+  for (const r of (trends.short || [])) shortMap[r.ticker] = r;
+
+  const sectorAvgs = {};
+  if (sectorPerf?.sectors) {
+    for (const [, data] of Object.entries(sectorPerf.sectors)) {
+      for (const ticker of (data.tickers || [])) sectorAvgs[ticker] = data.return_pct;
+    }
+  }
+
+  const tickers = [...new Set([...Object.keys(longMap), ...Object.keys(shortMap)])].sort();
+  if (tickers.length === 0) {
+    grid.innerHTML = '<span class="no-data">No trend data yet.</span>';
     return;
   }
 
-  tbody.innerHTML = signals.tickers.map(t => {
-    const scoreClass = t.score > 0.1 ? 'score-pos' : t.score < -0.1 ? 'score-neg' : 'score-neutral';
-    const driver = (t.factors || []).filter(f => f.value !== 0).sort((a, b) => Math.abs(b.value * b.weight) - Math.abs(a.value * a.weight))[0];
-    const driverText = driver ? `${driver.name}` : 'All neutral';
-    const vsSec = t.factors?.find(f => f.name === 'Relative performance');
-    const vsSecText = vsSec?.reason || '--';
-    const consBadge = t.consensus
-      ? `<span class="cons-badge cons-${t.consensus.confidence.toLowerCase()}">${t.consensus.confidence}</span>`
-      : '<span class="cons-badge">—</span>';
-    return `<tr>
-      <td><strong>${t.ticker}</strong></td>
-      <td class="${scoreClass}">${t.score > 0 ? '+' : ''}${t.score.toFixed(2)}</td>
-      <td>${vsSecText}</td>
-      <td>${driverText}</td>
-      <td>${consBadge}</td>
-    </tr>`;
+  grid.innerHTML = `<div class="tickers-header">
+    <span class="th-ticker">Ticker</span><span class="th-lt">LT Trend</span><span class="th-st">ST Trend</span><span class="th-bars">14-Day</span><span class="th-thesis">Thesis</span>
+  </div>` + tickers.map(t => {
+    const lt = longMap[t];
+    const st = shortMap[t];
+    const ltBadge = lt ? `<span class="regime-mini regime-${lt.regime}">${lt.score > 0 ? '+' : ''}${Number(lt.score).toFixed(2)}</span>` : '<span class="regime-mini">--</span>';
+    const stBadge = st ? `<span class="regime-mini regime-${st.regime}">${st.score > 0 ? '+' : ''}${Number(st.score).toFixed(2)}</span>` : '<span class="regime-mini">--</span>';
+    const bars = render14Bars(sigHist, t);
+    const thesis = st?.thesis || lt?.thesis || '';
+    return `<div class="ticker-row">
+      <span class="tr-ticker">${t}</span>${ltBadge}${stBadge}${bars}<span class="tr-thesis">${escapeHtml(thesis).slice(0, 100)}</span>
+    </div>`;
   }).join('');
 }
 
 function updateOverviewPerformance(signals, sectorPerf) {
   const perfDate = document.getElementById('perfDate');
   if (perfDate) perfDate.textContent = signals?.date || currentDate;
-
-  // Top gainers / losers from signals + prices
   const gainersEl = document.getElementById('topGainers');
   const losersEl = document.getElementById('topLosers');
   if (gainersEl && losersEl && signals?.tickers) {
@@ -1305,48 +1403,15 @@ function updateOverviewPerformance(signals, sectorPerf) {
     const gainers = [...withPrice].sort((a, b) => b.price.return_pct - a.price.return_pct).slice(0, 5);
     const losers = [...withPrice].sort((a, b) => a.price.return_pct - b.price.return_pct).slice(0, 5);
     gainersEl.innerHTML = gainers.length
-      ? gainers.map(t => `<div class="perf-row"><span>${t.ticker}</span><span class="perf-pos">+${t.price.return_pct.toFixed(2)}%</span></div>`).join('')
-      : '<span class="no-data">No price data</span>';
+      ? gainers.map(t => `<div class="perf-row"><span>${t.ticker}</span><span class="perf-pos">+${t.price.return_pct.toFixed(2)}%</span></div>`).join('') : '<span class="no-data">No price data</span>';
     losersEl.innerHTML = losers.length
-      ? losers.map(t => `<div class="perf-row"><span>${t.ticker}</span><span class="perf-neg">${t.price.return_pct.toFixed(2)}%</span></div>`).join('')
-      : '<span class="no-data">No price data</span>';
+      ? losers.map(t => `<div class="perf-row"><span>${t.ticker}</span><span class="perf-neg">${t.price.return_pct.toFixed(2)}%</span></div>`).join('') : '<span class="no-data">No price data</span>';
   }
-
   const spyEl = document.getElementById('perfSpy');
   if (spyEl && sectorPerf?.spy_return != null) {
-    const ret = sectorPerf.spy_return;
-    spyEl.textContent = `${ret >= 0 ? '+' : ''}${ret.toFixed(2)}%`;
-    spyEl.className = `perf-spy ${ret >= 0 ? 'perf-pos' : 'perf-neg'}`;
-  } else if (spyEl) {
-    spyEl.textContent = '--';
+    spyEl.textContent = `${sectorPerf.spy_return >= 0 ? '+' : ''}${sectorPerf.spy_return.toFixed(2)}%`;
+    spyEl.className = `perf-spy ${sectorPerf.spy_return >= 0 ? 'perf-pos' : 'perf-neg'}`;
   }
-
-  const buyCount = document.getElementById('perfBuyCount');
-  const sellCount = document.getElementById('perfSellCount');
-  if (buyCount) buyCount.textContent = signals?.buy_signals?.length || 0;
-  if (sellCount) sellCount.textContent = signals?.sell_signals?.length || 0;
-}
-
-function getEstimatedEarnings(ticker) {
-  // Rough estimates for demo
-  const estimates = {
-    AAPL: '2026-04-30', MSFT: '2026-04-22', GOOGL: '2026-04-25', AMZN: '2026-04-28',
-    NVDA: '2026-05-21', META: '2026-04-23', TSLA: '2026-04-19', 'BRK.B': '2026-05-03',
-    JPM: '2026-04-11', GS: '2026-04-14', BAC: '2026-04-15', XOM: '2026-04-25',
-    CVX: '2026-04-25', UNH: '2026-04-15', LLY: '2026-04-24', JNJ: '2026-04-15',
-    PG: '2026-04-18', KO: '2026-04-22', HD: '2026-05-13', CAT: '2026-04-24',
-    BA: '2026-04-23', INTC: '2026-04-24', AMD: '2026-04-29', NFLX: '2026-04-17',
-    MS: '2026-04-16'
-  };
-  return estimates[ticker] || null;
-}
-
-function getDefaultEarningsCalendar() {
-  const cal = {};
-  PORTFOLIO_TICKERS.forEach(ticker => {
-    cal[ticker] = { nextEarnings: getEstimatedEarnings(ticker), type: '10-Q' };
-  });
-  return cal;
 }
 
 // ============ MONTHLY CHECK TAB ============

@@ -212,6 +212,18 @@ var JobWorkflow = class extends WorkflowEntrypoint {
         return await this.env.CONSENSUS_VALIDATOR.fetch("https://internal/validate-consensus", { method: "POST", body });
       case "event-attribution-engine":
         return await this.env.EVENT_ATTRIBUTION_ENGINE.fetch("https://internal/attribute-events", { method: "POST", body });
+      // --- PORTFOLIO V2 IDENTIFICATION ---
+      case "signal-history-builder":
+        return await this.env.SIGNAL_HISTORY_BUILDER.fetch("https://internal/build", { method: "POST", body });
+      case "ticker-trend-short":
+        return await this.env.TICKER_TREND_SHORT.fetch("https://internal/build-all", { method: "POST", body });
+      case "big-movers-why":
+        return await this.env.BIG_MOVERS_WHY.fetch("https://internal/build", { method: "POST", body });
+      // --- PORTFOLIO V2 RECOMMENDATION ---
+      case "operations-agent":
+        return await this.env.OPERATIONS_AGENT.fetch("https://internal/build-all?force=true", { method: "POST", body });
+      case "wealth-distribution":
+        return await this.env.WEALTH_DISTRIBUTION.fetch("https://internal/build", { method: "POST", body });
       default:
         throw new Error(`Unknown worker: ${worker}`);
     }
@@ -307,9 +319,28 @@ var index_default = {
       await insertJob("assessment-engine", 3000, "price-fetcher,earnings-fetcher,macro-intelligence-builder");
       await insertJob("event-attribution-engine", 3000, "price-fetcher");
 
-      // Wave 4000 — probability + consensus (need SIGNAL_01 from assessment)
+      // Wave 2500 — signal history + big movers (need BETA_12 + PRICE_01)
+      //   signal-history-builder: aggregates BETA_12 per-ticker into SIGNAL_HISTORY_daily
+      //   big-movers-why: identifies biggest movers + explains them via gpt-5
+      await insertJob("signal-history-builder", 2500, "news-funnel-orchestrator,price-fetcher");
+      await insertJob("big-movers-why", 2500, "news-funnel-orchestrator,price-fetcher");
+
+      // Wave 3000 — assessment + attribution + short-term trends
+      //   ticker-trend-short: reads SIGNAL_HISTORY + PRICE_01 + ALPHA_03, fires on triggers
+      await insertJob("assessment-engine", 3000, "price-fetcher,earnings-fetcher,macro-intelligence-builder");
+      await insertJob("event-attribution-engine", 3000, "price-fetcher");
+      await insertJob("ticker-trend-short", 3000, "signal-history-builder,price-fetcher");
+
+      // Wave 4000 — probability + consensus (need SIGNAL_01 from assessment,
+      //   consensus now gated on ticker-trend-short fires)
       await insertJob("probability-engine", 4000, "assessment-engine");
-      await insertJob("consensus-validator", 4000, "assessment-engine");
+      await insertJob("consensus-validator", 4000, "assessment-engine,ticker-trend-short");
+
+      // Wave 5000 — operations + wealth distribution (need trends + macro)
+      //   operations-agent: sector-clustered operations from long+short trends
+      //   wealth-distribution: adapts portfolio weights from operations
+      await insertJob("operations-agent", 5000, "ticker-trend-short,macro-intelligence-builder");
+      await insertJob("wealth-distribution", 5500, "operations-agent");
     }
     const instanceId = `run-${Date.now()}`;
     await this_env.WORKFLOW.create({ id: instanceId });

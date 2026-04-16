@@ -104,6 +104,31 @@
       "binding": "EVENT_ATTRIBUTION_ENGINE",
       "service": "event-attribution-engine",
       "environment": "production"
+    },
+    {
+      "binding": "SIGNAL_HISTORY_BUILDER",
+      "service": "signal-history-builder",
+      "environment": "production"
+    },
+    {
+      "binding": "TICKER_TREND_SHORT",
+      "service": "ticker-trend-short",
+      "environment": "production"
+    },
+    {
+      "binding": "BIG_MOVERS_WHY",
+      "service": "big-movers-why",
+      "environment": "production"
+    },
+    {
+      "binding": "OPERATIONS_AGENT",
+      "service": "operations-agent",
+      "environment": "production"
+    },
+    {
+      "binding": "WEALTH_DISTRIBUTION",
+      "service": "wealth-distribution",
+      "environment": "production"
     }
   ],
   "d1_databases": [

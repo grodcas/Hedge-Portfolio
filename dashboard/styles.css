@@ -1995,6 +1995,63 @@ select {
 .attribution-macro { border-left-color: var(--accent-purple); }
 .attribution-none { border-left-color: var(--text-muted); opacity: 0.7; }
 
+/* ============ PORTFOLIO V2 NEW COMPONENTS ============ */
+
+#sectorBarGraph, .movers-wrap svg { width: 100%; max-width: 720px; display: block; background: var(--bg-tertiary); border-radius: 4px; margin-top: 0.6rem; }
+#rebalanceChart { width: 100%; max-width: 720px; display: block; background: var(--bg-tertiary); border-radius: 4px; }
+
+.movers-wrap { margin-bottom: 0.6rem; }
+#moversExplanations { display: flex; flex-direction: column; gap: 0.3rem; }
+.mover-expl { display: flex; gap: 0.75rem; align-items: baseline; font-size: 0.85rem; padding: 0.25rem 0.5rem; border-radius: 3px; background: var(--bg-tertiary); }
+.mover-ticker { font-weight: 700; min-width: 3rem; font-family: 'SF Mono', Consolas, monospace; }
+.mover-thesis { flex: 1; color: var(--text-secondary); }
+.mover-thesis.bullet-bull { color: var(--accent-green); }
+.mover-thesis.bullet-bear { color: var(--accent-red); }
+
+/* Operations */
+.ops-header { display: flex; align-items: center; justify-content: space-between; }
+.ops-header h3 { margin: 0; }
+.ops-meta { font-size: 0.8rem; color: var(--text-secondary); font-family: 'SF Mono', Consolas, monospace; }
+.ops-sector-block { margin-bottom: 0.8rem; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; }
+.ops-sector-head { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: var(--bg-tertiary); border-bottom: 1px solid var(--border-color); }
+.ops-sector-name { font-weight: 700; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.ops-sector-age { font-size: 0.75rem; color: var(--text-secondary); font-family: 'SF Mono', Consolas, monospace; }
+.op-card { border-bottom: 1px solid var(--border-color); }
+.op-card:last-child { border-bottom: none; }
+.op-card summary { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; cursor: pointer; list-style: none; }
+.op-card summary::-webkit-details-marker { display: none; }
+.op-action { font-family: 'SF Mono', Consolas, monospace; font-weight: 700; font-size: 0.85rem; }
+.op-risk { font-size: 0.7rem; margin-left: auto; font-weight: 600; letter-spacing: 0.05em; }
+.op-detail { padding: 0.4rem 0.75rem 0.6rem 1rem; border-top: 1px solid var(--border-color); }
+.op-thesis { font-style: italic; color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.4rem; }
+
+/* Rebalancing */
+.rebalance-summary { font-style: italic; color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.6rem; }
+
+/* 14-bar strip */
+.bars14 { display: flex; gap: 2px; align-items: flex-end; }
+.bar14 { width: 6px; height: 18px; border-radius: 2px; display: inline-block; }
+.bar14-empty { background: var(--bg-tertiary); opacity: 0.3; }
+.bar14-grey { background: #555; }
+.bar14-bull { background: var(--accent-green); }
+.bar14-bear { background: var(--accent-red); }
+.bar14-bull-light { background: rgba(47, 191, 113, 0.45); }
+.bar14-bear-light { background: rgba(225, 75, 75, 0.45); }
+.bar14-earnings { background: #a855f7; }
+
+/* Tickers grid */
+.tickers-header { display: grid; grid-template-columns: 60px 80px 80px 110px 1fr; gap: 0.5rem; padding: 0.4rem 0.5rem; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 1px solid var(--border-color); }
+.ticker-row { display: grid; grid-template-columns: 60px 80px 80px 110px 1fr; gap: 0.5rem; align-items: center; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; }
+.ticker-row:hover { background: var(--bg-tertiary); }
+.tr-ticker { font-weight: 700; font-family: 'SF Mono', Consolas, monospace; }
+.tr-thesis { color: var(--text-secondary); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.regime-mini { font-family: 'SF Mono', Consolas, monospace; font-weight: 600; font-size: 0.8rem; padding: 0.15rem 0.4rem; border-radius: 3px; text-align: center; }
+.regime-mini.regime-bullish { color: var(--accent-green); }
+.regime-mini.regime-cautious_bullish { color: #7ee07e; }
+.regime-mini.regime-neutral { color: var(--text-secondary); }
+.regime-mini.regime-cautious_bearish { color: #f08080; }
+.regime-mini.regime-bearish { color: var(--accent-red); }
+
 /* ============ PIPELINE HEALTH PANEL ============ */
 
 .pipeline-health-card { margin-bottom: 1rem; }
