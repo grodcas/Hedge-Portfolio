@@ -768,8 +768,26 @@ export default {
           return Response.json(row || {}, { headers: corsHeaders });
         }
 
+        if (path === "/query/earnings-all") {
+          const rows = await db.prepare(
+            `SELECT ticker, period, estimate, actual, surprise, surprise_pct, report_date
+               FROM FUND_02_Earnings ORDER BY ticker, report_date`
+          ).all();
+          return Response.json(rows.results || [], { headers: corsHeaders });
+        }
+
         if (path === "/query/movers") {
-          const date = url.searchParams.get("date") || new Date().toISOString().slice(0, 10);
+          let date = url.searchParams.get("date") || new Date().toISOString().slice(0, 10);
+          // Fall back to latest available date if requested date has no data
+          const check = await db.prepare(
+            `SELECT 1 FROM MOVER_EXPLANATIONS_daily WHERE date = ? LIMIT 1`
+          ).bind(date).first();
+          if (!check) {
+            const latest = await db.prepare(
+              `SELECT MAX(date) AS d FROM MOVER_EXPLANATIONS_daily`
+            ).first();
+            if (latest?.d) date = latest.d;
+          }
           const rows = await db.prepare(
             `SELECT * FROM MOVER_EXPLANATIONS_daily WHERE date = ? ORDER BY direction, rank`
           ).bind(date).all();

@@ -496,16 +496,17 @@
           <div class="card">
             <h3>Sector Performance Today</h3>
             <div class="sector-bar" id="sectorBar"><span class="loading">Loading...</span></div>
-            <svg id="sectorBarGraph" viewBox="0 0 700 180" preserveAspectRatio="xMidYMid meet"></svg>
           </div>
 
           <!-- 2. Main Movers of the Day -->
           <div class="card">
             <h3>Main Movers</h3>
-            <div class="movers-wrap">
-              <svg id="moversChart" viewBox="0 0 700 260" preserveAspectRatio="xMidYMid meet"></svg>
+            <div class="movers-layout">
+              <div class="movers-left" id="moversExplanations"></div>
+              <div class="movers-right">
+                <svg id="moversChart" viewBox="0 0 320 320" preserveAspectRatio="xMidYMid meet"></svg>
+              </div>
             </div>
-            <div id="moversExplanations"></div>
           </div>
 
           <!-- 3. Operations (unified — no buy/sell split) -->
@@ -521,8 +522,8 @@
           <div class="card">
             <h3>Portfolio Rebalancing</h3>
             <div class="rebalance-summary" id="rebalanceSummary"></div>
-            <svg id="rebalanceChart" viewBox="0 0 700 400" preserveAspectRatio="xMidYMid meet"></svg>
             <ul class="macro-bullets" id="rebalanceRationale"><li class="loading">Loading...</li></ul>
+            <svg id="rebalanceChart" viewBox="0 0 800 220" preserveAspectRatio="xMidYMid meet"></svg>
           </div>
 
           <!-- 5. All Portfolio Tickers -->

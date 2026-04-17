@@ -1176,9 +1176,11 @@ async function updatePortfolioTab() {
 
     renderSectorBarV2(sectorPerf);
     renderMovers(movers);
-    renderOperations(ops);
+    renderOperations(ops, sigHist, trends);
     renderRebalance(rebal);
-    renderTickersGridV2(trends, sigHist, sectorPerf, signals);
+    const earningsRes = await fetch('/api/earnings-all').catch(() => null);
+    const earnings = earningsRes?.ok ? await earningsRes.json() : [];
+    renderTickersGridV2(trends, sigHist, sectorPerf, signals, earnings);
     updateOverviewPerformance(signals, sectorPerf);
   } catch (err) {
     console.error('Portfolio tab error:', err);
@@ -1187,63 +1189,94 @@ async function updatePortfolioTab() {
 
 function renderSectorBarV2(sectorPerf) {
   const bar = document.getElementById('sectorBar');
-  const svg = document.getElementById('sectorBarGraph');
   if (!sectorPerf?.sectors) {
     bar.innerHTML = '<span class="no-data">No sector price data yet</span>';
-    svg.innerHTML = '';
     return;
   }
   const sectors = Object.entries(sectorPerf.sectors);
-  bar.innerHTML = sectors.map(([name, data]) => {
-    const ret = data.return_pct;
-    const cls = ret > 0 ? 'sector-up' : ret < 0 ? 'sector-down' : 'sector-flat';
-    return `<div class="sector-cell ${cls}"><span class="sector-name">${name}</span><span class="sector-val">${ret > 0 ? '+' : ''}${ret?.toFixed(2) ?? '--'}%</span></div>`;
-  }).join('') + (sectorPerf.spy_return != null
-    ? `<div class="sector-cell sector-spy"><span class="sector-name">SPY</span><span class="sector-val">${sectorPerf.spy_return >= 0 ? '+' : ''}${sectorPerf.spy_return.toFixed(2)}%</span></div>` : '');
-
-  // Horizontal bargraph
   const all = sectors.map(([n, d]) => ({ name: n, ret: d.return_pct || 0 }));
   if (sectorPerf.spy_return != null) all.push({ name: 'SPY', ret: sectorPerf.spy_return });
-  all.sort((a, b) => b.ret - a.ret);
-  const maxAbs = Math.max(...all.map(a => Math.abs(a.ret)), 1);
-  const W = 700, H = all.length * 28 + 10, midX = 350;
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  svg.innerHTML = `<line x1="${midX}" y1="0" x2="${midX}" y2="${H}" stroke="#444" stroke-width="1"/>` +
-    all.map((s, i) => {
-      const y = i * 28 + 8;
-      const barW = (Math.abs(s.ret) / maxAbs) * (midX - 80);
-      const x = s.ret >= 0 ? midX : midX - barW;
-      const col = s.ret >= 0 ? '#2fbf71' : '#e14b4b';
-      return `<rect x="${x}" y="${y}" width="${barW}" height="18" rx="3" fill="${col}" opacity="0.75"/>
-        <text x="${s.ret >= 0 ? midX - 6 : midX + 6}" y="${y + 13}" text-anchor="${s.ret >= 0 ? 'end' : 'start'}" fill="#ccc" font-size="11">${s.name}</text>
-        <text x="${s.ret >= 0 ? x + barW + 5 : x - 5}" y="${y + 13}" text-anchor="${s.ret >= 0 ? 'start' : 'end'}" fill="${col}" font-size="11" font-weight="600">${s.ret >= 0 ? '+' : ''}${s.ret.toFixed(2)}%</text>`;
-    }).join('');
+  const maxAbs = Math.max(...all.map(a => Math.abs(a.ret)), 0.5);
+  const maxBarH = 82; // px
+
+  bar.innerHTML = all.map(s => {
+    const cls = s.ret > 0 ? 'sector-up' : s.ret < 0 ? 'sector-down' : 'sector-flat';
+    const spyCls = s.name === 'SPY' ? ' sector-spy' : '';
+    const h = Math.max(4, (Math.abs(s.ret) / maxAbs) * maxBarH);
+    const col = s.ret >= 0 ? '#2fbf71' : '#e14b4b';
+    return `<div class="sector-cell ${cls}${spyCls}">
+      <span class="sector-name">${s.name}</span>
+      <div class="sector-vbar-wrap"><div class="sector-vbar" style="height:${h}px;background:${col}"></div></div>
+      <span class="sector-val">${s.ret > 0 ? '+' : ''}${s.ret.toFixed(2)}%</span>
+    </div>`;
+  }).join('');
 }
 
 function renderMovers(movers) {
   const svg = document.getElementById('moversChart');
   const expl = document.getElementById('moversExplanations');
   if (!Array.isArray(movers) || movers.length === 0) {
-    svg.innerHTML = '<text x="350" y="130" text-anchor="middle" fill="#888" font-size="12">No movers data</text>';
-    expl.innerHTML = '';
+    svg.innerHTML = '<text x="160" y="160" text-anchor="middle" fill="#888" font-size="12">No movers data</text>';
+    expl.innerHTML = '<span class="no-data">No movers data</span>';
     return;
   }
-  const sorted = [...movers].sort((a, b) => (b.move_pct || 0) - (a.move_pct || 0));
-  const maxAbs = Math.max(...sorted.map(m => Math.abs(m.move_pct || 0)), 1);
-  const W = 700, rowH = Math.min(36, 260 / sorted.length), H = sorted.length * rowH + 10, midX = 350;
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  svg.innerHTML = `<line x1="${midX}" y1="0" x2="${midX}" y2="${H}" stroke="#444" stroke-width="1"/>` +
-    sorted.map((m, i) => {
-      const y = i * rowH + 4;
-      const pct = m.move_pct || 0;
-      const barW = (Math.abs(pct) / maxAbs) * (midX - 80);
-      const x = pct >= 0 ? midX : midX - barW;
-      const col = pct >= 0 ? '#2fbf71' : '#e14b4b';
-      return `<rect x="${x}" y="${y}" width="${barW}" height="${rowH - 6}" rx="3" fill="${col}" opacity="0.8"/>
-        <text x="${pct >= 0 ? midX - 6 : midX + 6}" y="${y + rowH / 2}" text-anchor="${pct >= 0 ? 'end' : 'start'}" fill="#ccc" font-size="11" font-weight="700">${m.ticker}</text>
-        <text x="${pct >= 0 ? x + barW + 5 : x - 5}" y="${y + rowH / 2}" text-anchor="${pct >= 0 ? 'start' : 'end'}" fill="${col}" font-size="10">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</text>`;
-    }).join('');
+  // Sort by absolute magnitude (biggest = outermost ring)
+  const sorted = [...movers].sort((a, b) => Math.abs(b.move_pct || 0) - Math.abs(a.move_pct || 0));
+  const maxAbs = Math.max(...sorted.map(m => Math.abs(m.move_pct || 0)), 0.5);
+  const n = sorted.length;
 
+  // Apple Fitness ring style: concentric rings with gap at top-left for labels
+  const strokeW = 14;
+  const ringGap = 4;
+  const rOuter = 138;
+  // Center shifted right to leave label space in the gap (left side, 9-12 o'clock)
+  const cx = 240, cy = 170;
+
+  let rings = '';
+  for (let i = 0; i < n; i++) {
+    const m = sorted[i];
+    const pct = m.move_pct || 0;
+    const col = pct >= 0 ? '#2fbf71' : '#e14b4b';
+    const dimCol = pct >= 0 ? 'rgba(47,191,113,0.15)' : 'rgba(225,75,75,0.15)';
+
+    const r = rOuter - i * (strokeW + ringGap);
+    if (r < 20) break;
+    const circumference = 2 * Math.PI * r;
+    const maxFill = 0.75; // 270°
+    const trackLen = maxFill * circumference;
+    const fill = Math.min(Math.abs(pct) / maxAbs, 1) * maxFill;
+    const dashLen = fill * circumference;
+
+    // Gap at ~1:30 (top-right area). 45° clockwise from 12 o'clock.
+    // Arc starts at ~9 o'clock (270°) going CW 270° ending at ~6 o'clock.
+    // offset = (1 - 270/360) * C = 0.25 * C
+    const offset = circumference * 0.25;
+
+    // Background track
+    rings += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${dimCol}" stroke-width="${strokeW}"
+      stroke-dasharray="${trackLen} ${circumference - trackLen}" stroke-dashoffset="${offset}"/>`;
+    // Filled arc
+    rings += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${col}" stroke-width="${strokeW}"
+      stroke-linecap="round"
+      stroke-dasharray="${dashLen} ${circumference - dashLen}"
+      stroke-dashoffset="${offset}"
+      style="filter:drop-shadow(0 0 4px ${col}40)"/>`;
+
+    // Labels: fixed X near rings, Y spans from outermost ring top to innermost ring top
+    const rFirst = rOuter; // outermost
+    const rLast = rOuter - (n - 1) * (strokeW + ringGap); // innermost
+    const yTop = cy - rFirst + strokeW / 2;
+    const yBot = cy - rLast + strokeW / 2;
+    const labelY = n > 1 ? yTop + i * ((yBot - yTop) / (n - 1)) - 6 : yTop - 6;
+    const labelX = cx - rLast + 16; // just right of innermost ring edge
+    rings += `<text x="${labelX - 48}" y="${labelY}" text-anchor="end" fill="#888" font-size="9">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</text>`;
+    rings += `<text x="${labelX - 42}" y="${labelY}" text-anchor="start" fill="${col}" font-size="10" font-weight="700">${m.ticker}</text>`;
+  }
+
+  svg.setAttribute('viewBox', '0 0 460 340');
+  svg.innerHTML = rings;
+
+  // Text explanations
   expl.innerHTML = sorted.map(m => {
     const col = (m.move_pct || 0) >= 0 ? 'bullet-bull' : 'bullet-bear';
     return `<div class="mover-expl"><span class="mover-ticker">${m.ticker}</span><span class="mover-thesis ${col}">${escapeHtml(m.thesis || '')}</span></div>`;
@@ -1254,7 +1287,12 @@ const OP_ACTION_LABELS = { buy: 'BUY', sell: 'SELL', short: 'SHORT' };
 const OP_ACTION_COLORS = { buy: '#2fbf71', sell: '#e8c14b', short: '#e14b4b' };
 const OP_RISK_COLORS = { low: '#2fbf71', medium: '#e8c14b', high: '#e14b4b' };
 
-function renderOperations(opsRows) {
+let _cachedSigHist = [];
+let _cachedTrends = { long: [], short: [] };
+
+function renderOperations(opsRows, sigHist, trends) {
+  _cachedSigHist = sigHist || _cachedSigHist;
+  _cachedTrends = trends || _cachedTrends;
   const el = document.getElementById('operationsList');
   const meta = document.getElementById('opsMeta');
   if (!Array.isArray(opsRows) || opsRows.length === 0) {
@@ -1279,14 +1317,33 @@ function renderOperations(opsRows) {
         const ct = o.counter_ticker ? ` / ${OP_ACTION_LABELS[o.action_counter] || o.action_counter} ${o.counter_ticker}` : '';
         let bullets = [];
         try { bullets = Array.isArray(o.bullets) ? o.bullets : []; } catch {}
+        const shortMap = {};
+        const longMap = {};
+        for (const r of (_cachedTrends.short || [])) shortMap[r.ticker] = r;
+        for (const r of (_cachedTrends.long || [])) longMap[r.ticker] = r;
+        const lt = longMap[o.ticker];
+        const st = shortMap[o.ticker];
+        const ltScore = lt ? Number(lt.score) : 0;
+        const stScore = st ? Number(st.score) : 0;
+        // Risk as a direct 0→1 scale: low=0.2, medium=0.5, high=0.8
+        const riskScore = o.risk === 'low' ? 0.2 : o.risk === 'medium' ? 0.5 : 0.8;
+        const bars14 = render14Bars(_cachedSigHist, o.ticker, row.created_at?.slice(0, 10));
+
         return `<details class="op-card">
           <summary>
             <span class="op-action" style="color:${OP_ACTION_COLORS[o.action] || '#ccc'}">${OP_ACTION_LABELS[o.action] || o.action} ${o.ticker}${ct}</span>
-            <span class="op-risk" style="color:${OP_RISK_COLORS[o.risk] || '#888'}">${(o.risk || '').toUpperCase()}</span>
+            <span class="op-bars-inline">${bars14}</span>
           </summary>
-          <div class="op-detail">
-            <p class="op-thesis">${escapeHtml(o.thesis || '')}</p>
-            <ul class="macro-bullets">${bullets.map(b => `<li class="bullet-${(b.bias || 'neutral')}">${escapeHtml(b.text || '')}</li>`).join('')}</ul>
+          <div class="op-detail op-detail-grid">
+            <div class="op-detail-left">
+              <p class="op-thesis">${escapeHtml(o.thesis || '')}</p>
+              <ul class="macro-bullets">${bullets.map(b => `<li class="bullet-${(b.bias || 'neutral')}">${escapeHtml(b.text || '')}</li>`).join('')}</ul>
+            </div>
+            <div class="op-detail-right">
+              ${renderScoreBar('Long-term', ltScore)}
+              ${renderScoreBar('Short-term', stScore)}
+              ${renderScoreBar('Risk', riskScore, riskToColor)}
+            </div>
           </div>
         </details>`;
       }).join('')}
@@ -1299,7 +1356,7 @@ function renderRebalance(rebal) {
   const ratEl = document.getElementById('rebalanceRationale');
   const sumEl = document.getElementById('rebalanceSummary');
   if (!rebal?.target_weights) {
-    svg.innerHTML = '<text x="350" y="200" text-anchor="middle" fill="#888" font-size="12">No rebalance data</text>';
+    svg.innerHTML = '<text x="400" y="110" text-anchor="middle" fill="#888" font-size="12">No rebalance data</text>';
     ratEl.innerHTML = '';
     sumEl.textContent = '';
     return;
@@ -1313,63 +1370,124 @@ function renderRebalance(rebal) {
   let rawBlob = {};
   try { rawBlob = JSON.parse(rebal.raw_blob); } catch {}
   sumEl.textContent = rawBlob.summary || '';
+  setBullets(ratEl, rationale, 'No rationale.');
 
-  // Show only tickers with |delta| > 0.2
-  const shifted = Object.entries(deltas).filter(([, d]) => Math.abs(d) >= 0.2).sort((a, b) => b[1] - a[1]);
-  if (shifted.length === 0) {
-    svg.innerHTML = '<text x="350" y="200" text-anchor="middle" fill="#888" font-size="12">Portfolio in balance — no shifts needed</text>';
-  } else {
-    const W = 700, rowH = 32, H = shifted.length * rowH + 40, padL = 60;
-    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    const maxW = Math.max(...shifted.map(([, d]) => Math.abs(d)), 1);
-    svg.innerHTML = shifted.map(([ticker, delta], i) => {
-      const y = i * rowH + 20;
-      const cur = Number(current[ticker]) || 0;
-      const tgt = Number(target[ticker]) || 0;
-      const barScale = (W - padL - 140) / (Math.max(...Object.values(target).map(Number), 8));
-      const curW = cur * barScale;
-      const tgtW = tgt * barScale;
-      const col = delta >= 0 ? '#2fbf71' : '#e14b4b';
-      return `<text x="${padL - 6}" y="${y + 14}" text-anchor="end" fill="#ccc" font-size="11" font-weight="600">${ticker}</text>
-        <rect x="${padL}" y="${y}" width="${curW}" height="12" rx="2" fill="#444" opacity="0.6"/>
-        <rect x="${padL}" y="${y + 14}" width="${tgtW}" height="12" rx="2" fill="${col}" opacity="0.7"/>
-        <text x="${padL + Math.max(curW, tgtW) + 8}" y="${y + 9}" fill="#888" font-size="9">now ${cur.toFixed(1)}%</text>
-        <text x="${padL + Math.max(curW, tgtW) + 8}" y="${y + 23}" fill="${col}" font-size="9" font-weight="600">target ${tgt.toFixed(1)}% (${delta >= 0 ? '+' : ''}${delta.toFixed(1)})</text>`;
-    }).join('');
+  // Vertical bars: all tickers, current (grey, behind) + target (colored, in front)
+  const tickers = Object.keys(target).sort();
+  const n = tickers.length;
+  if (n === 0) { svg.innerHTML = ''; return; }
+
+  const W = Math.max(n * 32, 700);
+  const H = 220;
+  const padT = 24, padB = 50, padL = 10;
+  const barAreaW = W - padL * 2;
+  const groupW = barAreaW / n;
+  const barW = Math.min(groupW * 0.7, 22);
+  const maxVal = Math.max(...Object.values(target).map(Number), ...Object.values(current).map(Number), 6);
+  const barH = H - padT - padB;
+
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+  let bars = '';
+  for (let i = 0; i < n; i++) {
+    const t = tickers[i];
+    const cur = Number(current[t]) || 0;
+    const tgt = Number(target[t]) || 0;
+    const delta = Number(deltas[t]) || 0;
+    const cx = padL + i * groupW + groupW / 2;
+    const x = cx - barW / 2;
+
+    const curH = (cur / maxVal) * barH;
+    const tgtH = (tgt / maxVal) * barH;
+
+    const col = Math.abs(delta) < 0.2 ? '#666' : delta > 0 ? '#2fbf71' : '#e14b4b';
+
+    if (tgt >= cur) {
+      // Buy case: target (colored) is taller, show it behind; current (grey) in front
+      bars += `<rect x="${x}" y="${H - padB - tgtH}" width="${barW}" height="${tgtH}" rx="2" fill="${col}" opacity="0.85"/>`;
+      bars += `<rect x="${x}" y="${H - padB - curH}" width="${barW}" height="${curH}" rx="2" fill="#3a3f4a" opacity="0.8"/>`;
+    } else {
+      // Sell case: current (grey) is taller, show it behind; target (colored) in front
+      bars += `<rect x="${x}" y="${H - padB - curH}" width="${barW}" height="${curH}" rx="2" fill="#3a3f4a" opacity="0.7"/>`;
+      bars += `<rect x="${x}" y="${H - padB - tgtH}" width="${barW}" height="${tgtH}" rx="2" fill="${col}" opacity="0.85"/>`;
+    }
+
+    // Delta label on top (only if significant)
+    if (Math.abs(delta) >= 0.2) {
+      bars += `<text x="${cx}" y="${H - padB - Math.max(curH, tgtH) - 4}" text-anchor="middle" fill="${col}" font-size="8" font-weight="700">${delta > 0 ? '+' : ''}${delta.toFixed(1)}</text>`;
+    }
+
+    // Ticker label at bottom
+    bars += `<text x="${cx}" y="${H - padB + 14}" text-anchor="middle" fill="#aaa" font-size="8" font-weight="600">${t}</text>`;
+    bars += `<text x="${cx}" y="${H - padB + 24}" text-anchor="middle" fill="#666" font-size="7">${tgt.toFixed(1)}%</text>`;
   }
 
-  setBullets(ratEl, rationale, 'No rationale.');
+  // Legend
+  bars += `<rect x="${W - 140}" y="6" width="10" height="10" rx="2" fill="#3a3f4a" opacity="0.7"/>`;
+  bars += `<text x="${W - 126}" y="14" fill="#888" font-size="9">Current</text>`;
+  bars += `<rect x="${W - 76}" y="6" width="10" height="10" rx="2" fill="#666" opacity="0.85"/>`;
+  bars += `<text x="${W - 62}" y="14" fill="#888" font-size="9">Target</text>`;
+
+  svg.innerHTML = bars;
 }
 
-function render14Bars(sigHist, ticker) {
+// Score → color gradient: -1.0 (deep red) → 0 (grey) → +1.0 (deep green)
+// Simple 3-color: below -0.25 = red, -0.25 to +0.25 = yellow, above +0.25 = green
+function scoreToColor(v) {
+  const s = Math.max(-1, Math.min(1, v || 0));
+  if (s > 0.25) return '#2fbf71';
+  if (s < -0.25) return '#ef4444';
+  return '#facc15';
+}
+
+function render14Bars(sigHist, ticker, startDate) {
   const rows = (sigHist || []).filter(r => r.ticker === ticker).sort((a, b) => a.date.localeCompare(b.date));
   const bars = [];
   for (let i = 0; i < 14; i++) {
     const row = rows[i];
     if (!row) { bars.push('<span class="bar14 bar14-empty"></span>'); continue; }
-    const mag = Number(row.magnitude) || 0;
+    // Before operation existed → dim
+    if (startDate && row.date < startDate) { bars.push('<span class="bar14 bar14-empty"></span>'); continue; }
     const sent = Number(row.sentiment_score) || 0;
-    let cls = 'bar14-grey';
-    if (row.earnings_flag) cls = 'bar14-earnings';
-    else if (row.trend_updated) cls = sent >= 0 ? 'bar14-bull' : 'bar14-bear';
-    else if (mag >= 0.4) cls = sent >= 0 ? 'bar14-bull-light' : 'bar14-bear-light';
-    bars.push(`<span class="bar14 ${cls}" title="${row.date}: sent=${sent.toFixed(2)} mag=${mag.toFixed(2)}${row.earnings_flag ? ' EARNINGS' : ''}${row.trend_updated ? ' TREND' : ''}"></span>`);
+    const mag = Number(row.magnitude) || 0;
+    const color = row.earnings_flag ? '#a855f7' : scoreToColor(sent);
+    const height = row.trend_updated ? '22px' : `${12 + Math.round(mag * 10)}px`;
+    const title = `${row.date}: sent=${sent.toFixed(2)} mag=${mag.toFixed(2)}${row.earnings_flag ? ' EARNINGS' : ''}${row.trend_updated ? ' TREND' : ''}`;
+    bars.push(`<span class="bar14" style="background:${color};height:${height}" title="${title}"></span>`);
   }
   return `<div class="bars14">${bars.join('')}</div>`;
 }
 
-function renderTickersGridV2(trends, sigHist, sectorPerf, signals) {
+function renderScoreBar(label, score, colorFn) {
+  const col = colorFn ? colorFn(score) : scoreToColor(score);
+  const fillPct = Math.max(5, Math.abs(score) * 100);
+  return `<div class="score-hbar">
+    <span class="score-hbar-label">${label}</span>
+    <div class="score-hbar-track"><div class="score-hbar-fill" style="width:${fillPct}%;background:${col}"></div></div>
+    <span class="score-hbar-val" style="color:${col}">${score >= 0 ? '+' : ''}${score.toFixed(2)}</span>
+  </div>`;
+}
+
+// Risk: 0→0.35 green, 0.35→0.65 yellow, above 0.65 red
+// Input is direct 0→1 scale (0.2=low, 0.5=medium, 0.8=high)
+function riskToColor(v) {
+  if (v <= 0.35) return '#2fbf71';
+  if (v <= 0.65) return '#facc15';
+  return '#ef4444';
+}
+
+function renderTickersGridV2(trends, sigHist, sectorPerf, signals, earnings) {
   const grid = document.getElementById('tickersGrid');
   const longMap = {};
   const shortMap = {};
   for (const r of (trends.long || [])) longMap[r.ticker] = r;
   for (const r of (trends.short || [])) shortMap[r.ticker] = r;
 
-  const sectorAvgs = {};
-  if (sectorPerf?.sectors) {
-    for (const [, data] of Object.entries(sectorPerf.sectors)) {
-      for (const ticker of (data.tickers || [])) sectorAvgs[ticker] = data.return_pct;
-    }
+  // Group earnings by ticker
+  const earningsMap = {};
+  for (const e of (earnings || [])) {
+    if (!earningsMap[e.ticker]) earningsMap[e.ticker] = [];
+    earningsMap[e.ticker].push(e);
   }
 
   const tickers = [...new Set([...Object.keys(longMap), ...Object.keys(shortMap)])].sort();
@@ -1379,18 +1497,184 @@ function renderTickersGridV2(trends, sigHist, sectorPerf, signals) {
   }
 
   grid.innerHTML = `<div class="tickers-header">
-    <span class="th-ticker">Ticker</span><span class="th-lt">LT Trend</span><span class="th-st">ST Trend</span><span class="th-bars">14-Day</span><span class="th-thesis">Thesis</span>
+    <span class="th-ticker">Ticker</span><span class="th-lt">LT</span><span class="th-st">ST</span><span class="th-bars">14-Day</span><span class="th-thesis">Thesis</span>
   </div>` + tickers.map(t => {
     const lt = longMap[t];
     const st = shortMap[t];
-    const ltBadge = lt ? `<span class="regime-mini regime-${lt.regime}">${lt.score > 0 ? '+' : ''}${Number(lt.score).toFixed(2)}</span>` : '<span class="regime-mini">--</span>';
-    const stBadge = st ? `<span class="regime-mini regime-${st.regime}">${st.score > 0 ? '+' : ''}${Number(st.score).toFixed(2)}</span>` : '<span class="regime-mini">--</span>';
+    const ltBadge = lt ? `<span class="regime-mini regime-${lt.regime}">${Number(lt.score) > 0 ? '+' : ''}${Number(lt.score).toFixed(2)}</span>` : '<span class="regime-mini">--</span>';
+    const stBadge = st ? `<span class="regime-mini regime-${st.regime}">${Number(st.score) > 0 ? '+' : ''}${Number(st.score).toFixed(2)}</span>` : '<span class="regime-mini">--</span>';
     const bars = render14Bars(sigHist, t);
     const thesis = st?.thesis || lt?.thesis || '';
-    return `<div class="ticker-row">
-      <span class="tr-ticker">${t}</span>${ltBadge}${stBadge}${bars}<span class="tr-thesis">${escapeHtml(thesis).slice(0, 100)}</span>
-    </div>`;
+
+    // Unfoldable detail
+    const tickerEarnings = (earningsMap[t] || []).slice(-4);
+    const earningsChart = renderEarningsChart(tickerEarnings, t);
+    const stChart = renderSTChart(sigHist, t);
+    const ltDrivers = lt?.drivers ? parseBullets(lt.drivers) : [];
+    const ltNarrative = lt?.narrative ? parseBullets(lt.narrative) : [];
+    const stDrivers = st?.drivers ? parseBullets(st.drivers) : [];
+
+    return `<details class="ticker-row-detail">
+      <summary class="ticker-row">
+        <span class="tr-ticker">${t}</span>${ltBadge}${stBadge}${bars}<span class="tr-thesis">${escapeHtml(thesis).slice(0, 100)}</span>
+      </summary>
+      <div class="ticker-expanded">
+        <div class="ticker-exp-charts">
+          <div class="ticker-exp-section">
+            <h4>Long-Term — Earnings</h4>
+            <div class="ticker-exp-row">
+              <div class="ticker-chart-col">${earningsChart}</div>
+              <div class="ticker-text-col">
+                ${ltDrivers.length ? `<ul class="macro-bullets">${ltDrivers.map(b => `<li class="bullet-${b.bias || 'neutral'}">${escapeHtml(b.text)}</li>`).join('')}</ul>` : '<span class="no-data">No LT drivers</span>'}
+              </div>
+            </div>
+          </div>
+          <div class="ticker-exp-section">
+            <h4>Short-Term — Price + Sentiment</h4>
+            <div class="ticker-exp-row">
+              <div class="ticker-chart-col">${stChart}</div>
+              <div class="ticker-text-col">
+                ${stDrivers.length ? `<ul class="macro-bullets">${stDrivers.map(b => `<li class="bullet-${b.bias || 'neutral'}">${escapeHtml(b.text)}</li>`).join('')}</ul>` : '<span class="no-data">No ST drivers</span>'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>`;
   }).join('');
+}
+
+function parseBullets(raw) {
+  if (Array.isArray(raw)) return raw;
+  try { return JSON.parse(raw); } catch { return []; }
+}
+
+function renderEarningsChart(earnings, ticker) {
+  if (!earnings || earnings.length === 0) {
+    return `<svg viewBox="0 0 260 140" class="ticker-svg"><text x="130" y="70" text-anchor="middle" fill="#888" font-size="11">Earnings data loading...</text></svg>`;
+  }
+  const W = 260, H = 140, padB = 28, padT = 16, padL = 8;
+  const n = earnings.length;
+  const barGroupW = (W - padL * 2) / n;
+  const barW = barGroupW * 0.3;
+  const gap = barGroupW * 0.08;
+
+  const allVals = earnings.flatMap(e => [e.estimate, e.actual].filter(v => v != null));
+  const yMax = Math.max(...allVals, 0.01) * 1.15;
+  const yMin = Math.min(...allVals, 0) < 0 ? Math.min(...allVals) * 1.15 : 0;
+  const yRange = yMax - yMin || 1;
+  const yOf = v => padT + (1 - (v - yMin) / yRange) * (H - padT - padB);
+  const zeroY = yOf(0);
+
+  let svg = '';
+  // Zero line
+  svg += `<line x1="0" y1="${zeroY}" x2="${W}" y2="${zeroY}" stroke="#444" stroke-width="1"/>`;
+
+  for (let i = 0; i < n; i++) {
+    const e = earnings[i];
+    const x = padL + i * barGroupW + barGroupW * 0.15;
+    const est = Number(e.estimate);
+    const act = Number(e.actual);
+    const beat = e.surprise_pct != null ? (e.surprise_pct > 2 ? 'BEAT' : e.surprise_pct < -2 ? 'MISS' : 'MEET') : '';
+    const beatCol = beat === 'BEAT' ? '#2fbf71' : beat === 'MISS' ? '#e14b4b' : '#e8c14b';
+
+    // Estimate bar (dimmer)
+    if (Number.isFinite(est)) {
+      const h = Math.abs(yOf(est) - zeroY);
+      const y = est >= 0 ? yOf(est) : zeroY;
+      svg += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="2" fill="#555" opacity="0.5"/>`;
+    }
+    // Actual bar
+    if (Number.isFinite(act)) {
+      const h = Math.abs(yOf(act) - zeroY);
+      const y = act >= 0 ? yOf(act) : zeroY;
+      svg += `<rect x="${x + barW + gap}" y="${y}" width="${barW}" height="${h}" rx="2" fill="${beatCol}" opacity="0.85"/>`;
+    }
+    // Beat/miss label
+    if (beat) {
+      svg += `<text x="${x + barW}" y="${padT - 3}" text-anchor="middle" fill="${beatCol}" font-size="8" font-weight="700">${beat}</text>`;
+    }
+    // Period label
+    const periodLabel = (e.period || '').slice(-5); // e.g. "Q3 25"
+    svg += `<text x="${x + barW}" y="${H - 6}" text-anchor="middle" fill="#888" font-size="9">${periodLabel}</text>`;
+  }
+
+  // Legend
+  svg += `<rect x="${W - 80}" y="${H - 18}" width="8" height="8" rx="1" fill="#555" opacity="0.5"/>`;
+  svg += `<text x="${W - 68}" y="${H - 11}" fill="#888" font-size="8">Est</text>`;
+  svg += `<rect x="${W - 44}" y="${H - 18}" width="8" height="8" rx="1" fill="#e8c14b" opacity="0.85"/>`;
+  svg += `<text x="${W - 32}" y="${H - 11}" fill="#888" font-size="8">Actual</text>`;
+
+  return `<svg viewBox="0 0 ${W} ${H}" class="ticker-svg">${svg}</svg>`;
+}
+
+function renderSTChart(sigHist, ticker) {
+  const rows = (sigHist || []).filter(r => r.ticker === ticker).sort((a, b) => a.date.localeCompare(b.date));
+  if (rows.length === 0) {
+    return `<svg viewBox="0 0 260 120" class="ticker-svg"><text x="130" y="60" text-anchor="middle" fill="#888" font-size="11">Accumulating signal history...</text></svg>`;
+  }
+  // If only 1 point, show it as a single bar
+  if (rows.length === 1) {
+    const r = rows[0];
+    const sent = Number(r.sentiment_score) || 0;
+    const col = scoreToColor(sent);
+    return `<svg viewBox="0 0 260 120" class="ticker-svg">
+      <line x1="0" y1="60" x2="260" y2="60" stroke="#444" stroke-width="1" stroke-dasharray="3,3"/>
+      <circle cx="130" cy="${60 - sent * 40}" r="6" fill="${col}" stroke="#fff" stroke-width="1"/>
+      <text x="130" y="100" text-anchor="middle" fill="#888" font-size="9">${r.date} — sent: ${sent.toFixed(2)}</text>
+    </svg>`;
+  }
+
+  const W = 260, H = 120, padL = 8, padR = 8, padT = 12, padB = 20;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const n = rows.length;
+  const xStep = plotW / Math.max(n - 1, 1);
+
+  // Sentiment line
+  const sents = rows.map(r => Number(r.sentiment_score) || 0);
+  const sMin = Math.min(...sents, -0.5);
+  const sMax = Math.max(...sents, 0.5);
+  const sRange = sMax - sMin || 1;
+  const yOf = v => padT + (1 - (v - sMin) / sRange) * plotH;
+
+  let svg = '';
+  // Zero line
+  const zeroY = yOf(0);
+  svg += `<line x1="${padL}" y1="${zeroY}" x2="${W - padR}" y2="${zeroY}" stroke="#444" stroke-width="1" stroke-dasharray="3,3"/>`;
+
+  // Sentiment area + line
+  const points = rows.map((r, i) => `${(padL + i * xStep).toFixed(1)},${yOf(sents[i]).toFixed(1)}`);
+  const areaPath = `M${padL},${zeroY} L${points.join(' L')} L${(padL + (n - 1) * xStep).toFixed(1)},${zeroY} Z`;
+  svg += `<path d="${areaPath}" fill="url(#sentGrad${ticker})" opacity="0.3"/>`;
+  svg += `<polyline points="${points.join(' ')}" fill="none" stroke="#7ea6ff" stroke-width="1.5"/>`;
+
+  // Dots for trend-updated days
+  rows.forEach((r, i) => {
+    if (r.trend_updated) {
+      const x = padL + i * xStep;
+      const y = yOf(sents[i]);
+      const col = sents[i] >= 0 ? '#2fbf71' : '#e14b4b';
+      svg += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="${col}" stroke="#fff" stroke-width="1"/>`;
+    }
+    if (r.earnings_flag) {
+      const x = padL + i * xStep;
+      svg += `<circle cx="${x.toFixed(1)}" cy="${padT - 4}" r="3" fill="#a855f7"/>`;
+    }
+  });
+
+  // Date labels
+  svg += `<text x="${padL}" y="${H - 4}" fill="#888" font-size="8">${rows[0].date.slice(5)}</text>`;
+  svg += `<text x="${W - padR}" y="${H - 4}" text-anchor="end" fill="#888" font-size="8">${rows[n - 1].date.slice(5)}</text>`;
+
+  // Gradient def
+  const gradId = `sentGrad${ticker}`;
+  svg = `<defs><linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#7ea6ff" stop-opacity="0.4"/>
+    <stop offset="100%" stop-color="#7ea6ff" stop-opacity="0"/>
+  </linearGradient></defs>` + svg;
+
+  return `<svg viewBox="0 0 ${W} ${H}" class="ticker-svg">${svg}</svg>`;
 }
 
 function updateOverviewPerformance(signals, sectorPerf) {

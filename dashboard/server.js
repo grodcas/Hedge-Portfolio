@@ -328,6 +328,10 @@ app.get("/api/signal-history", async (req, res) => {
     res.json(await fetchFromWorker(q));
   } catch (error) { handleD1Error(res, "/api/signal-history", error); }
 });
+app.get("/api/earnings-all", async (req, res) => {
+  try { res.json(await fetchFromWorker("/query/earnings-all")); }
+  catch (error) { handleD1Error(res, "/api/earnings-all", error); }
+});
 app.get("/api/operations", async (req, res) => {
   try { res.json(await fetchFromWorker("/query/operations")); }
   catch (error) { handleD1Error(res, "/api/operations", error); }

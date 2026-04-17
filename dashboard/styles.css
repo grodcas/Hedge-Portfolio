@@ -1946,11 +1946,15 @@ select {
   background: var(--bg-tertiary); border: 1px solid var(--border-color);
 }
 .sector-name { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; }
+.sector-vbar-wrap { display: flex; align-items: flex-end; justify-content: center; height: 90px; width: 100%; }
+.sector-vbar { width: 100%; border-radius: 3px 3px 0 0; min-height: 4px; transition: height 0.3s; opacity: 0.75; }
 .sector-val { font-family: 'SF Mono', Consolas, monospace; font-weight: 600; font-size: 0.95rem; }
 .sector-up { border-left: 3px solid var(--accent-green); }
 .sector-up .sector-val { color: var(--accent-green); }
 .sector-down { border-left: 3px solid var(--accent-red); }
 .sector-down .sector-val { color: var(--accent-red); }
+.sector-flat { border-left: 3px solid var(--text-secondary); }
+.sector-flat .sector-val { color: var(--text-secondary); }
 .sector-spy { border-left: 3px solid var(--accent-blue); font-weight: 700; }
 
 .signals-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
@@ -1997,8 +2001,11 @@ select {
 
 /* ============ PORTFOLIO V2 NEW COMPONENTS ============ */
 
-#sectorBarGraph, .movers-wrap svg { width: 100%; max-width: 720px; display: block; background: var(--bg-tertiary); border-radius: 4px; margin-top: 0.6rem; }
-#rebalanceChart { width: 100%; max-width: 720px; display: block; background: var(--bg-tertiary); border-radius: 4px; }
+.movers-layout { display: grid; grid-template-columns: 1fr auto; gap: 1.5rem; align-items: start; }
+@media (max-width: 800px) { .movers-layout { grid-template-columns: 1fr; } }
+.movers-left { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+.movers-right svg { width: 380px; height: 320px; display: block; }
+#rebalanceChart { width: 100%; display: block; background: var(--bg-tertiary); border-radius: 4px; }
 
 .movers-wrap { margin-bottom: 0.6rem; }
 #moversExplanations { display: flex; flex-direction: column; gap: 0.3rem; }
@@ -2023,21 +2030,30 @@ select {
 .op-action { font-family: 'SF Mono', Consolas, monospace; font-weight: 700; font-size: 0.85rem; }
 .op-risk { font-size: 0.7rem; margin-left: auto; font-weight: 600; letter-spacing: 0.05em; }
 .op-detail { padding: 0.4rem 0.75rem 0.6rem 1rem; border-top: 1px solid var(--border-color); }
+.op-detail-grid { display: grid; grid-template-columns: 1fr auto; gap: 1rem; }
+@media (max-width: 700px) { .op-detail-grid { grid-template-columns: 1fr; } }
+.op-detail-left { min-width: 0; }
+.op-detail-right { display: flex; flex-direction: column; justify-content: center; gap: 0.5rem; min-width: 240px; width: 280px; }
+.op-bars-inline { margin-left: auto; flex-shrink: 0; }
+.op-bars-inline .bars14 { gap: 1px; }
+.op-bars-inline .bar14 { width: 5px; height: 16px; }
+
+/* Horizontal score bars (LT / ST / Risk in operation detail) */
+.score-hbar { display: flex; align-items: center; gap: 0.5rem; }
+.score-hbar-label { font-size: 0.7rem; color: var(--text-secondary); width: 72px; flex-shrink: 0; text-align: right; text-transform: uppercase; letter-spacing: 0.04em; }
+.score-hbar-track { flex: 1; height: 10px; background: #2a2f3a; border-radius: 5px; overflow: hidden; }
+.score-hbar-fill { height: 100%; border-radius: 5px; transition: width 0.3s; min-width: 3px; }
+.score-hbar-val { font-family: 'SF Mono', Consolas, monospace; font-size: 0.75rem; font-weight: 600; width: 3.2rem; flex-shrink: 0; text-align: right; }
 .op-thesis { font-style: italic; color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.4rem; }
 
 /* Rebalancing */
 .rebalance-summary { font-style: italic; color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.6rem; }
+#rebalanceChart { width: 100%; display: block; background: var(--bg-tertiary); border-radius: 4px; margin-top: 0.6rem; }
 
 /* 14-bar strip */
 .bars14 { display: flex; gap: 2px; align-items: flex-end; }
-.bar14 { width: 6px; height: 18px; border-radius: 2px; display: inline-block; }
-.bar14-empty { background: var(--bg-tertiary); opacity: 0.3; }
-.bar14-grey { background: #555; }
-.bar14-bull { background: var(--accent-green); }
-.bar14-bear { background: var(--accent-red); }
-.bar14-bull-light { background: rgba(47, 191, 113, 0.45); }
-.bar14-bear-light { background: rgba(225, 75, 75, 0.45); }
-.bar14-earnings { background: #a855f7; }
+.bar14 { width: 6px; height: 18px; border-radius: 2px; display: inline-block; transition: background 0.2s; }
+.bar14-empty { background: var(--bg-tertiary); opacity: 0.3; height: 18px; }
 
 /* Tickers grid */
 .tickers-header { display: grid; grid-template-columns: 60px 80px 80px 110px 1fr; gap: 0.5rem; padding: 0.4rem 0.5rem; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 1px solid var(--border-color); }
@@ -2051,6 +2067,19 @@ select {
 .regime-mini.regime-neutral { color: var(--text-secondary); }
 .regime-mini.regime-cautious_bearish { color: #f08080; }
 .regime-mini.regime-bearish { color: var(--accent-red); }
+
+/* Ticker expanded (unfoldable) */
+.ticker-row-detail { border-bottom: 1px solid var(--border-color); }
+.ticker-row-detail > .ticker-row { cursor: pointer; list-style: none; }
+.ticker-row-detail > .ticker-row::-webkit-details-marker { display: none; }
+.ticker-expanded { padding: 0.6rem 0.5rem 0.8rem; border-top: 1px solid var(--border-color); background: var(--bg-tertiary); }
+.ticker-exp-charts { display: flex; flex-direction: column; gap: 1rem; }
+.ticker-exp-section h4 { margin: 0 0 0.4rem; font-size: 0.75rem; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.04em; }
+.ticker-exp-row { display: grid; grid-template-columns: auto 1fr; gap: 1rem; align-items: start; }
+@media (max-width: 700px) { .ticker-exp-row { grid-template-columns: 1fr; } }
+.ticker-chart-col { flex-shrink: 0; }
+.ticker-text-col { min-width: 0; }
+.ticker-svg { width: 260px; height: auto; display: block; background: var(--bg-primary); border-radius: 4px; }
 
 /* ============ PIPELINE HEALTH PANEL ============ */
 
