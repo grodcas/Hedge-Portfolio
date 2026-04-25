@@ -241,6 +241,20 @@ HF/
 
 ---
 
+## Dead Code (pre-production cleanup)
+
+Kept intentionally for now (scaffolding, mockups, fallbacks). Safe to delete before a true production cut if not adopted by then.
+
+| Path | Status | Note |
+|------|--------|------|
+| `dashboard/portfolio-funnel-mockup.html` / `.js` | Mockup, not routed by `dashboard/server.js` | Kept as design reference for future portfolio tab |
+| `workers/nav-builder/` | Wired (`wrangler.jsonc` + `src/worker.js`) but uncalled | No pipeline step, dashboard route, or service binding invokes it |
+| `workers/position-builder/` | Same — wired but uncalled | — |
+| `workers/probability-curve-builder/` | Same — wired but uncalled | — |
+| `sentiment/AAII.mhtml` | Fallback only | Live axios scrape is primary; MHTML reader runs only on failure |
+
+---
+
 ## Key Design Decisions
 
 | Decision | Rationale |

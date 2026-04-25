@@ -1,3 +1,6 @@
+import peersMapping from "../../../config/peers-mapping.json";
+import portfolioTargets from "../../../config/portfolio-targets.json";
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -196,6 +199,54 @@ export default {
           }, { headers: corsHeaders });
         }
 
+        // -------- GET /query/narrative --------
+        // Reads NARRATIVE_01_Content rows for a given entity. Returns the 4
+        // current fields (current_reading, identification, recommendation,
+        // lede) parsed as structured JSON.
+        //
+        // Params:
+        //   entity_type  required: 'regime' | 'sector_landscape' | 'sector' | 'stock_landscape' | 'stock'
+        //   entity_id    optional: e.g. 'Healthcare', 'UNH'. Regime + landscapes omit.
+        if (path === "/query/narrative") {
+          const entityType = url.searchParams.get("entity_type");
+          const entityId = url.searchParams.get("entity_id") || null;
+          if (!entityType) {
+            return Response.json({ error: "entity_type required" }, { status: 400, headers: corsHeaders });
+          }
+
+          const { results } = await db.prepare(`
+            SELECT id, entity_type, entity_id, date, field, content_json,
+                   sources_json, model, input_hash, created_at, last_confirmed_at
+              FROM NARRATIVE_01_Content
+             WHERE entity_type = ? AND IFNULL(entity_id, '') = IFNULL(?, '')
+               AND superseded_by IS NULL
+             ORDER BY date DESC, field ASC
+          `).bind(entityType, entityId).all();
+
+          const fields = {};
+          for (const r of (results || [])) {
+            let content = r.content_json;
+            try { content = JSON.parse(r.content_json); } catch {}
+            let sources = null;
+            if (r.sources_json) { try { sources = JSON.parse(r.sources_json); } catch {} }
+            fields[r.field] = {
+              content,
+              sources,
+              model: r.model,
+              date: r.date,
+              input_hash: r.input_hash,
+              last_confirmed_at: r.last_confirmed_at,
+              created_at: r.created_at,
+            };
+          }
+
+          return Response.json({
+            entity_type: entityType,
+            entity_id: entityId,
+            fields,
+          }, { headers: corsHeaders });
+        }
+
         // -------- GET /query/pipeline-validation --------
         if (path === "/query/pipeline-validation") {
           const dateParam = url.searchParams.get("date") || new Date().toISOString().slice(0, 10);
@@ -358,6 +409,68 @@ export default {
             if (!latestDate) return Response.json({ error: "No price data" }, { status: 404, headers: corsHeaders });
             rows = await db.prepare(`
               SELECT * FROM PRICE_01_Daily WHERE date = ? ORDER BY ticker
+            `).bind(latestDate.date).all();
+          }
+
+          return Response.json(rows.results || [], { headers: corsHeaders });
+        }
+
+        // -------- GET /query/stock-factors --------
+        if (path === "/query/stock-factors") {
+          const ticker = url.searchParams.get("ticker");
+          const date = url.searchParams.get("date");
+          const days = parseInt(url.searchParams.get("days") || "0");
+
+          let rows;
+          if (ticker && days > 0) {
+            rows = await db.prepare(`
+              SELECT * FROM STOCK_FACTORS_daily WHERE ticker = ? ORDER BY date DESC LIMIT ?
+            `).bind(ticker, days).all();
+          } else if (ticker) {
+            const row = await db.prepare(`
+              SELECT * FROM STOCK_FACTORS_daily WHERE ticker = ? ORDER BY date DESC LIMIT 1
+            `).bind(ticker).first();
+            return Response.json(row || {}, { headers: corsHeaders });
+          } else if (date) {
+            rows = await db.prepare(`
+              SELECT * FROM STOCK_FACTORS_daily WHERE date = ? ORDER BY ticker
+            `).bind(date).all();
+          } else {
+            const latestDate = await db.prepare(`SELECT date FROM STOCK_FACTORS_daily ORDER BY date DESC LIMIT 1`).first();
+            if (!latestDate) return Response.json({ error: "No stock factor data" }, { status: 404, headers: corsHeaders });
+            rows = await db.prepare(`
+              SELECT * FROM STOCK_FACTORS_daily WHERE date = ? ORDER BY ticker
+            `).bind(latestDate.date).all();
+          }
+
+          return Response.json(rows.results || [], { headers: corsHeaders });
+        }
+
+        // -------- GET /query/sector-factors --------
+        if (path === "/query/sector-factors") {
+          const sector = url.searchParams.get("sector");
+          const date = url.searchParams.get("date");
+          const days = parseInt(url.searchParams.get("days") || "0");
+
+          let rows;
+          if (sector && days > 0) {
+            rows = await db.prepare(`
+              SELECT * FROM SECTOR_FACTORS_daily WHERE sector = ? ORDER BY date DESC LIMIT ?
+            `).bind(sector, days).all();
+          } else if (sector) {
+            const row = await db.prepare(`
+              SELECT * FROM SECTOR_FACTORS_daily WHERE sector = ? ORDER BY date DESC LIMIT 1
+            `).bind(sector).first();
+            return Response.json(row || {}, { headers: corsHeaders });
+          } else if (date) {
+            rows = await db.prepare(`
+              SELECT * FROM SECTOR_FACTORS_daily WHERE date = ? ORDER BY sector
+            `).bind(date).all();
+          } else {
+            const latestDate = await db.prepare(`SELECT date FROM SECTOR_FACTORS_daily ORDER BY date DESC LIMIT 1`).first();
+            if (!latestDate) return Response.json({ error: "No sector factor data" }, { status: 404, headers: corsHeaders });
+            rows = await db.prepare(`
+              SELECT * FROM SECTOR_FACTORS_daily WHERE date = ? ORDER BY sector
             `).bind(latestDate.date).all();
           }
 
@@ -721,6 +834,319 @@ export default {
 
         // -------- Portfolio v2 queries --------
 
+        // -------- Sprint 7: trade ledger / positions / NAV --------
+
+        if (path === "/query/trades") {
+          const ticker = url.searchParams.get("ticker");
+          const from = url.searchParams.get("from");
+          const to = url.searchParams.get("to");
+          const limit = parseInt(url.searchParams.get("limit") || "500");
+          const where = [], bind = [];
+          if (ticker) { where.push("ticker = ?"); bind.push(ticker); }
+          if (from)   { where.push("trade_date >= ?"); bind.push(from); }
+          if (to)     { where.push("trade_date <= ?"); bind.push(to); }
+          const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+          const rows = await db.prepare(
+            `SELECT * FROM TRADE_01_Ledger ${whereClause} ORDER BY trade_date DESC, created_at DESC LIMIT ?`
+          ).bind(...bind, limit).all();
+          return Response.json(rows.results || [], { headers: corsHeaders });
+        }
+
+        if (path === "/query/positions") {
+          const date = url.searchParams.get("date");
+          const ticker = url.searchParams.get("ticker");
+          let rows;
+          if (ticker && date) {
+            rows = await db.prepare(
+              `SELECT * FROM POSITION_01_Daily WHERE ticker = ? AND date = ?`
+            ).bind(ticker, date).all();
+          } else if (ticker) {
+            rows = await db.prepare(
+              `SELECT * FROM POSITION_01_Daily WHERE ticker = ? ORDER BY date DESC LIMIT 60`
+            ).bind(ticker).all();
+          } else if (date) {
+            rows = await db.prepare(
+              `SELECT * FROM POSITION_01_Daily WHERE date = ? ORDER BY weight_pct DESC`
+            ).bind(date).all();
+          } else {
+            const latest = await db.prepare(
+              `SELECT MAX(date) AS d FROM POSITION_01_Daily`
+            ).first();
+            if (!latest?.d) return Response.json([], { headers: corsHeaders });
+            rows = await db.prepare(
+              `SELECT * FROM POSITION_01_Daily WHERE date = ? ORDER BY weight_pct DESC`
+            ).bind(latest.d).all();
+          }
+          return Response.json(rows.results || [], { headers: corsHeaders });
+        }
+
+        if (path === "/query/nav") {
+          const from = url.searchParams.get("from");
+          const to = url.searchParams.get("to");
+          const limit = parseInt(url.searchParams.get("limit") || "60");
+          const where = [], bind = [];
+          if (from) { where.push("date >= ?"); bind.push(from); }
+          if (to)   { where.push("date <= ?"); bind.push(to); }
+          const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+          const rows = await db.prepare(
+            `SELECT * FROM NAV_01_Daily ${whereClause} ORDER BY date ASC LIMIT ?`
+          ).bind(...bind, limit).all();
+          return Response.json(rows.results || [], { headers: corsHeaders });
+        }
+
+        if (path === "/query/trades/closed") {
+          // FIFO lot-matching: replay ledger chronologically per ticker.
+          // A SELL consumes oldest open BUY lots; each consumed chunk emits
+          // one closed-trade row with realized pnl %.
+          const limit = parseInt(url.searchParams.get("limit") || "10");
+          const trades = (await db.prepare(
+            `SELECT ticker, trade_date, side, qty, price, notes
+             FROM TRADE_01_Ledger ORDER BY ticker, trade_date, created_at`
+          ).all()).results || [];
+
+          const openLots = {}; // ticker -> [{qty, price, date}]
+          const closed = [];
+          for (const t of trades) {
+            const lots = openLots[t.ticker] ||= [];
+            if (t.side === "BUY") {
+              lots.push({ qty: t.qty, price: t.price, date: t.trade_date });
+            } else { // SELL
+              let remaining = t.qty;
+              while (remaining > 0 && lots.length > 0) {
+                const lot = lots[0];
+                const takeQty = Math.min(remaining, lot.qty);
+                const pnlPct = lot.price > 0 ? (t.price - lot.price) / lot.price * 100 : 0;
+                closed.push({
+                  action: "SELL",
+                  ticker: t.ticker,
+                  note: t.notes || `Closed ${takeQty.toFixed(2)} opened ${lot.date}`,
+                  pnl: Number(pnlPct.toFixed(2)),
+                  closed_date: t.trade_date,
+                });
+                lot.qty -= takeQty;
+                remaining -= takeQty;
+                if (lot.qty <= 1e-9) lots.shift();
+              }
+            }
+          }
+          closed.sort((a, b) => b.closed_date.localeCompare(a.closed_date));
+          return Response.json(closed.slice(0, limit), { headers: corsHeaders });
+        }
+
+        if (path === "/query/sector-valuation") {
+          const sector = url.searchParams.get("sector");
+          const etf = url.searchParams.get("etf");
+          const where = [], bind = [];
+          if (sector) { where.push("sector_bucket = ?"); bind.push(sector); }
+          if (etf)    { where.push("etf_ticker = ?");    bind.push(etf); }
+          const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+          const rows = await db.prepare(
+            `SELECT * FROM SECTOR_VALUATION_monthly ${whereClause} ORDER BY sector_bucket, date DESC`
+          ).bind(...bind).all();
+          return Response.json(rows.results || [], { headers: corsHeaders });
+        }
+
+        if (path === "/query/returns-vol") {
+          // Sprint 9: per-ticker stdev of daily returns over N days. One query.
+          // Used by the low-vol style tilt on Layer 1.
+          const days = parseInt(url.searchParams.get("days") || "60");
+          const since = new Date(Date.now() - (days + 10) * 86400000).toISOString().slice(0, 10);
+          const bars = (await db.prepare(
+            `SELECT ticker, date, close FROM PRICE_01_Daily
+             WHERE date >= ? ORDER BY ticker, date ASC`
+          ).bind(since).all()).results || [];
+          const byTicker = {};
+          for (const b of bars) (byTicker[b.ticker] ||= []).push(b.close);
+          const out = {};
+          for (const [ticker, closes] of Object.entries(byTicker)) {
+            if (closes.length < 30) continue;
+            const recent = closes.slice(-days);
+            const rets = [];
+            for (let i = 1; i < recent.length; i++) {
+              if (recent[i - 1] > 0) rets.push((recent[i] - recent[i - 1]) / recent[i - 1]);
+            }
+            if (rets.length < 10) continue;
+            const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
+            const variance = rets.reduce((a, b) => a + (b - mean) ** 2, 0) / (rets.length - 1);
+            out[ticker] = Math.sqrt(variance);
+          }
+          return Response.json(out, { headers: corsHeaders });
+        }
+
+        if (path === "/query/attribution") {
+          // Sprint 8: Brinson-Fachler-lite over NAV history vs SPY benchmark.
+          // Returns [] with metadata if <5 days of NAV history (honest empty
+          // state — panel shows "awaits data").
+          const days = parseInt(url.searchParams.get("days") || "30");
+          const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+          const navs = (await db.prepare(
+            `SELECT date, net_value, day_pnl_pct FROM NAV_01_Daily
+             WHERE date >= ? ORDER BY date ASC`
+          ).bind(since).all()).results || [];
+          // Sprint 9.1: lowered threshold from 5 to 2 — one day of active return
+          // is enough to produce a 4-bucket split; magnitudes grow organically.
+          if (navs.length < 2) {
+            return Response.json(
+              [],
+              { headers: { ...corsHeaders, "X-Attribution-Status": "insufficient_history", "X-Attribution-Days": "0" } }
+            );
+          }
+          // Load SPY returns for the same window
+          const spySet = (await db.prepare(
+            `SELECT date, close FROM PRICE_01_Daily WHERE ticker='SPY' AND date >= ? ORDER BY date ASC`
+          ).bind(since).all()).results || [];
+          const spyByDate = Object.fromEntries(spySet.map(r => [r.date, r.close]));
+
+          let sumRegime = 0, sumSector = 0, sumStock = 0, sumSizing = 0;
+          for (let i = 1; i < navs.length; i++) {
+            const today = navs[i], prev = navs[i - 1];
+            const spyToday = spyByDate[today.date], spyPrev = spyByDate[prev.date];
+            if (!spyToday || !spyPrev) continue;
+            const portfolioRet = today.day_pnl_pct != null ? today.day_pnl_pct / 100 : 0;
+            const spyRet = (spyToday - spyPrev) / spyPrev;
+            const active = portfolioRet - spyRet;
+            // Equal-split proxy; refined once per-position-per-day tables exist.
+            sumRegime += active * 0.40;
+            sumSector += active * 0.30;
+            sumStock  += active * 0.20;
+            sumSizing += active * 0.10;
+          }
+          const toBps = r => Math.round(r * 10000);
+          return Response.json([
+            { label: "Regime call", value: toBps(sumRegime), color: sumRegime >= 0 ? "var(--green)" : "var(--red)" },
+            { label: "Sector tilt", value: toBps(sumSector), color: sumSector >= 0 ? "var(--green)" : "var(--red)" },
+            { label: "Stock picks", value: toBps(sumStock),  color: sumStock  >= 0 ? "var(--green)" : "var(--red)" },
+            { label: "Sizing",      value: toBps(sumSizing), color: sumSizing >= 0 ? "var(--green)" : "var(--red)" },
+          ], { headers: { ...corsHeaders, "X-Attribution-Days": String(navs.length - 1) } });
+        }
+
+        if (path === "/query/calibration") {
+          // Sprint 8: bucket FIFO-matched closed trades by conviction.
+          // Suppress buckets with n < 3. Returns [] when no closed trades
+          // exist with conviction recorded.
+          const trades = (await db.prepare(
+            `SELECT ticker, trade_date, side, qty, price, conviction
+             FROM TRADE_01_Ledger ORDER BY ticker, trade_date, created_at`
+          ).all()).results || [];
+          const openLots = {};
+          const closed = [];
+          for (const t of trades) {
+            const lots = openLots[t.ticker] ||= [];
+            if (t.side === "BUY") {
+              lots.push({ qty: t.qty, price: t.price, conviction: t.conviction ?? null });
+            } else {
+              let remaining = t.qty;
+              while (remaining > 0 && lots.length > 0) {
+                const lot = lots[0];
+                const takeQty = Math.min(remaining, lot.qty);
+                const pnlPct = lot.price > 0 ? (t.price - lot.price) / lot.price * 100 : 0;
+                closed.push({ conviction: lot.conviction, pnl_pct: pnlPct });
+                lot.qty -= takeQty;
+                remaining -= takeQty;
+                if (lot.qty <= 1e-9) lots.shift();
+              }
+            }
+          }
+          const buckets = {}; // conv -> {n, wins, sumPnl}
+          for (const c of closed) {
+            if (c.conviction == null) continue;
+            const b = buckets[c.conviction] ||= { n: 0, wins: 0, sumPnl: 0 };
+            b.n++;
+            if (c.pnl_pct > 0) b.wins++;
+            b.sumPnl += c.pnl_pct;
+          }
+          // Sprint 9.1: always return the 5-bucket expected-prior curve.
+          // `actual` is non-null only when n >= 3 (too-few-trades honesty).
+          // Dashboard draws the expected line always; actual points appear as data arrives.
+          const expectedByConv = { 1: 0.20, 2: 0.35, 3: 0.50, 4: 0.65, 5: 0.80 };
+          const out = [];
+          for (const conv of [1, 2, 3, 4, 5]) {
+            const b = buckets[conv];
+            const n = b?.n ?? 0;
+            out.push({
+              conv,
+              expected: expectedByConv[conv],
+              actual: (b && n >= 3) ? b.wins / n : null,
+              n,
+              avg_pnl_pct: (b && n > 0) ? b.sumPnl / n : null,
+            });
+          }
+          return Response.json(out, { headers: corsHeaders });
+        }
+
+        if (path === "/query/portfolio-targets") {
+          const ticker = url.searchParams.get("ticker");
+          if (ticker) return Response.json(portfolioTargets[ticker] || {}, { headers: corsHeaders });
+          return Response.json(portfolioTargets, { headers: corsHeaders });
+        }
+
+        if (path === "/query/regime-history") {
+          const days = parseInt(url.searchParams.get("days") || "30");
+          const rows = await db.prepare(
+            `SELECT id, summary, creation_date FROM BETA_10_Daily_macro
+             ORDER BY creation_date DESC LIMIT ?`
+          ).bind(days).all();
+          const out = (rows.results || []).map(r => {
+            let s = {};
+            try { s = JSON.parse(r.summary); } catch {}
+            return {
+              date: r.creation_date,
+              regime: s.trend?.regime ?? null,
+              confidence: s.confidence ?? s.trend?.confidence ?? null,
+              action: s.recommendation?.action ?? null,
+              window_start: s.trend?.window_start ?? null,
+              window_end: s.trend?.window_end ?? null,
+            };
+          });
+          return Response.json(out, { headers: corsHeaders });
+        }
+
+        if (path === "/query/indicator-history") {
+          const code = url.searchParams.get("code");
+          const days = parseInt(url.searchParams.get("days") || "365");
+          const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+          let rows;
+          if (code) {
+            rows = await db.prepare(
+              `SELECT * FROM MACRO_STATE_indicators
+               WHERE indicator_code = ? AND release_date >= ?
+               ORDER BY release_date DESC`
+            ).bind(code, since).all();
+          } else {
+            rows = await db.prepare(
+              `SELECT i.* FROM MACRO_STATE_indicators i
+               INNER JOIN (SELECT indicator_code, MAX(release_date) d FROM MACRO_STATE_indicators GROUP BY indicator_code) g
+               ON i.indicator_code = g.indicator_code AND i.release_date = g.d
+               ORDER BY i.indicator_code`
+            ).all();
+          }
+          return Response.json(rows.results || [], { headers: corsHeaders });
+        }
+
+        if (path === "/query/sector-peers") {
+          const ticker = url.searchParams.get("ticker");
+          if (ticker) {
+            return Response.json(peersMapping[ticker] || {}, { headers: corsHeaders });
+          }
+          return Response.json(peersMapping, { headers: corsHeaders });
+        }
+
+        if (path === "/query/sector-trends") {
+          const sector = url.searchParams.get("sector");
+          let longRows, shortRows;
+          if (sector) {
+            longRows = await db.prepare(`SELECT * FROM SECTOR_TREND_long WHERE sector = ?`).bind(sector).all();
+            shortRows = await db.prepare(`SELECT * FROM SECTOR_TREND_short WHERE sector = ?`).bind(sector).all();
+          } else {
+            longRows = await db.prepare(`SELECT * FROM SECTOR_TREND_long ORDER BY sector`).all();
+            shortRows = await db.prepare(`SELECT * FROM SECTOR_TREND_short ORDER BY sector`).all();
+          }
+          return Response.json({
+            long: longRows.results || [],
+            short: shortRows.results || [],
+          }, { headers: corsHeaders });
+        }
+
         if (path === "/query/ticker-trends") {
           const ticker = url.searchParams.get("ticker");
           let longRows, shortRows;
@@ -792,6 +1218,199 @@ export default {
             `SELECT * FROM MOVER_EXPLANATIONS_daily WHERE date = ? ORDER BY direction, rank`
           ).bind(date).all();
           return Response.json(rows.results || [], { headers: corsHeaders });
+        }
+
+        // -------- GET /query/valuation-curve?ticker=X[&days=365] --------
+        // Sprint 12: bundle of (price history, short-curve history, long-curve
+        // history, realized calibration rows) for a single ticker. Drives the
+        // 3-line overlay chart on the stock entity view.
+        if (path === "/query/valuation-curve") {
+          const ticker = url.searchParams.get("ticker");
+          if (!ticker) {
+            return Response.json({ error: "ticker required" }, { status: 400, headers: corsHeaders });
+          }
+          const days = Math.max(30, Math.min(1825, parseInt(url.searchParams.get("days") || "365", 10)));
+
+          const [priceRes, shortRes, longRes, realizedRes] = await Promise.all([
+            db.prepare(`SELECT date, close FROM PRICE_01_Daily
+                         WHERE ticker = ? AND date >= date('now', ?)
+                         ORDER BY date ASC`).bind(ticker, `-${days} days`).all(),
+            db.prepare(`SELECT as_of, fair_value, adjustment_pct, contributing_events_json
+                          FROM SIGNAL_03_ValuationCurve_short
+                         WHERE ticker = ? AND as_of >= datetime('now', ?)
+                         ORDER BY as_of ASC`).bind(ticker, `-${days} days`).all(),
+            db.prepare(`SELECT as_of, fair_value, market_price_at_review, deviation_pct,
+                               rationale, key_events_cited_json, would_change_mind_if_json,
+                               trigger_reason
+                          FROM SIGNAL_03_ValuationCurve_long
+                         WHERE ticker = ? AND as_of >= datetime('now', ?)
+                         ORDER BY as_of ASC`).bind(ticker, `-${days} days`).all(),
+            db.prepare(`SELECT curve_type, forecast_date, realized_date, horizon_days,
+                               forecast_fair_value, price_at_forecast, price_at_realized,
+                               gap_at_forecast_pct, gap_closed_pct, converged
+                          FROM SIGNAL_03_ValuationRealized
+                         WHERE ticker = ? AND forecast_date >= date('now', ?)
+                         ORDER BY forecast_date ASC`).bind(ticker, `-${days} days`).all(),
+          ]);
+
+          return Response.json({
+            ticker,
+            price_history: priceRes.results || [],
+            short_curve: shortRes.results || [],
+            long_curve: longRes.results || [],
+            realized: realizedRes.results || [],
+          }, { headers: corsHeaders });
+        }
+
+        // -------- GET /query/stock-profile?ticker=X --------
+        // Sprint 9: single-hop bundle for the stock entity view.
+        // Fundamentals + factors + epsHistory + filings + peers + catalysts + news.
+        if (path === "/query/stock-profile") {
+          const ticker = url.searchParams.get("ticker");
+          if (!ticker) {
+            return Response.json({ error: "ticker required" }, { status: 400, headers: corsHeaders });
+          }
+
+          // Resolve the ticker's sector from STOCK_FACTORS_daily (authoritative since 0022).
+          // Fall back to FUND_01_Fundamentals.sector if factors row is absent.
+          const sectorRow = await db.prepare(`
+            SELECT sector FROM STOCK_FACTORS_daily WHERE ticker = ? ORDER BY date DESC LIMIT 1
+          `).bind(ticker).first();
+          let sector = sectorRow?.sector || null;
+          if (!sector) {
+            const fs = await db.prepare(`
+              SELECT sector FROM FUND_01_Fundamentals WHERE ticker = ? AND sector IS NOT NULL ORDER BY date DESC LIMIT 1
+            `).bind(ticker).first();
+            sector = fs?.sector || null;
+          }
+
+          const todayIso = new Date().toISOString().slice(0, 10);
+
+          const [fundamentals, factors, epsHistory, filings, peers, catalysts, news] =
+            await Promise.all([
+              db.prepare(`SELECT * FROM FUND_01_Fundamentals WHERE ticker = ? ORDER BY date DESC LIMIT 1`).bind(ticker).first(),
+              db.prepare(`SELECT * FROM STOCK_FACTORS_daily WHERE ticker = ? ORDER BY date DESC LIMIT 1`).bind(ticker).first(),
+              db.prepare(`SELECT period, estimate, actual, surprise, surprise_pct, report_date
+                            FROM FUND_02_Earnings WHERE ticker = ? ORDER BY period DESC LIMIT 9`).bind(ticker).all(),
+              db.prepare(`SELECT id, date, type, summary
+                            FROM ALPHA_01_Reports WHERE ticker = ? AND type IN ('10-K','10-Q','8-K')
+                           ORDER BY date DESC LIMIT 6`).bind(ticker).all(),
+              sector
+                ? db.prepare(`SELECT ticker, sector, fwd_pe, eps_rev_4w, rev_breadth_4w, rs_vs_sector_3m,
+                                     piotroski_f, peer_median_pe, date
+                                FROM STOCK_FACTORS_daily
+                               WHERE sector = ? AND date = (SELECT MAX(date) FROM STOCK_FACTORS_daily WHERE sector = ?)
+                               ORDER BY ticker`).bind(sector, sector).all()
+                : Promise.resolve({ results: [] }),
+              db.prepare(`SELECT period, estimate, report_date
+                            FROM FUND_02_Earnings
+                           WHERE ticker = ? AND report_date IS NOT NULL AND report_date > ?
+                           ORDER BY report_date ASC LIMIT 4`).bind(ticker, todayIso).all(),
+              db.prepare(`SELECT date, title, summary, sentiment, magnitude, source, rank
+                            FROM BETA_12_News_digest
+                           WHERE ticker = ? AND type = 'ticker' AND date >= date('now','-7 days')
+                           ORDER BY date DESC, rank ASC LIMIT 5`).bind(ticker).all(),
+            ]);
+
+          return Response.json({
+            ticker,
+            sector,
+            fundamentals: fundamentals || null,
+            factors: factors || null,
+            epsHistory: (epsHistory.results || []).slice().reverse(), // chronological for charts
+            filings: filings.results || [],
+            peers: peers.results || [],
+            catalysts: catalysts.results || [],
+            news: news.results || [],
+          }, { headers: corsHeaders });
+        }
+
+        // -------- GET /query/sector-profile?sector=X --------
+        // Sprint 9: single-hop bundle for the sector entity view.
+        // Composition (constituents + score) + peers (other sectors) + news + catalysts.
+        if (path === "/query/sector-profile") {
+          const sector = url.searchParams.get("sector");
+          if (!sector) {
+            return Response.json({ error: "sector required" }, { status: 400, headers: corsHeaders });
+          }
+
+          const todayIso = new Date().toISOString().slice(0, 10);
+
+          // Constituents come from the latest STOCK_FACTORS_daily for this sector.
+          const constRes = await db.prepare(`
+            SELECT ticker, sector, fwd_pe, eps_rev_4w, rev_breadth_4w, sue, mom_12_1,
+                   rs_vs_sector_3m, piotroski_f, peer_median_pe, date
+              FROM STOCK_FACTORS_daily
+             WHERE sector = ? AND date = (SELECT MAX(date) FROM STOCK_FACTORS_daily WHERE sector = ?)
+             ORDER BY ticker
+          `).bind(sector, sector).all();
+          const constituents = constRes.results || [];
+          const tickers = constituents.map(r => r.ticker);
+
+          // Latest assessment score per constituent (join shape via inner select).
+          let scoreByTicker = {};
+          if (tickers.length > 0) {
+            const placeholders = tickers.map(() => "?").join(",");
+            const scoreRes = await db.prepare(`
+              SELECT a.ticker, a.score
+                FROM SIGNAL_01_Assessment a
+                INNER JOIN (
+                  SELECT ticker, MAX(date) AS md FROM SIGNAL_01_Assessment WHERE ticker IN (${placeholders}) GROUP BY ticker
+                ) g ON a.ticker = g.ticker AND a.date = g.md
+            `).bind(...tickers).all();
+            for (const r of (scoreRes.results || [])) scoreByTicker[r.ticker] = r.score;
+          }
+
+          const composition = constituents.map(c => ({
+            ...c,
+            score: scoreByTicker[c.ticker] ?? null,
+          }));
+
+          // Peer sectors = all 8 sectors on the latest SECTOR_FACTORS_daily date.
+          const peersPromise = db.prepare(`
+            SELECT * FROM SECTOR_FACTORS_daily
+             WHERE date = (SELECT MAX(date) FROM SECTOR_FACTORS_daily)
+             ORDER BY sector
+          `).all();
+
+          // News: 7d window filtered to sector constituents.
+          const newsPromise = tickers.length > 0
+            ? (async () => {
+                const placeholders = tickers.map(() => "?").join(",");
+                return db.prepare(`
+                  SELECT date, ticker, title, summary, sentiment, magnitude, source, rank
+                    FROM BETA_12_News_digest
+                   WHERE ticker IN (${placeholders})
+                     AND type = 'ticker'
+                     AND date >= date('now','-7 days')
+                   ORDER BY date DESC, rank ASC LIMIT 8
+                `).bind(...tickers).all();
+              })()
+            : Promise.resolve({ results: [] });
+
+          // Catalysts: upcoming earnings across constituents.
+          const catalystsPromise = tickers.length > 0
+            ? (async () => {
+                const placeholders = tickers.map(() => "?").join(",");
+                return db.prepare(`
+                  SELECT ticker, period, estimate, report_date
+                    FROM FUND_02_Earnings
+                   WHERE ticker IN (${placeholders})
+                     AND report_date IS NOT NULL AND report_date > ?
+                   ORDER BY report_date ASC LIMIT 6
+                `).bind(...tickers, todayIso).all();
+              })()
+            : Promise.resolve({ results: [] });
+
+          const [peers, news, catalysts] = await Promise.all([peersPromise, newsPromise, catalystsPromise]);
+
+          return Response.json({
+            sector,
+            composition,
+            peers: peers.results || [],
+            news: news.results || [],
+            catalysts: catalysts.results || [],
+          }, { headers: corsHeaders });
         }
 
         return new Response("Not found", { status: 404, headers: corsHeaders });
@@ -1179,8 +1798,14 @@ export default {
         await db.prepare(`
           INSERT INTO FUND_01_Fundamentals
             (id, ticker, date, pe_ratio, forward_pe, eps, revenue_ttm, profit_margin, operating_margin,
-             market_cap, week_52_high, week_52_low, dma_50, dma_200, analyst_target, dividend_yield, beta, raw_json, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             market_cap, week_52_high, week_52_low, dma_50, dma_200, analyst_target, dividend_yield, beta,
+             sector, total_assets, total_assets_prev, total_debt, total_debt_prev,
+             shares_outstanding, shares_outstanding_prev, net_income, net_income_prev,
+             revenue_annual, revenue_annual_prev, gross_profit, gross_profit_prev,
+             cfo, cfo_prev, roa, roa_prev, current_ratio, current_ratio_prev,
+             gross_margin_annual, gross_margin_annual_prev, asset_turnover, asset_turnover_prev,
+             raw_json, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             pe_ratio = excluded.pe_ratio, forward_pe = excluded.forward_pe, eps = excluded.eps,
             revenue_ttm = excluded.revenue_ttm, profit_margin = excluded.profit_margin,
@@ -1188,11 +1813,36 @@ export default {
             week_52_high = excluded.week_52_high, week_52_low = excluded.week_52_low,
             dma_50 = excluded.dma_50, dma_200 = excluded.dma_200,
             analyst_target = excluded.analyst_target, dividend_yield = excluded.dividend_yield,
-            beta = excluded.beta, raw_json = excluded.raw_json, created_at = excluded.created_at
+            beta = excluded.beta, sector = excluded.sector,
+            total_assets = excluded.total_assets, total_assets_prev = excluded.total_assets_prev,
+            total_debt = excluded.total_debt, total_debt_prev = excluded.total_debt_prev,
+            shares_outstanding = excluded.shares_outstanding, shares_outstanding_prev = excluded.shares_outstanding_prev,
+            net_income = excluded.net_income, net_income_prev = excluded.net_income_prev,
+            revenue_annual = excluded.revenue_annual, revenue_annual_prev = excluded.revenue_annual_prev,
+            gross_profit = excluded.gross_profit, gross_profit_prev = excluded.gross_profit_prev,
+            cfo = excluded.cfo, cfo_prev = excluded.cfo_prev,
+            roa = excluded.roa, roa_prev = excluded.roa_prev,
+            current_ratio = excluded.current_ratio, current_ratio_prev = excluded.current_ratio_prev,
+            gross_margin_annual = excluded.gross_margin_annual, gross_margin_annual_prev = excluded.gross_margin_annual_prev,
+            asset_turnover = excluded.asset_turnover, asset_turnover_prev = excluded.asset_turnover_prev,
+            raw_json = excluded.raw_json, created_at = excluded.created_at
         `).bind(
           id, f.ticker, f.date, f.pe_ratio, f.forward_pe, f.eps, f.revenue_ttm,
           f.profit_margin, f.operating_margin, f.market_cap, f.week_52_high, f.week_52_low,
-          f.dma_50, f.dma_200, f.analyst_target, f.dividend_yield, f.beta, f.raw_json || null, now
+          f.dma_50, f.dma_200, f.analyst_target, f.dividend_yield, f.beta,
+          f.sector ?? null,
+          f.total_assets ?? null, f.total_assets_prev ?? null,
+          f.total_debt ?? null, f.total_debt_prev ?? null,
+          f.shares_outstanding ?? null, f.shares_outstanding_prev ?? null,
+          f.net_income ?? null, f.net_income_prev ?? null,
+          f.revenue_annual ?? null, f.revenue_annual_prev ?? null,
+          f.gross_profit ?? null, f.gross_profit_prev ?? null,
+          f.cfo ?? null, f.cfo_prev ?? null,
+          f.roa ?? null, f.roa_prev ?? null,
+          f.current_ratio ?? null, f.current_ratio_prev ?? null,
+          f.gross_margin_annual ?? null, f.gross_margin_annual_prev ?? null,
+          f.asset_turnover ?? null, f.asset_turnover_prev ?? null,
+          f.raw_json || null, now
         ).run();
         inserted++;
       }
@@ -1214,6 +1864,48 @@ export default {
             surprise = excluded.surprise, surprise_pct = excluded.surprise_pct,
             report_date = excluded.report_date, created_at = excluded.created_at
         `).bind(id, e.ticker, e.period, e.estimate, e.actual, e.surprise, e.surprise_pct, e.report_date, now).run();
+        inserted++;
+      }
+      return Response.json({ ok: true, inserted }, { headers: corsHeaders });
+    }
+
+    // -------- SECTOR_VALUATION_monthly (Sprint 9) --------
+    if (which === "sector-valuation") {
+      const items = Array.isArray(body) ? body : [body];
+      let inserted = 0;
+      for (const v of items) {
+        if (!v.etf_ticker || !v.date || !v.sector_bucket) continue;
+        const id = await shortHash(`${v.etf_ticker}|${v.date}`);
+        await db.prepare(`
+          INSERT INTO SECTOR_VALUATION_monthly
+            (id, date, etf_ticker, sector_bucket, forward_pe, div_yield, est_eps_growth_3_5y, raw_pdf_hash, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            forward_pe = excluded.forward_pe, div_yield = excluded.div_yield,
+            est_eps_growth_3_5y = excluded.est_eps_growth_3_5y,
+            raw_pdf_hash = excluded.raw_pdf_hash, created_at = excluded.created_at
+        `).bind(id, v.date, v.etf_ticker, v.sector_bucket,
+                v.forward_pe ?? null, v.div_yield ?? null, v.est_eps_growth_3_5y ?? null,
+                v.raw_pdf_hash ?? null, now).run();
+        inserted++;
+      }
+      return Response.json({ ok: true, inserted }, { headers: corsHeaders });
+    }
+
+    // -------- TRADE_01_Ledger (Sprint 7 + Sprint 8 conviction) --------
+    if (which === "trades") {
+      const items = Array.isArray(body) ? body : [body];
+      let inserted = 0;
+      for (const t of items) {
+        if (!t.trade_date || !t.ticker || !t.side || t.qty == null || t.price == null) continue;
+        const id = await shortHash(`${t.ticker}|${t.trade_date}|${t.side}|${t.qty}|${t.price}`);
+        await db.prepare(`
+          INSERT INTO TRADE_01_Ledger (id, trade_date, ticker, side, qty, price, fees, notes, conviction, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            fees = excluded.fees, notes = excluded.notes, conviction = excluded.conviction,
+            created_at = excluded.created_at
+        `).bind(id, t.trade_date, t.ticker, t.side, t.qty, t.price, t.fees ?? 0, t.notes ?? null, t.conviction ?? null, now).run();
         inserted++;
       }
       return Response.json({ ok: true, inserted }, { headers: corsHeaders });
@@ -1343,6 +2035,72 @@ export default {
           a.top_event_type ?? null, a.top_event_id ?? null, a.top_event_date ?? null,
           a.top_event_lag ?? null, a.top_event_weight ?? null,
           a.explanation ?? null, a.candidates_json ?? "[]", now
+        ).run();
+        inserted++;
+      }
+      return Response.json({ ok: true, inserted }, { headers: corsHeaders });
+    }
+
+    // -------- SECTOR_FACTORS_daily --------
+    if (which === "sector-factors") {
+      const items = Array.isArray(body) ? body : [body];
+      let inserted = 0;
+      for (const s of items) {
+        const id = await shortHash(`${s.sector}|${s.date}`);
+        await db.prepare(`
+          INSERT INTO SECTOR_FACTORS_daily
+            (id, sector, date, regime_fit, earn_momentum, beat_rate_sector, valuation_sigma,
+             rel_strength_13w, rs_ratio, rs_momentum, stance_score, stance,
+             fwd_pe_sector, breadth_above_200dma, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            regime_fit = excluded.regime_fit, earn_momentum = excluded.earn_momentum,
+            beat_rate_sector = excluded.beat_rate_sector, valuation_sigma = excluded.valuation_sigma,
+            rel_strength_13w = excluded.rel_strength_13w, rs_ratio = excluded.rs_ratio,
+            rs_momentum = excluded.rs_momentum,
+            stance_score = excluded.stance_score, stance = excluded.stance,
+            fwd_pe_sector = excluded.fwd_pe_sector, breadth_above_200dma = excluded.breadth_above_200dma,
+            created_at = excluded.created_at
+        `).bind(
+          id, s.sector, s.date,
+          s.regime_fit ?? null, s.earn_momentum ?? null, s.beat_rate_sector ?? null,
+          s.valuation_sigma ?? null, s.rel_strength_13w ?? null,
+          s.rs_ratio ?? null, s.rs_momentum ?? null,
+          s.stance_score ?? null, s.stance ?? null,
+          s.fwd_pe_sector ?? null, s.breadth_above_200dma ?? null, now,
+        ).run();
+        inserted++;
+      }
+      return Response.json({ ok: true, inserted }, { headers: corsHeaders });
+    }
+
+    // -------- STOCK_FACTORS_daily --------
+    if (which === "stock-factors") {
+      const items = Array.isArray(body) ? body : [body];
+      let inserted = 0;
+      for (const f of items) {
+        const id = await shortHash(`${f.ticker}|${f.date}`);
+        await db.prepare(`
+          INSERT INTO STOCK_FACTORS_daily
+            (id, ticker, date, sector, fwd_pe, rel_pe_sigma, eps_rev_4w, rev_breadth_4w,
+             sue, mom_12_1, rs_vs_sector_3m, piotroski_f, days_to_catalyst,
+             short_pct_float, peer_median_pe, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            sector = excluded.sector, fwd_pe = excluded.fwd_pe,
+            rel_pe_sigma = excluded.rel_pe_sigma, eps_rev_4w = excluded.eps_rev_4w,
+            rev_breadth_4w = excluded.rev_breadth_4w, sue = excluded.sue,
+            mom_12_1 = excluded.mom_12_1, rs_vs_sector_3m = excluded.rs_vs_sector_3m,
+            piotroski_f = excluded.piotroski_f, days_to_catalyst = excluded.days_to_catalyst,
+            short_pct_float = excluded.short_pct_float, peer_median_pe = excluded.peer_median_pe,
+            created_at = excluded.created_at
+        `).bind(
+          id, f.ticker, f.date, f.sector ?? null,
+          f.fwd_pe ?? null, f.rel_pe_sigma ?? null,
+          f.eps_rev_4w ?? null, f.rev_breadth_4w ?? null,
+          f.sue ?? null, f.mom_12_1 ?? null, f.rs_vs_sector_3m ?? null,
+          f.piotroski_f ?? null, f.days_to_catalyst ?? null,
+          f.short_pct_float ?? null, f.peer_median_pe ?? null, now
         ).run();
         inserted++;
       }

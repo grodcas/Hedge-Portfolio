@@ -1,0 +1,2028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HF Desk — Retail-Pro Dashboard</title>
+<style>
+/* ============================================================
+   TOKENS
+   ============================================================ */
+:root {
+  --bg-0: #0d1117;
+  --bg-1: #161b22;
+  --bg-2: #21262d;
+  --bg-3: #2d333b;
+  --bg-4: #3b424a;
+  --border: #30363d;
+  --border-soft: #21262d;
+  --text-0: #f0f6fc;
+  --text-1: #c9d1d9;
+  --text-2: #8b949e;
+  --text-3: #6e7681;
+  --blue: #58a6ff;
+  --green: #3fb950;
+  --red: #f85149;
+  --yellow: #d29922;
+  --purple: #a371f7;
+  --orange: #db6d28;
+  --cyan: #39c5cf;
+  --pink: #db61a2;
+  --shadow: 0 4px 12px rgba(0,0,0,0.3);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.45);
+  --content-max: 1280px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--bg-0);
+  color: var(--text-1);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  height: 100%;
+}
+body { overflow: hidden; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+button { font-family: inherit; }
+a { color: inherit; text-decoration: none; }
+
+.hidden { display: none !important; }
+
+/* ============================================================
+   SHELL
+   ============================================================ */
+.app-shell { display: grid; grid-template-rows: 52px 40px 1fr; height: 100vh; }
+
+.top-bar {
+  display: grid;
+  grid-template-columns: 220px 1fr auto;
+  align-items: center;
+  padding: 0 18px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  gap: 18px;
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-logo {
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--blue), var(--purple));
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; color: var(--bg-0); font-size: 0.85rem;
+}
+.brand-title { font-size: 0.85rem; font-weight: 600; color: var(--text-0); letter-spacing: 0.3px; }
+.brand-sub   { font-size: 0.64rem; color: var(--text-3); }
+
+.header-kpis {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: center;
+  font-family: ui-monospace, monospace;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.header-kpis::-webkit-scrollbar { display: none; }
+.hkpi {
+  display: flex; flex-direction: column; align-items: flex-start;
+  cursor: pointer; padding: 2px 10px; border-radius: 5px;
+  transition: background 0.12s; white-space: nowrap;
+}
+.hkpi:hover { background: var(--bg-2); }
+.hkpi .lbl { font-size: 0.58rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; font-family: -apple-system, sans-serif; }
+.hkpi .val { font-size: 0.9rem; color: var(--text-0); font-weight: 600; margin-top: 1px; }
+.hkpi .delta { font-size: 0.66rem; }
+.hkpi .delta.up { color: var(--green); } .hkpi .delta.down { color: var(--red); }
+
+.regime-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px;
+  background: var(--bg-2);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  font-size: 0.7rem;
+  color: var(--text-1);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s;
+}
+.regime-chip:hover { background: var(--bg-3); }
+.regime-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--yellow); }
+
+.freshness-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px;
+  background: rgba(63,185,80,0.1);
+  border: 1px solid rgba(63,185,80,0.3);
+  border-radius: 10px;
+  font-size: 0.62rem;
+  color: var(--green);
+  font-family: ui-monospace, monospace;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.freshness-chip .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+.header-controls { display: flex; align-items: center; gap: 8px; }
+.search-box {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-2);
+  font-size: 0.72rem;
+  width: 160px;
+  cursor: text;
+}
+.search-box:hover { border-color: var(--bg-4); color: var(--text-1); }
+.search-box .kbd {
+  font-size: 0.6rem; padding: 1px 5px;
+  background: var(--bg-3); border-radius: 3px;
+  font-family: ui-monospace, monospace; color: var(--text-3);
+  margin-left: auto;
+}
+
+/* Main tabs */
+.main-tabs {
+  display: flex;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  padding: 0 18px;
+  gap: 2px;
+  align-items: stretch;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.main-tabs::-webkit-scrollbar { display: none; }
+.tab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.tab:hover { color: var(--text-0); background: var(--bg-2); }
+.tab.active { color: var(--text-0); border-bottom-color: var(--blue); background: var(--bg-0); }
+.tab .tab-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px;
+  background: var(--bg-3); border-radius: 50%;
+  font-size: 0.6rem;
+  color: var(--text-3);
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+}
+.tab.active .tab-num { background: var(--blue); color: var(--bg-0); }
+
+/* Main content area */
+.main-content {
+  overflow-y: auto;
+  padding: 18px 22px 60px;
+  background: var(--bg-0);
+  min-height: 0;
+}
+.tab-view, .entity-view { max-width: var(--content-max); margin: 0 auto; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ============================================================
+   LAYER CARD — verdict-first pattern (used in Portfolio funnel)
+   ============================================================ */
+.layer-card {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 14px;
+}
+.layer-head {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.layer-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--blue), var(--purple));
+  color: var(--bg-0);
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+  font-size: 0.76rem;
+}
+.layer-verdict {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-0);
+  letter-spacing: -0.15px;
+  line-height: 1.25;
+}
+.layer-verdict .sub { color: var(--yellow); font-weight: 600; }
+.layer-verdict .sub.pos { color: var(--green); }
+.layer-verdict .sub.neg { color: var(--red); }
+
+.layer-lede {
+  font-size: 0.84rem;
+  color: var(--text-1);
+  line-height: 1.55;
+  margin-left: 40px;
+  margin-bottom: 14px;
+  max-width: 72ch;
+}
+.layer-lede strong { color: var(--text-0); font-weight: 600; }
+.layer-lede .hi-pos { color: var(--green); font-weight: 600; }
+.layer-lede .hi-neg { color: var(--red); font-weight: 600; }
+.layer-lede .hi-neu { color: var(--yellow); font-weight: 600; }
+
+.layer-body { margin-top: 8px; }
+.layer-foot {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 10px;
+}
+.open-analysis {
+  font-size: 0.74rem;
+  color: var(--blue);
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 5px;
+  background: rgba(88,166,255,0.08);
+  transition: background 0.12s;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.open-analysis:hover { background: rgba(88,166,255,0.18); }
+.open-analysis::after { content: "→"; font-weight: 600; }
+
+.layer-meta {
+  font-size: 0.66rem;
+  color: var(--text-3);
+  font-family: ui-monospace, monospace;
+  display: flex; gap: 12px; flex-wrap: wrap;
+}
+.layer-meta .k { color: var(--text-3); }
+.layer-meta .v { color: var(--text-1); }
+
+/* provenance trigger — tiny circle next to any inspectable value */
+.prov {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  border: 1px solid var(--text-3);
+  color: var(--text-3);
+  font-size: 0.56rem; font-style: italic; font-weight: 600;
+  cursor: pointer;
+  margin-left: 3px;
+  vertical-align: middle;
+  transition: all 0.12s;
+  font-family: ui-monospace, monospace;
+  background: transparent;
+  padding: 0;
+}
+.prov:hover { color: var(--blue); border-color: var(--blue); background: rgba(88,166,255,0.1); }
+
+/* number click hint */
+.num-click {
+  cursor: pointer; border-radius: 3px; padding: 0 2px;
+  border-bottom: 1px dotted var(--text-3);
+}
+.num-click:hover { background: rgba(88,166,255,0.12); border-bottom-color: var(--blue); }
+
+/* ============================================================
+   FUNNEL MINI-NAV
+   ============================================================ */
+.funnel-nav {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 6px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.funnel-step {
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+.funnel-step:hover { background: var(--bg-2); color: var(--text-1); }
+.funnel-step .step-num {
+  display: inline-block;
+  width: 16px; height: 16px; line-height: 16px;
+  border-radius: 50%;
+  background: var(--bg-3);
+  color: var(--text-2);
+  font-weight: 700;
+  margin-right: 5px;
+  font-size: 0.6rem;
+  text-align: center;
+  font-family: ui-monospace, monospace;
+}
+.funnel-step .step-label { font-weight: 600; color: var(--text-0); font-size: 0.72rem; }
+.funnel-step .step-out {
+  display: block;
+  font-size: 0.6rem;
+  color: var(--text-3);
+  margin-top: 2px;
+  font-family: ui-monospace, monospace;
+}
+
+/* ============================================================
+   LAYER 1 — CONTEXT (regime)
+   ============================================================ */
+.regime-layout {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1.1fr;
+  gap: 22px;
+  align-items: start;
+}
+.regime-signals { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: 8px; }
+.signal-pill {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 9px;
+  background: var(--bg-2);
+  border-radius: 5px;
+  border-left: 3px solid var(--bg-3);
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.signal-pill:hover { background: var(--bg-3); }
+.signal-pill .label { color: var(--text-2); }
+.signal-pill .value { color: var(--text-0); font-weight: 600; font-family: ui-monospace, monospace; }
+.signal-pill.bullish { border-left-color: var(--green); }
+.signal-pill.bearish { border-left-color: var(--red); }
+.signal-pill.neutral { border-left-color: var(--yellow); }
+
+.gauge-block { display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+.gauge-block:hover #gaugeSvg { filter: brightness(1.1); }
+.gauge-label { font-size: 0.68rem; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.gauge-caption { font-size: 0.62rem; color: var(--text-3); margin-top: 4px; }
+
+.tilt-block { display: flex; flex-direction: column; gap: 6px; }
+.tilt-title { font-size: 0.66rem; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+.tilt-row { display: grid; grid-template-columns: 58px 1fr 32px; gap: 8px; align-items: center; font-size: 0.72rem; }
+.tilt-row .tilt-name { color: var(--text-2); }
+.tilt-row .tilt-val { color: var(--text-1); font-family: ui-monospace, monospace; text-align: right; font-size: 0.68rem; }
+.tilt-bar { position: relative; height: 5px; background: var(--bg-2); border-radius: 3px; cursor: pointer; }
+.tilt-bar-mid { position: absolute; top: -1px; bottom: -1px; left: 50%; width: 1px; background: var(--border); }
+.tilt-bar-fill { position: absolute; top: 0; bottom: 0; background: var(--blue); border-radius: 2px; }
+.tilt-bar-fill.pos { background: var(--green); } .tilt-bar-fill.neg { background: var(--red); }
+
+/* ============================================================
+   LAYER 2 — SECTOR
+   ============================================================ */
+.sector-layout { display: grid; grid-template-columns: 1.55fr 1fr; gap: 18px; }
+.sector-table { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
+.sector-table th {
+  padding: 7px 5px; text-align: right; font-weight: 500;
+  color: var(--text-2); border-bottom: 1px solid var(--border);
+  font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.4px;
+}
+.sector-table th:first-child { text-align: left; }
+.sector-table th:last-child { text-align: center; }
+.sector-table td {
+  padding: 6px 5px; border-bottom: 1px solid var(--border-soft);
+  text-align: right; font-family: ui-monospace, monospace;
+  font-size: 0.72rem;
+}
+.sector-table td:first-child { text-align: left; font-family: -apple-system, sans-serif; color: var(--text-0); font-weight: 500; cursor: pointer; }
+.sector-table td:first-child:hover { color: var(--blue); }
+.sector-table td:last-child { text-align: center; }
+.sector-table tr:hover td { background: var(--bg-2); }
+.score-cell { display: inline-block; min-width: 42px; padding: 2px 6px; border-radius: 3px; text-align: center; font-size: 0.7rem; }
+.stance-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  font-size: 0.58rem; font-weight: 700; letter-spacing: 0.5px;
+  font-family: ui-monospace, monospace;
+}
+.stance-ow { background: rgba(63,185,80,0.15); color: var(--green); border: 1px solid rgba(63,185,80,0.3); }
+.stance-uw { background: rgba(248,81,73,0.15); color: var(--red); border: 1px solid rgba(248,81,73,0.3); }
+.stance-ew { background: rgba(139,148,158,0.1); color: var(--text-2); border: 1px solid var(--border); }
+
+.rrg-wrap { display: flex; flex-direction: column; }
+.rrg-title { font-size: 0.68rem; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-align: center; }
+.rrg-svg { width: 100%; height: auto; }
+.rrg-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px; font-size: 0.6rem; color: var(--text-3); }
+.rrg-legend span { padding: 2px 6px; border-radius: 3px; background: var(--bg-2); }
+
+.allocation-bar-wrap { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-soft); }
+.allocation-bar-title { font-size: 0.66rem; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.allocation-bar { display: flex; height: 26px; border-radius: 5px; overflow: hidden; border: 1px solid var(--border); }
+.allocation-seg {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.62rem; color: var(--text-0); font-weight: 600;
+  font-family: ui-monospace, monospace;
+  cursor: pointer; transition: filter 0.15s;
+}
+.allocation-seg:hover { filter: brightness(1.25); }
+
+/* ============================================================
+   LAYER 3 — STOCK
+   ============================================================ */
+.stock-layout { display: grid; grid-template-columns: 1.6fr 1fr; gap: 18px; }
+.sector-group { margin-bottom: 12px; }
+.sector-group:last-child { margin-bottom: 0; }
+.sector-group-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 10px;
+  background: var(--bg-2); border-radius: 6px;
+  margin-bottom: 5px; font-size: 0.72rem;
+}
+.sector-group-head .name { font-weight: 600; color: var(--text-0); cursor: pointer; }
+.sector-group-head .name:hover { color: var(--blue); }
+.sector-group-head .meta { color: var(--text-3); font-size: 0.64rem; }
+.stock-row {
+  display: grid;
+  /* ticker, fwd_pe, rel_sigma, eps_rev, breadth, sue, mom, rs, piotr, days */
+  grid-template-columns: 52px 46px 52px 58px 52px 44px 58px 54px 34px 46px;
+  gap: 8px; align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 0.7rem; font-family: ui-monospace, monospace;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.stock-row:hover { background: var(--bg-2); }
+.stock-row-head {
+  font-size: 0.6rem;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border-bottom: 1px solid var(--border);
+  cursor: default;
+  background: var(--bg-2);
+}
+.stock-row-head:hover { background: var(--bg-2); }
+.stock-ticker { font-weight: 700; color: var(--text-0); font-size: 0.76rem; }
+.stock-row .stk-pos  { color: var(--green); }
+.stock-row .stk-neg  { color: var(--red); }
+.stock-row .stk-flat { color: var(--text-3); }
+.catalyst-chip { font-size: 0.62rem; color: var(--text-1); text-align: center; padding: 2px 5px; background: var(--bg-2); border-radius: 3px; }
+.catalyst-chip.soon { color: var(--yellow); background: rgba(210,153,34,0.1); }
+
+.scatter-wrap { display: flex; flex-direction: column; }
+.scatter-title { font-size: 0.68rem; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; text-align: center; }
+.scatter-svg { width: 100%; height: auto; }
+.scatter-caption { font-size: 0.6rem; color: var(--text-3); margin-top: 4px; text-align: center; }
+
+/* ============================================================
+   LAYER 4 — WEIGHTS
+   ============================================================ */
+.kpi-strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 14px; }
+.kpi {
+  padding: 9px 11px; background: var(--bg-2); border-radius: 6px;
+  border-left: 3px solid var(--blue); cursor: pointer;
+  transition: background 0.1s;
+}
+.kpi:hover { background: var(--bg-3); }
+.kpi .k-label { font-size: 0.58rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; }
+.kpi .k-value { font-size: 1rem; font-weight: 600; color: var(--text-0); font-family: ui-monospace, monospace; margin-top: 3px; }
+.kpi .k-delta { font-size: 0.62rem; font-family: ui-monospace, monospace; margin-top: 2px; color: var(--text-3); }
+.kpi .k-delta.up { color: var(--green); } .kpi .k-delta.down { color: var(--red); }
+
+.weight-layout { display: grid; grid-template-columns: 1.7fr 1fr; gap: 18px; }
+.weight-chart-wrap { background: var(--bg-2); border-radius: 6px; padding: 12px; }
+.weight-chart { width: 100%; height: auto; }
+
+.decision-trail { padding: 12px; background: var(--bg-2); border-radius: 6px; font-size: 0.76rem; }
+.trail-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 7px; margin-bottom: 8px; border-bottom: 1px solid var(--border); }
+.trail-header .ticker { font-size: 0.95rem; font-weight: 700; color: var(--text-0); font-family: ui-monospace, monospace; cursor: pointer; }
+.trail-header .ticker:hover { color: var(--blue); }
+.trail-header .weight { font-size: 0.85rem; color: var(--yellow); font-weight: 600; font-family: ui-monospace, monospace; }
+.trail-step { display: grid; grid-template-columns: 22px 1fr; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--border-soft); }
+.trail-step:last-child { border-bottom: none; }
+.trail-step .step-circle {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--bg-3); color: var(--blue);
+  font-weight: 700; display: flex; align-items: center; justify-content: center;
+  font-size: 0.64rem; font-family: ui-monospace, monospace;
+}
+.trail-step .step-text { color: var(--text-1); line-height: 1.4; }
+.trail-step .step-text strong { color: var(--text-0); }
+.trail-step .step-kind { display: inline-block; font-size: 0.56rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1px; }
+
+/* ============================================================
+   LAYER 5 — FEEDBACK
+   ============================================================ */
+.feedback-layout { display: grid; grid-template-columns: 1.1fr 1fr 1.1fr; gap: 18px; }
+.feedback-panel { display: flex; flex-direction: column; }
+.feedback-title { font-size: 0.66rem; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-align: center; }
+.waterfall-svg, .calib-svg { width: 100%; height: auto; }
+
+.trades-list { max-height: 240px; overflow-y: auto; padding-right: 4px; }
+.trade-row { display: grid; grid-template-columns: 42px 40px 1fr 58px; gap: 8px; padding: 5px 8px; align-items: center; font-size: 0.7rem; font-family: ui-monospace, monospace; border-bottom: 1px solid var(--border-soft); cursor: pointer; }
+.trade-row:hover { background: var(--bg-2); }
+.t-action { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 0.56rem; font-weight: 700; text-align: center; letter-spacing: 0.3px; }
+.t-action.buy { background: rgba(63,185,80,0.15); color: var(--green); }
+.t-action.sell { background: rgba(248,81,73,0.15); color: var(--red); }
+.t-action.short { background: rgba(210,153,34,0.15); color: var(--yellow); }
+.t-ticker { font-weight: 700; color: var(--text-0); }
+.t-note { color: var(--text-2); font-family: -apple-system, sans-serif; font-size: 0.66rem; }
+.t-pnl { text-align: right; font-weight: 600; }
+.t-pnl.up { color: var(--green); } .t-pnl.down { color: var(--red); }
+
+/* ============================================================
+   PM TAB
+   ============================================================ */
+.pm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.pm-nav-card { grid-column: 1 / -1; }
+.pm-nav-svg { width: 100%; height: 260px; }
+.pm-positions-card { grid-column: 1 / -1; }
+.pm-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; font-family: ui-monospace, monospace; }
+.pm-table thead th { padding: 7px 6px; text-align: right; font-weight: 500; color: var(--text-2); border-bottom: 1px solid var(--border); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.4px; font-family: -apple-system, sans-serif; }
+.pm-table thead th:first-child { text-align: left; }
+.pm-table tbody td { padding: 6px; border-bottom: 1px solid var(--border-soft); text-align: right; }
+.pm-table tbody td:first-child { text-align: left; color: var(--text-0); font-weight: 700; cursor: pointer; }
+.pm-table tbody td:first-child:hover { color: var(--blue); }
+.pm-sector-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.pm-pnl-pos { color: var(--green); }
+.pm-pnl-neg { color: var(--red); }
+
+.attribution-donut { width: 180px; height: 180px; margin: 0 auto; display: block; }
+.attribution-legend { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; font-size: 0.72rem; }
+.attr-row { display: grid; grid-template-columns: 14px 80px 1fr auto; gap: 8px; align-items: center; padding: 3px 0; font-family: ui-monospace, monospace; }
+.attr-row .swatch { width: 12px; height: 12px; border-radius: 3px; }
+.attr-row .name { color: var(--text-1); font-family: -apple-system, sans-serif; }
+.attr-row .bar { height: 5px; background: var(--bg-2); border-radius: 3px; position: relative; }
+.attr-row .fill { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+.attr-row .v { color: var(--text-0); font-weight: 600; text-align: right; }
+
+.drawdown-svg { width: 100%; height: 160px; }
+
+/* ============================================================
+   MACRO TAB
+   ============================================================ */
+.macro-hero {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 20px;
+  padding: 18px 22px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 14px;
+}
+.macro-big-verdict {
+  font-size: 1.7rem;
+  font-weight: 600;
+  color: var(--text-0);
+  letter-spacing: -0.3px;
+  margin-bottom: 6px;
+}
+.macro-big-verdict .sub { color: var(--yellow); }
+.macro-big-lede {
+  font-size: 0.88rem;
+  color: var(--text-1);
+  line-height: 1.55;
+  margin-top: 6px;
+  max-width: 60ch;
+}
+.macro-meta-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  margin-top: 14px; font-size: 0.72rem;
+}
+.macro-meta-row { display: grid; grid-template-columns: 110px 1fr; gap: 6px; padding: 4px 8px; background: var(--bg-2); border-radius: 4px; }
+.macro-meta-row .k { color: var(--text-3); }
+.macro-meta-row .v { color: var(--text-0); font-family: ui-monospace, monospace; font-weight: 600; }
+.macro-history-svg { width: 100%; height: 160px; }
+
+.macro-section-title {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin: 18px 2px 8px;
+}
+.macro-section-title h3 {
+  font-size: 0.8rem; color: var(--text-0); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.macro-section-title .hint { font-size: 0.68rem; color: var(--text-3); }
+
+/* Event calendar */
+.event-calendar { display: flex; flex-direction: column; gap: 8px; }
+.event-card {
+  display: grid;
+  grid-template-columns: 110px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.event-card:hover { background: var(--bg-2); border-color: var(--bg-4); }
+.event-card.past { opacity: 0.95; }
+.event-card.upcoming { border-left: 3px solid var(--yellow); }
+.event-card.past { border-left: 3px solid var(--bg-4); }
+.event-date {
+  font-family: ui-monospace, monospace;
+  font-size: 0.76rem;
+  color: var(--text-0);
+  font-weight: 600;
+}
+.event-date .when { display: block; font-size: 0.6rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 2px; }
+.event-content .event-title { color: var(--text-0); font-weight: 600; font-size: 0.84rem; margin-bottom: 3px; }
+.event-content .event-sub { color: var(--text-2); font-size: 0.74rem; line-height: 1.4; }
+.event-tag { font-size: 0.6rem; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700; font-family: ui-monospace, monospace; }
+.event-tag.fomc { background: rgba(88,166,255,0.15); color: var(--blue); }
+.event-tag.cpi { background: rgba(210,153,34,0.15); color: var(--yellow); }
+.event-tag.nfp { background: rgba(63,185,80,0.15); color: var(--green); }
+.event-tag.gdp { background: rgba(163,113,247,0.15); color: var(--purple); }
+.event-tag.earn { background: rgba(57,197,207,0.15); color: var(--cyan); }
+.event-tag.geo { background: rgba(248,81,73,0.15); color: var(--red); }
+
+/* Release summary card — FOMC/CPI/NFP prose + bullets */
+.release-card {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin-bottom: 10px;
+}
+.release-card-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border-soft);
+}
+.release-card-head h4 { font-size: 0.9rem; color: var(--text-0); font-weight: 600; }
+.release-card-head .meta { font-family: ui-monospace, monospace; font-size: 0.66rem; color: var(--text-3); }
+.release-lede {
+  font-size: 0.82rem; color: var(--text-1); line-height: 1.55; margin-bottom: 10px;
+}
+.release-lede strong { color: var(--text-0); }
+.release-lede .hi-pos { color: var(--green); font-weight: 600; }
+.release-lede .hi-neg { color: var(--red); font-weight: 600; }
+.release-lede .hi-neu { color: var(--yellow); font-weight: 600; }
+.release-bullets { list-style: none; margin-top: 10px; }
+.release-bullets li {
+  padding: 5px 0 5px 18px;
+  position: relative;
+  font-size: 0.78rem;
+  color: var(--text-1);
+  line-height: 1.5;
+}
+.release-bullets li::before {
+  content: "▸";
+  position: absolute;
+  left: 4px;
+  color: var(--blue);
+  font-weight: 700;
+}
+.release-bullets li strong { color: var(--text-0); }
+
+/* indicators compact grid */
+.macro-indicators-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.macro-ind {
+  padding: 10px 12px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  border-left: 3px solid var(--bg-3);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.macro-ind:hover { background: var(--bg-2); }
+.macro-ind.up { border-left-color: var(--green); }
+.macro-ind.down { border-left-color: var(--red); }
+.macro-ind.flat { border-left-color: var(--yellow); }
+.macro-ind .ind-label { font-size: 0.62rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.4px; }
+.macro-ind .ind-value { font-size: 1rem; color: var(--text-0); font-weight: 600; font-family: ui-monospace, monospace; margin-top: 3px; }
+.macro-ind .ind-change { font-size: 0.66rem; font-family: ui-monospace, monospace; margin-top: 2px; }
+.macro-ind .ind-spark { width: 100%; height: 20px; margin-top: 4px; }
+
+/* Scenarios */
+.scenarios-table { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
+.scenarios-table th { padding: 7px 6px; text-align: right; font-weight: 500; color: var(--text-2); border-bottom: 1px solid var(--border); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.4px; }
+.scenarios-table th:first-child { text-align: left; }
+.scenarios-table td { padding: 7px 6px; border-bottom: 1px solid var(--border-soft); text-align: right; font-family: ui-monospace, monospace; }
+.scenarios-table td:first-child { text-align: left; font-family: -apple-system, sans-serif; color: var(--text-0); font-weight: 500; }
+
+/* ============================================================
+   NEWS TAB
+   ============================================================ */
+.news-layout { display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; }
+.news-filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border-soft); }
+.filter-chip { padding: 3px 10px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 14px; font-size: 0.66rem; color: var(--text-2); cursor: pointer; }
+.filter-chip.active { background: var(--blue); color: var(--bg-0); border-color: var(--blue); }
+.filter-chip:hover { color: var(--text-0); }
+
+.news-item { padding: 10px 12px; border-bottom: 1px solid var(--border-soft); cursor: pointer; transition: background 0.1s; }
+.news-item:hover { background: var(--bg-2); }
+.news-item-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; margin-bottom: 4px; }
+.news-item-title { color: var(--text-0); font-weight: 600; font-size: 0.82rem; line-height: 1.35; }
+.news-item-meta { display: flex; gap: 6px; align-items: center; margin-top: 4px; font-size: 0.64rem; color: var(--text-3); font-family: ui-monospace, monospace; }
+.news-sentiment { padding: 1px 6px; border-radius: 3px; font-weight: 600; }
+.news-sentiment.pos { background: rgba(63,185,80,0.15); color: var(--green); }
+.news-sentiment.neg { background: rgba(248,81,73,0.15); color: var(--red); }
+.news-sentiment.neu { background: rgba(139,148,158,0.12); color: var(--text-2); }
+.news-tickers { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.news-ticker-chip { font-size: 0.6rem; padding: 1px 6px; background: var(--bg-3); color: var(--text-0); border-radius: 3px; font-family: ui-monospace, monospace; font-weight: 600; cursor: pointer; }
+.news-ticker-chip:hover { background: var(--blue); color: var(--bg-0); }
+.news-materiality { display: inline-flex; align-items: center; gap: 2px; font-size: 0.64rem; color: var(--yellow); }
+
+.cluster-svg { width: 100%; height: 200px; }
+
+/* ============================================================
+   VALIDATION TAB
+   ============================================================ */
+.validation-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.freshness-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+.freshness-table th { padding: 7px 6px; text-align: left; font-weight: 500; color: var(--text-2); border-bottom: 1px solid var(--border); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.4px; }
+.freshness-table td { padding: 6px; border-bottom: 1px solid var(--border-soft); font-family: ui-monospace, monospace; }
+.fresh-status { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 0.58rem; font-weight: 700; letter-spacing: 0.4px; }
+.fresh-status.ok { background: rgba(63,185,80,0.15); color: var(--green); }
+.fresh-status.stale { background: rgba(210,153,34,0.15); color: var(--yellow); }
+.fresh-status.error { background: rgba(248,81,73,0.15); color: var(--red); }
+
+.quality-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+.quality-card { padding: 10px 12px; background: var(--bg-1); border: 1px solid var(--border); border-radius: 6px; border-left: 3px solid var(--green); cursor: pointer; }
+.quality-card.warn { border-left-color: var(--yellow); }
+.quality-card.err { border-left-color: var(--red); }
+.quality-card .ql { font-size: 0.6rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.4px; }
+.quality-card .qv { font-size: 1rem; color: var(--text-0); font-weight: 600; font-family: ui-monospace, monospace; margin-top: 3px; }
+
+.anomaly-row { display: grid; grid-template-columns: 70px 80px 1fr 70px; gap: 8px; padding: 6px 8px; font-size: 0.7rem; border-bottom: 1px solid var(--border-soft); font-family: ui-monospace, monospace; }
+.anom-severity { padding: 1px 6px; border-radius: 3px; font-size: 0.58rem; font-weight: 700; text-align: center; }
+.anom-severity.high { background: rgba(248,81,73,0.15); color: var(--red); }
+.anom-severity.med { background: rgba(210,153,34,0.15); color: var(--yellow); }
+.anom-severity.low { background: rgba(139,148,158,0.1); color: var(--text-2); }
+
+.monthly-progress { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.progress-bar { flex: 1; height: 8px; background: var(--bg-2); border-radius: 4px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--green); border-radius: 4px; }
+.progress-text { font-family: ui-monospace, monospace; font-size: 0.72rem; color: var(--text-1); }
+.check-item { display: grid; grid-template-columns: 1fr 60px 100px; gap: 8px; padding: 6px 8px; font-size: 0.72rem; border-bottom: 1px solid var(--border-soft); align-items: center; }
+.check-item .ci-status { font-size: 0.6rem; text-align: center; padding: 1px 6px; border-radius: 3px; font-weight: 700; }
+.check-item .ci-status.done { background: rgba(63,185,80,0.15); color: var(--green); }
+.check-item .ci-status.pending { background: rgba(210,153,34,0.15); color: var(--yellow); }
+.check-item .ci-date { font-size: 0.64rem; color: var(--text-3); font-family: ui-monospace, monospace; text-align: right; }
+
+/* ============================================================
+   CARD — generic container
+   ============================================================ */
+.card {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.card-head h2, .card-head h3 { font-size: 0.84rem; font-weight: 600; color: var(--text-0); letter-spacing: 0.2px; }
+.card-head .head-sub { font-size: 0.66rem; color: var(--text-3); font-family: ui-monospace, monospace; }
+
+/* ============================================================
+   ENTITY PAGE (full-screen overlay — stock/sector/indicator detail)
+   ============================================================ */
+.entity-view { padding-bottom: 40px; }
+.ep-topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 14px;
+}
+.ep-back {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.72rem; color: var(--text-1);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.ep-back:hover { background: var(--bg-3); color: var(--text-0); }
+.ep-back::before { content: "←"; font-weight: 700; }
+
+.ep-title-block { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ep-title-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.ep-ticker {
+  font-size: 1.5rem; font-weight: 700; color: var(--text-0);
+  font-family: ui-monospace, monospace; letter-spacing: -0.3px;
+}
+.ep-name { font-size: 0.84rem; color: var(--text-2); }
+.ep-kind-tag {
+  font-size: 0.58rem; padding: 2px 8px;
+  background: var(--bg-3); color: var(--text-2);
+  border-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+  font-weight: 700;
+}
+.ep-snap {
+  display: flex; gap: 14px; font-family: ui-monospace, monospace; font-size: 0.78rem;
+  color: var(--text-1); flex-wrap: wrap;
+}
+.ep-snap .px { color: var(--text-0); font-weight: 600; }
+.ep-snap .chg.up { color: var(--green); }
+.ep-snap .chg.down { color: var(--red); }
+.ep-snap .pos { color: var(--yellow); }
+
+.ep-uplink {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px;
+  background: rgba(88,166,255,0.08);
+  border: 1px solid rgba(88,166,255,0.25);
+  border-radius: 6px;
+  font-size: 0.68rem;
+  color: var(--blue);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s;
+}
+.ep-uplink:hover { background: rgba(88,166,255,0.18); }
+.ep-uplink::before { content: "↑"; font-weight: 700; }
+
+/* Section divider between chunks of a single-flow entity page */
+.ep-divider {
+  display: flex; align-items: center;
+  gap: 12px;
+  margin: 22px 0 14px;
+  color: var(--text-3);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+.ep-divider::before, .ep-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.ep-divider span {
+  padding: 3px 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-1);
+}
+
+/* Sector 2-col layout */
+.sector-page-layout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 18px;
+  align-items: start;
+}
+.sector-main { min-width: 0; }
+.sector-side { min-width: 0; }
+
+.side-panel {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  position: sticky;
+  top: 14px;
+}
+.side-panel + .side-panel { margin-top: 12px; }
+.side-panel-title {
+  font-size: 0.64rem; font-weight: 600; color: var(--text-0);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+.side-panel-sub {
+  font-size: 0.62rem; color: var(--text-3);
+  margin-bottom: 10px;
+  font-family: ui-monospace, monospace;
+}
+.side-comp-head {
+  display: grid;
+  grid-template-columns: 1fr 60px 50px;
+  gap: 6px;
+  font-size: 0.56rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-3);
+  padding: 4px 6px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+.side-comp-head span:nth-child(2),
+.side-comp-head span:nth-child(3) { text-align: right; }
+.side-comp-row {
+  display: grid;
+  grid-template-columns: 1fr 60px 50px;
+  gap: 6px;
+  padding: 6px;
+  font-size: 0.72rem;
+  font-family: ui-monospace, monospace;
+  border-bottom: 1px solid var(--border-soft);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.side-comp-row:hover { background: var(--bg-2); }
+.side-comp-row .tk { font-weight: 700; color: var(--text-0); }
+.side-comp-row .wt { color: var(--yellow); text-align: right; }
+.side-comp-row .wt.dim { color: var(--text-3); }
+.side-comp-row .sc { color: var(--text-1); text-align: right; }
+
+/* Trend-window news header */
+.trend-news-head {
+  display: flex; flex-wrap: wrap;
+  align-items: center; gap: 10px 14px;
+  padding: 10px 12px;
+  background: rgba(88,166,255,0.05);
+  border-left: 2px solid var(--blue);
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+.trend-news-head .trend-window {
+  display: flex; align-items: baseline; gap: 6px;
+  font-family: ui-monospace, monospace;
+}
+.trend-news-head .trend-window .lbl {
+  font-size: 0.6rem;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.trend-news-head .trend-window .val { font-size: 0.76rem; color: var(--text-0); font-weight: 600; }
+.trend-news-head .trend-explain {
+  font-size: 0.72rem; color: var(--text-2);
+  font-family: -apple-system, sans-serif;
+  flex: 1 1 220px;
+}
+
+.ep-subnav {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.ep-subnav::-webkit-scrollbar { display: none; }
+.ep-sub {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 0.74rem;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.ep-sub:hover { color: var(--text-0); background: var(--bg-2); }
+.ep-sub.active { background: var(--blue); color: var(--bg-0); font-weight: 600; }
+
+.ep-panel { display: none; }
+.ep-panel.active { display: block; }
+
+/* Entity content patterns */
+.ep-section { margin-bottom: 16px; }
+.ep-section-title {
+  font-size: 0.68rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 8px; font-weight: 600;
+  display: flex; justify-content: space-between; align-items: baseline;
+}
+.ep-section-title .note { color: var(--text-3); text-transform: none; font-weight: 500; font-family: ui-monospace, monospace; font-size: 0.66rem; letter-spacing: 0; }
+
+.ep-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.ep-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.ep-grid-hero { display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; }
+
+.ep-thesis {
+  padding: 14px 16px;
+  background: rgba(210,153,34,0.06);
+  border-left: 3px solid var(--yellow);
+  border-radius: 6px;
+  font-size: 0.88rem;
+  color: var(--text-0);
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+.ep-thesis strong { color: var(--yellow); font-weight: 600; }
+.ep-thesis .hi-pos { color: var(--green); font-weight: 600; }
+.ep-thesis .hi-neg { color: var(--red); font-weight: 600; }
+
+.ep-business {
+  font-size: 0.82rem; color: var(--text-1); line-height: 1.6;
+  padding: 12px 14px;
+  background: var(--bg-2); border-radius: 6px;
+}
+.ep-business strong { color: var(--text-0); font-weight: 600; }
+
+/* ---- Regime narrative 3-block (Sprint 1) ---- */
+.regime-current-reading {
+  padding: 12px 14px;
+  background: var(--bg-2);
+  border-radius: 6px;
+  font-size: 0.84rem;
+  color: var(--text-0);
+  line-height: 1.65;
+  font-family: ui-monospace, monospace;
+}
+.regime-bullet {
+  padding: 10px 12px;
+  background: var(--bg-2);
+  border-left: 3px solid var(--yellow);
+  border-radius: 5px;
+  margin-bottom: 8px;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+.regime-bullet-headline { color: var(--text-0); font-weight: 600; margin-bottom: 4px; }
+.regime-bullet-body { color: var(--text-1); font-size: 0.78rem; margin-bottom: 4px; }
+.regime-bullet-number { color: var(--yellow); font-weight: 600; font-family: ui-monospace, monospace; }
+.regime-bullet-event { color: var(--text-2); }
+.regime-bullet-interp { color: var(--text-1); font-size: 0.82rem; padding-top: 4px; border-top: 1px solid var(--bg-3); margin-top: 4px; }
+.regime-bullet-interp em { color: var(--text-3); font-style: normal; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.68rem; margin-right: 6px; }
+.regime-bullet-source { color: var(--text-3); font-size: 0.68rem; font-family: ui-monospace, monospace; margin-top: 4px; }
+.regime-missing { color: var(--text-3); font-size: 0.74rem; padding: 6px 12px; font-style: italic; }
+.regime-missing em { color: var(--text-2); font-style: normal; }
+.regime-empty { color: var(--text-3); font-size: 0.8rem; font-style: italic; padding: 8px 0; }
+.regime-stance {
+  padding: 12px 14px;
+  background: rgba(210,153,34,0.06);
+  border-left: 3px solid var(--yellow);
+  border-radius: 6px;
+  color: var(--text-0);
+  font-size: 0.86rem;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+.regime-signpost {
+  padding: 8px 12px;
+  background: var(--bg-2);
+  border-radius: 5px;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+}
+.regime-signpost-event { color: var(--text-0); font-weight: 600; }
+.regime-signpost-detail { color: var(--text-2); font-size: 0.74rem; margin-top: 2px; }
+.regime-signpost-action { color: var(--text-1); font-size: 0.76rem; margin-top: 2px; }
+.regime-signpost-action strong { color: var(--green); }
+
+/* Sprint 5: stock narrative Long-term / Tactical tabs */
+.stock-nar-tabhead {
+  display: flex; gap: 8px; margin: 10px 0 12px;
+  border-bottom: 1px solid var(--bg-3);
+}
+.stock-nar-tab {
+  background: transparent; border: 0; color: var(--text-2);
+  font: inherit; font-size: 0.82rem; padding: 8px 14px;
+  cursor: pointer; border-bottom: 2px solid transparent;
+  font-weight: 500;
+}
+.stock-nar-tab:hover { color: var(--text-0); }
+.stock-nar-tab.active {
+  color: var(--text-0); border-bottom-color: var(--yellow);
+  font-weight: 600;
+}
+
+/* Sprint 7: dispatcher stats card */
+.dispatcher-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ep-snapshot-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+}
+.ep-snap-cell {
+  padding: 8px 10px;
+  background: var(--bg-2);
+  border-radius: 5px;
+  font-size: 0.74rem;
+}
+.ep-snap-cell .k { color: var(--text-3); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.4px; }
+.ep-snap-cell .v {
+  color: var(--text-0); font-weight: 600; font-family: ui-monospace, monospace;
+  margin-top: 2px; font-size: 0.94rem;
+}
+.ep-snap-cell .v.good { color: var(--green); }
+.ep-snap-cell .v.bad { color: var(--red); }
+.ep-snap-cell .ctx { font-size: 0.62rem; color: var(--text-3); margin-top: 2px; font-family: ui-monospace, monospace; }
+
+/* Financials chart grid */
+.ep-fin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.ep-fin-chart {
+  padding: 12px;
+  background: var(--bg-1); border: 1px solid var(--border); border-radius: 8px;
+}
+.ep-fin-chart .title { font-size: 0.72rem; color: var(--text-1); font-weight: 600; margin-bottom: 2px; }
+.ep-fin-chart .sub { font-size: 0.62rem; color: var(--text-3); font-family: ui-monospace, monospace; margin-bottom: 8px; }
+.ep-fin-svg { width: 100%; height: 140px; }
+
+/* Sprint 14.1: Run pipeline button + log drawer */
+.run-pipeline-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 12px; margin-right: 10px;
+  background: var(--bg-2); color: var(--text-1);
+  border: 1px solid var(--border); border-radius: 4px;
+  font-family: ui-monospace, monospace; font-size: 0.72rem;
+  cursor: pointer; transition: background 0.15s;
+}
+.run-pipeline-btn:hover { background: var(--bg-3); }
+.run-pipeline-btn[disabled] { opacity: 0.7; cursor: wait; }
+.run-pipeline-btn.running { border-color: var(--blue); color: var(--blue); }
+.run-pipeline-btn.done    { border-color: var(--green); color: var(--green); }
+.run-pipeline-btn.failed  { border-color: var(--red); color: var(--red); }
+.run-pipeline-btn .run-icon { font-size: 0.68rem; }
+.run-pipeline-btn.running .run-icon { animation: spin 1s linear infinite; display: inline-block; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.run-pipeline-btn .run-meta { color: var(--text-3); font-size: 0.62rem; margin-left: 2px; }
+
+#pipelineLogDrawer {
+  position: fixed; right: 16px; bottom: 16px; width: 520px; max-height: 340px;
+  background: var(--bg-1); border: 1px solid var(--border); border-radius: 6px;
+  font-family: ui-monospace, monospace; font-size: 0.62rem; color: var(--text-1);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.5); z-index: 500;
+  display: none; flex-direction: column;
+}
+#pipelineLogDrawer.open { display: flex; }
+#pipelineLogDrawer .log-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 12px; border-bottom: 1px solid var(--border-soft);
+  background: var(--bg-2); border-radius: 6px 6px 0 0;
+  color: var(--text-0); font-weight: 600;
+}
+#pipelineLogDrawer .log-head .close-btn {
+  cursor: pointer; color: var(--text-3); font-size: 1rem; line-height: 1;
+  background: none; border: none; padding: 0 4px;
+}
+#pipelineLogDrawer .log-body {
+  overflow-y: auto; padding: 8px 12px; flex: 1; white-space: pre-wrap;
+  word-break: break-all; line-height: 1.45;
+}
+#pipelineLogDrawer .log-line.err { color: var(--red); }
+
+/* Sprint 12: valuation curve overlay */
+.val-chart-svg { width: 100%; height: 260px; }
+.val-kpi-row {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 10px; margin-bottom: 10px;
+}
+.val-kpi {
+  background: var(--bg-2); border-radius: 4px; padding: 8px 10px;
+}
+.val-kpi .k { font-size: 0.58rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.4px; }
+.val-kpi .v { font-size: 1.05rem; color: var(--text-0); font-weight: 600; font-family: ui-monospace, monospace; }
+.val-kpi .ctx { font-size: 0.64rem; color: var(--text-2); font-family: ui-monospace, monospace; }
+.val-kpi .ctx.good { color: var(--green); }
+.val-kpi .ctx.bad  { color: var(--red); }
+.val-legend {
+  display: flex; gap: 16px; font-size: 0.66rem; color: var(--text-2);
+  align-items: center; margin-top: 4px; font-family: ui-monospace, monospace;
+}
+.val-legend .leg-dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  margin-right: 4px; vertical-align: middle;
+}
+.val-rationale {
+  margin-top: 12px; padding: 10px 12px;
+  background: var(--bg-2); border-left: 3px solid var(--green);
+  border-radius: 2px;
+}
+.val-r-head { font-size: 0.62rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; font-family: ui-monospace, monospace; }
+.val-r-body { font-size: 0.78rem; color: var(--text-1); line-height: 1.5; }
+
+.ep-fin-table { width: 100%; font-size: 0.72rem; font-family: ui-monospace, monospace; margin-top: 10px; }
+.ep-fin-table th {
+  padding: 5px 6px; text-align: right;
+  font-weight: 500; color: var(--text-2);
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.4px;
+  font-family: -apple-system, sans-serif;
+}
+.ep-fin-table th:first-child { text-align: left; }
+.ep-fin-table td { padding: 5px 6px; text-align: right; border-bottom: 1px solid var(--border-soft); }
+.ep-fin-table td:first-child { text-align: left; color: var(--text-1); font-family: -apple-system, sans-serif; }
+
+/* Filings */
+.filing-card {
+  padding: 14px 16px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  border-left: 3px solid var(--blue);
+}
+.filing-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border-soft);
+  gap: 10px; flex-wrap: wrap;
+}
+.filing-type {
+  font-family: ui-monospace, monospace;
+  font-size: 0.64rem;
+  padding: 2px 8px;
+  background: rgba(88,166,255,0.12);
+  color: var(--blue);
+  border-radius: 10px; font-weight: 700; letter-spacing: 0.5px;
+}
+.filing-title { flex: 1; font-weight: 600; color: var(--text-0); font-size: 0.82rem; }
+.filing-meta { font-family: ui-monospace, monospace; font-size: 0.64rem; color: var(--text-3); }
+.filing-lede {
+  font-size: 0.8rem; color: var(--text-1); line-height: 1.55;
+  margin-bottom: 10px;
+}
+.filing-lede strong { color: var(--text-0); }
+.filing-bullets { list-style: none; }
+.filing-bullets li {
+  padding: 4px 0 4px 18px;
+  position: relative;
+  font-size: 0.76rem;
+  color: var(--text-1);
+  line-height: 1.5;
+}
+.filing-bullets li::before {
+  content: "▸";
+  position: absolute;
+  left: 4px;
+  color: var(--blue);
+  font-weight: 700;
+}
+.filing-bullets li strong { color: var(--text-0); }
+
+/* Peers table */
+.peers-table { width: 100%; font-size: 0.72rem; font-family: ui-monospace, monospace; border-collapse: collapse; }
+.peers-table th { padding: 6px 8px; text-align: right; font-weight: 500; color: var(--text-2); border-bottom: 1px solid var(--border); font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.4px; font-family: -apple-system, sans-serif; }
+.peers-table th:first-child { text-align: left; }
+.peers-table td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--border-soft); }
+.peers-table td:first-child { text-align: left; color: var(--text-0); font-weight: 600; cursor: pointer; }
+.peers-table td:first-child:hover { color: var(--blue); }
+.peers-table tr.me td { background: rgba(88,166,255,0.08); }
+
+/* EPS bars */
+.ep-eps-bars {
+  display: grid; grid-template-columns: repeat(9, 1fr); gap: 3px; height: 80px;
+  align-items: end; padding: 8px 0 24px;
+  position: relative;
+}
+.ep-eps-bar {
+  position: relative; display: flex; flex-direction: column; justify-content: flex-end;
+  cursor: pointer;
+}
+.ep-eps-bar .bar-est {
+  background: var(--bg-3); border: 1px solid var(--border);
+  width: 100%; border-radius: 1px;
+}
+.ep-eps-bar .bar-act {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: var(--green);
+  border-radius: 1px;
+}
+.ep-eps-bar.miss .bar-act { background: var(--red); }
+.ep-eps-bar .qlab {
+  position: absolute; bottom: -18px; left: 0; right: 0;
+  font-size: 0.56rem; color: var(--text-3); text-align: center;
+  font-family: ui-monospace, monospace;
+}
+
+.ep-catalyst {
+  display: grid; grid-template-columns: 11px 82px 1fr;
+  gap: 8px; padding: 5px 0; font-size: 0.76rem; align-items: baseline;
+  border-bottom: 1px dashed var(--border-soft);
+}
+.ep-catalyst:last-child { border-bottom: none; }
+.ep-catalyst .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; }
+.ep-catalyst .dot.good { background: var(--green); }
+.ep-catalyst .dot.bad { background: var(--red); }
+.ep-catalyst .dot.neu { background: var(--yellow); }
+.ep-catalyst .date { color: var(--text-3); font-family: ui-monospace, monospace; font-size: 0.68rem; }
+.ep-catalyst .text { color: var(--text-1); line-height: 1.4; }
+.ep-catalyst .text strong { color: var(--text-0); font-weight: 600; }
+
+.ep-risk {
+  display: grid; grid-template-columns: 14px 1fr; gap: 6px;
+  padding: 4px 0; font-size: 0.76rem; color: var(--text-1); line-height: 1.5;
+}
+.ep-risk::before { content: "▸"; color: var(--red); font-size: 0.72rem; }
+
+/* sector composition table — shared */
+.sec-comp-row {
+  display: grid; grid-template-columns: 60px 1fr 60px 60px 60px;
+  gap: 10px; padding: 6px 8px; border-bottom: 1px solid var(--border-soft);
+  font-size: 0.74rem; font-family: ui-monospace, monospace; cursor: pointer;
+  align-items: center;
+}
+.sec-comp-row:hover { background: var(--bg-2); }
+.sec-comp-row .tk { font-weight: 700; color: var(--text-0); }
+.sec-comp-row .nm { color: var(--text-2); font-family: -apple-system, sans-serif; font-size: 0.72rem; }
+
+/* ============================================================
+   PROVENANCE POPOVER (replaces inspector rail)
+   ============================================================ */
+.prov-popover {
+  position: fixed;
+  width: 320px; max-width: calc(100vw - 20px);
+  max-height: 480px; overflow-y: auto;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  font-size: 0.76rem;
+  padding: 12px 14px;
+}
+.prov-pop-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  padding-bottom: 8px; margin-bottom: 10px; border-bottom: 1px solid var(--border-soft);
+}
+.prov-pop-head .t { font-size: 0.76rem; font-weight: 600; color: var(--text-0); }
+.prov-pop-close {
+  background: none; border: none; color: var(--text-3);
+  cursor: pointer; font-size: 0.9rem; padding: 0 4px;
+}
+.prov-pop-close:hover { color: var(--text-0); }
+.prov-pop-value {
+  padding: 10px 12px;
+  background: var(--bg-2);
+  border-radius: 6px;
+  border-left: 3px solid var(--blue);
+  margin-bottom: 10px;
+}
+.prov-pop-value .val { font-size: 1.35rem; font-weight: 600; color: var(--text-0); font-family: ui-monospace, monospace; }
+.prov-pop-value .val.good { color: var(--green); } .prov-pop-value .val.bad { color: var(--red); } .prov-pop-value .val.warn { color: var(--yellow); }
+.prov-pop-value .def { font-size: 0.7rem; color: var(--text-2); margin-top: 4px; line-height: 1.4; }
+
+.prov-pop-sect { margin-bottom: 10px; }
+.prov-pop-sect .st {
+  font-size: 0.58rem; color: var(--text-3); text-transform: uppercase;
+  letter-spacing: 0.5px; margin-bottom: 5px;
+}
+
+.prov-meta-row { display: grid; grid-template-columns: 76px 1fr; gap: 8px; padding: 3px 0; font-size: 0.7rem; }
+.prov-meta-row .k { color: var(--text-3); }
+.prov-meta-row .v { color: var(--text-1); font-family: ui-monospace, monospace; }
+
+.prov-input {
+  display: grid; grid-template-columns: 1fr 60px;
+  gap: 8px; padding: 4px 8px; font-size: 0.7rem;
+  border-bottom: 1px dashed var(--border-soft);
+}
+.prov-input .iname { color: var(--text-1); }
+.prov-input .ival { color: var(--text-0); font-family: ui-monospace, monospace; text-align: right; font-weight: 600; }
+
+.prov-source { padding: 4px 8px; margin-bottom: 4px; background: var(--bg-2); border-radius: 4px; font-size: 0.68rem; display: flex; gap: 6px; align-items: center; }
+.prov-source .ico { font-size: 0.8rem; }
+.prov-source .title { flex: 1; color: var(--text-1); }
+.prov-source .date { color: var(--text-3); font-family: ui-monospace, monospace; font-size: 0.62rem; }
+
+.prov-hist-svg { width: 100%; height: 50px; background: var(--bg-2); border-radius: 4px; margin-top: 4px; }
+
+.prov-pop-backdrop {
+  position: fixed; inset: 0;
+  z-index: 999;
+  background: transparent;
+}
+
+/* ============================================================
+   MOCK NOTICE
+   ============================================================ */
+.mock-notice {
+  position: fixed; bottom: 10px; left: 10px;
+  padding: 5px 10px;
+  background: rgba(210,153,34,0.12);
+  border: 1px solid rgba(210,153,34,0.4);
+  border-radius: 6px;
+  color: var(--yellow);
+  font-size: 0.62rem;
+  font-family: ui-monospace, monospace;
+  z-index: 100;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 1180px) {
+  .regime-layout { grid-template-columns: 1fr 1fr; gap: 18px; }
+  .regime-layout .tilt-block { grid-column: 1 / -1; }
+  .sector-layout, .stock-layout, .weight-layout, .news-layout { grid-template-columns: 1fr; gap: 14px; }
+  .feedback-layout { grid-template-columns: 1fr 1fr; }
+  .feedback-layout > :nth-child(3) { grid-column: 1 / -1; }
+  .ep-grid-hero { grid-template-columns: 1fr; }
+  .ep-snapshot-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 900px) {
+  .kpi-strip { grid-template-columns: repeat(3, 1fr); }
+  .macro-indicators-grid { grid-template-columns: repeat(2, 1fr); }
+  .macro-hero { grid-template-columns: 1fr; gap: 14px; }
+  .pm-grid { grid-template-columns: 1fr; }
+  .funnel-nav { grid-template-columns: repeat(3, 1fr); }
+  .funnel-nav .funnel-step:nth-child(4), .funnel-nav .funnel-step:nth-child(5) { grid-column: span 1; }
+  .validation-grid, .ep-grid-2, .ep-grid-3, .ep-fin-grid { grid-template-columns: 1fr; }
+  .feedback-layout { grid-template-columns: 1fr; }
+  .feedback-layout > :nth-child(3) { grid-column: auto; }
+  .ep-snapshot-grid { grid-template-columns: repeat(2, 1fr); }
+  .sector-page-layout { grid-template-columns: 1fr; }
+  .side-panel { position: static; }
+  .top-bar { grid-template-columns: 180px 1fr auto; padding: 0 12px; gap: 10px; }
+  .search-box { width: 120px; }
+  .brand-sub { display: none; }
+}
+
+@media (max-width: 640px) {
+  .main-content { padding: 14px 14px 60px; }
+  .funnel-nav { grid-template-columns: repeat(2, 1fr); }
+  .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+  .macro-indicators-grid { grid-template-columns: 1fr 1fr; }
+  .regime-layout { grid-template-columns: 1fr; }
+  .ep-snapshot-grid { grid-template-columns: 1fr 1fr; }
+  .top-bar { grid-template-columns: auto 1fr auto; gap: 8px; padding: 0 10px; }
+  .brand-title { font-size: 0.78rem; }
+  .search-box { display: none; }
+  .header-kpis { gap: 8px; }
+  .hkpi { padding: 2px 6px; }
+  .hkpi .lbl { font-size: 0.54rem; }
+  .hkpi .val { font-size: 0.78rem; }
+  .layer-card, .macro-hero, .card { padding: 14px 12px; }
+  .layer-head { grid-template-columns: 24px 1fr; }
+  .layer-head .prov { justify-self: end; grid-column: 2; }
+  .layer-lede { margin-left: 0; font-size: 0.82rem; }
+  .ep-ticker { font-size: 1.25rem; }
+  .sector-table th, .sector-table td { padding: 5px 3px; font-size: 0.68rem; }
+  .stock-row { grid-template-columns: 44px 38px 44px 50px 44px 38px 50px 44px 28px 40px; gap: 5px; font-size: 0.62rem; }
+  .stock-row-head { font-size: 0.55rem; }
+  .pm-table thead th, .pm-table tbody td { padding: 5px 4px; font-size: 0.66rem; }
+}
+
+@media (max-width: 420px) {
+  .kpi-strip { grid-template-columns: 1fr 1fr; }
+  .ep-snapshot-grid { grid-template-columns: 1fr; }
+  .event-card { grid-template-columns: 1fr; }
+  .event-card .event-tag { justify-self: start; }
+  .regime-chip { display: none; }
+  .prov-popover { width: calc(100vw - 20px); }
+}
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ===================== TOP BAR ===================== -->
+  <div class="top-bar">
+    <div class="brand">
+      <div class="brand-logo">H</div>
+      <div>
+        <div class="brand-title">HF DESK</div>
+        <div class="brand-sub">Retail-grade pro intelligence</div>
+      </div>
+    </div>
+
+    <div class="header-kpis">
+      <div class="hkpi" data-prov="nav">
+        <span class="lbl">NAV</span>
+        <span class="val">£1,243,820</span>
+        <span class="delta up">+0.32% · +£3,984</span>
+      </div>
+      <div class="hkpi" data-prov="ytd">
+        <span class="lbl">YTD</span>
+        <span class="val">+8.6%</span>
+        <span class="delta up">vs SPY +5.2%</span>
+      </div>
+      <div class="regime-chip" data-open="indicator:Regime">
+        <span class="dot"></span>
+        <span>Late-cycle · Cautious-bullish</span>
+      </div>
+      <div class="freshness-chip" data-prov="freshness">
+        <span class="dot"></span>
+        <span>FRESH · 08:05</span>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <button class="run-pipeline-btn" id="runPipelineBtn" type="button">
+        <span class="run-icon" id="runPipelineIcon">▶</span>
+        <span class="run-label" id="runPipelineLabel">Run pipeline</span>
+        <span class="run-meta" id="runPipelineMeta"></span>
+      </button>
+      <div class="search-box" id="searchBox">
+        <span style="color:var(--text-3);">⌕</span>
+        <span>Search tickers…</span>
+        <span class="kbd">⌘K</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TABS ===================== -->
+  <nav class="main-tabs" id="mainTabs">
+    <button class="tab" data-tab="pm"><span class="tab-num">0</span><span>PM</span></button>
+    <button class="tab active" data-tab="portfolio"><span class="tab-num">1</span><span>Portfolio</span></button>
+    <button class="tab" data-tab="macro"><span class="tab-num">2</span><span>Macro</span></button>
+    <button class="tab" data-tab="news"><span class="tab-num">3</span><span>News</span></button>
+    <button class="tab" data-tab="validation"><span class="tab-num">4</span><span>Validation</span></button>
+  </nav>
+
+  <!-- ===================== MAIN CONTENT ===================== -->
+  <main class="main-content">
+
+    <!-- Tab-view wrapper — visible when no entity is open -->
+    <div class="tab-view" id="tabView">
+
+      <!-- ============================================================
+           TAB: PM
+           ============================================================ -->
+      <section class="tab-content" id="tab-pm">
+        <div class="kpi-strip">
+          <div class="kpi" data-prov="pm-nav"><div class="k-label">NAV</div><div class="k-value">£1,243,820</div><div class="k-delta up">+0.32% 1d</div></div>
+          <div class="kpi" data-prov="pm-mtd"><div class="k-label">MTD</div><div class="k-value">+2.4%</div><div class="k-delta up">vs SPY +1.8%</div></div>
+          <div class="kpi" data-prov="pm-ytd"><div class="k-label">YTD</div><div class="k-value">+8.6%</div><div class="k-delta up">+3.4% α</div></div>
+          <div class="kpi" data-prov="pm-dd"><div class="k-label">Max Drawdown</div><div class="k-value">−4.2%</div><div class="k-delta">52d recovery</div></div>
+          <div class="kpi" data-prov="pm-sharpe"><div class="k-label">Sharpe (6m)</div><div class="k-value">1.42</div><div class="k-delta">target 1.5</div></div>
+          <div class="kpi" data-prov="pm-vol"><div class="k-label">Vol (ann.)</div><div class="k-value">11.4%</div><div class="k-delta">under 12% tgt</div></div>
+        </div>
+
+        <section class="layer-card">
+          <div class="layer-head">
+            <span class="layer-badge">N</span>
+            <h2 class="layer-verdict">NAV up <span class="sub pos">+8.6%</span> YTD — regime-call and sector-tilt driving 92% of alpha</h2>
+            <button class="prov" data-prov="pm-navcurve" title="Provenance">i</button>
+          </div>
+          <p class="layer-lede">
+            Book has compounded <strong>+£97,200</strong> YTD vs SPY <span class="hi-neu">+5.2%</span>,
+            a <span class="hi-pos">+340bp alpha</span>. Regime pivot to late-cycle on <strong>Feb 14</strong> lifted quality/low-vol
+            weights and trimmed growth — that single call explains roughly <strong>145bp</strong> of the 215bp 30-day attribution.
+            Stock picks inside sectors are the lagging layer at <span class="hi-neg">−34bp</span>.
+          </p>
+          <div class="layer-body">
+            <svg class="pm-nav-svg" id="pmNavSvg"></svg>
+          </div>
+          <div class="layer-foot">
+            <div class="layer-meta">
+              <span><span class="k">Start:</span> <span class="v">£1,000,000</span></span>
+              <span><span class="k">Peak DD:</span> <span class="v">−4.2%</span></span>
+              <span><span class="k">Win rate:</span> <span class="v">58%</span></span>
+            </div>
+            <a class="open-analysis" data-open="indicator:NAV">See full NAV breakdown</a>
+          </div>
+        </section>
+
+        <div class="pm-grid">
+          <section class="layer-card">
+            <div class="layer-head">
+              <span class="layer-badge">A</span>
+              <h2 class="layer-verdict">Attribution — regime &amp; sector <span class="sub pos">+227bp</span>, stock picks <span class="sub neg">−34bp</span></h2>
+              <button class="prov" data-prov="pm-attribution">i</button>
+            </div>
+            <p class="layer-lede">
+              Last 30 days: top-down layers carried the book. <strong>Sector tilt +82bp</strong> came from
+              Healthcare OW catching UNH's MCR-cycle upswing. <strong>Stock-selection miss</strong> concentrated in Tech
+              (MSFT/NVDA trim was right in direction but 2 weeks early).
+            </p>
+            <div class="layer-body">
+              <svg class="attribution-donut" id="attributionDonut" viewBox="0 0 180 180"></svg>
+              <div class="attribution-legend" id="attributionLegend"></div>
+            </div>
+            <div class="layer-foot">
+              <a class="open-analysis" data-open="indicator:Attribution">See attribution breakdown</a>
+            </div>
+          </section>
+
+          <section class="layer-card">
+            <div class="layer-head">
+              <span class="layer-badge">D</span>
+              <h2 class="layer-verdict">Drawdown contained at <span class="sub neg">−4.2%</span> — recovered in 52 days</h2>
+              <button class="prov" data-prov="pm-drawdown">i</button>
+            </div>
+            <p class="layer-lede">
+              Feb's NVDA-led growth selloff dragged the book 4.2% below water for 18 days. Kill-criteria held —
+              no single position breached the 3% stop. Dry powder at <strong>25.8%</strong> gave room to add on the dip.
+            </p>
+            <div class="layer-body">
+              <svg class="drawdown-svg" id="drawdownSvg"></svg>
+            </div>
+            <div class="layer-foot">
+              <a class="open-analysis" data-open="indicator:Drawdown">See drawdown history</a>
+            </div>
+          </section>
+        </div>
+
+        <section class="layer-card">
+          <div class="layer-head">
+            <span class="layer-badge">P</span>
+            <h2 class="layer-verdict">Book: 16 open positions · 74.2% gross · 62% net long</h2>
+            <button class="prov" data-prov="pm-positions">i</button>
+          </div>
+          <p class="layer-lede">
+            Quality/defensive tilt visible: Healthcare is the largest sector weight at <strong>15%</strong>,
+            Staples <strong>9.5%</strong>, Utilities <strong>5%</strong>. Growth names (MSFT, NVDA) retained but trimmed
+            toward target. UNH is the highest-conviction add for April.
+          </p>
+          <div class="layer-body">
+            <table class="pm-table" id="pmTable"></table>
+          </div>
+        </section>
+      </section>
+
+      <!-- ============================================================
+           TAB: PORTFOLIO (FUNNEL)
+           ============================================================ -->
+      <section class="tab-content active" id="tab-portfolio">
+        <nav class="funnel-nav">
+          <button class="funnel-step" data-scroll="layer1"><span class="step-num">1</span><span class="step-label">Context</span><span class="step-out">→ risk posture</span></button>
+          <button class="funnel-step" data-scroll="layer2"><span class="step-num">2</span><span class="step-label">Sector</span><span class="step-out">→ OW / EW / UW</span></button>
+          <button class="funnel-step" data-scroll="layer3"><span class="step-num">3</span><span class="step-label">Stock</span><span class="step-out">→ shortlist</span></button>
+          <button class="funnel-step" data-scroll="layer4"><span class="step-num">4</span><span class="step-label">Weights</span><span class="step-out">→ target vector</span></button>
+          <button class="funnel-step" data-scroll="layer5"><span class="step-num">5</span><span class="step-label">Feedback</span><span class="step-out">→ recalibrate</span></button>
+        </nav>
+
+        <!-- Layer 1 — Context -->
+        <section class="layer-card" id="layer1">
+          <div class="layer-head">
+            <span class="layer-badge">1</span>
+            <h2 class="layer-verdict">Late-cycle · <span class="sub">cautious-bullish</span> — quality leads, cyclicals bleed</h2>
+            <button class="prov" data-prov="regime-label">i</button>
+          </div>
+          <p class="layer-lede">
+            GDP nowcast decelerating to <strong class="hi-neu">+1.4%</strong>, core CPI sticky at <strong class="hi-neu">3.2%</strong>,
+            Fed pricing a single cut by July. Credit spreads contained at <strong>318bp</strong> and VIX at
+            <strong>16.4</strong> — no imminent stress. In this regime, quality defensives have historically outperformed cyclicals
+            by <span class="hi-pos">~180bp over 6 months</span>. Book runs <strong>net 62% long</strong>, overweight quality &amp; low-vol,
+            underweight growth &amp; discretionary.
+          </p>
+          <div class="layer-body">
+            <div class="regime-layout">
+              <div>
+                <div class="tilt-title">Signal panel</div>
+                <div class="regime-signals" id="regimeSignals"></div>
+              </div>
+              <div class="gauge-block" data-prov="net-exposure">
+                <div class="gauge-label">Net exposure</div>
+                <svg viewBox="0 0 200 130" width="220" height="140" id="gaugeSvg"></svg>
+                <div class="gauge-caption">of gross · long-biased</div>
+              </div>
+              <div class="tilt-block">
+                <div class="tilt-title">Style tilts</div>
+                <div id="tiltRows"></div>
+              </div>
+            </div>
+          </div>
+          <div class="layer-foot">
+            <div class="layer-meta">
+              <span><span class="k">Since:</span> <span class="v">2026-02-14 (62d)</span></span>
+              <span><span class="k">Confidence:</span> <span class="v">0.81</span></span>
+              <span><span class="k">Next test:</span> <span class="v">FOMC 2026-05-02</span></span>
+            </div>
+            <a class="open-analysis" data-open="indicator:Regime">Open full regime analysis</a>
+          </div>
+        </section>
+
+        <!-- Layer 2 — Sector -->
+        <section class="layer-card" id="layer2">
+          <div class="layer-head">
+            <span class="layer-badge">2</span>
+            <h2 class="layer-verdict">OW <span class="sub pos">Healthcare · Staples · Utilities</span> — UW <span class="sub neg">Tech · Discretionary · Comm Svcs</span></h2>
+            <button class="prov" data-prov="sector-ranking">i</button>
+          </div>
+          <p class="layer-lede">
+            Regime-fit model scores Healthcare highest (<strong class="hi-pos">+0.82</strong>) on earnings momentum
+            plus demographic tailwind; Staples and Utilities rank next on duration-ballast plus cash-flow stability.
+            Tech flips to UW as growth decelerates and rate-sensitivity bites — valuation is <strong class="hi-neg">−0.70σ</strong> below
+            historical fit. Click any sector name to see the full composition, drivers, and history.
+          </p>
+          <div class="layer-body">
+            <div class="sector-layout">
+              <div>
+                <table class="sector-table">
+                  <thead><tr>
+                    <th>Sector</th><th>Fit</th><th>Earn</th><th>Val</th><th>RS</th><th>Stance</th>
+                  </tr></thead>
+                  <tbody id="sectorTableBody"></tbody>
+                </table>
+              </div>
+              <div class="rrg-wrap">
+                <div class="rrg-title">Relative rotation (12w)</div>
+                <svg viewBox="0 0 260 260" class="rrg-svg" id="rrgSvg"></svg>
+                <div class="rrg-legend">
+                  <span style="color:var(--green);">▲ Leading</span>
+                  <span style="color:var(--blue);">↗ Improving</span>
+                  <span style="color:var(--red);">▼ Weakening</span>
+                  <span style="color:var(--yellow);">↘ Lagging</span>
+                </div>
+              </div>
+            </div>
+            <div class="allocation-bar-wrap">
+              <div class="allocation-bar-title">Resulting sector weights</div>
+              <div class="allocation-bar" id="allocBar"></div>
+            </div>
+          </div>
+          <div class="layer-foot">
+            <div class="layer-meta">
+              <span><span class="k">Top OW:</span> <span class="v">HC 18%</span></span>
+              <span><span class="k">Top UW:</span> <span class="v">Tech 12% (vs bench 29%)</span></span>
+            </div>
+            <a class="open-analysis" data-open="landscape:sector">Open full sector analysis</a>
+          </div>
+        </section>
+
+        <!-- Layer 3 — Stock -->
+        <section class="layer-card" id="layer3">
+          <div class="layer-head">
+            <span class="layer-badge">3</span>
+            <h2 class="layer-verdict">9 names shortlisted — top pick <span class="sub pos">UNH</span> (score 0.78, rev +3.2%, earnings in 14d)</h2>
+            <button class="prov" data-prov="stock-selection">i</button>
+          </div>
+          <p class="layer-lede">
+            Inside OW sectors, ranked on <strong>revisions × valuation × catalyst-proximity</strong>. UNH tops the list on
+            MCR-cycle bottoming plus cheap EV/EBITDA (<strong class="hi-pos">−0.8σ</strong> vs 5y). LLY second on
+            GLP-1 volume ramp despite premium valuation. In Staples, KO preferred over PG on FX tailwind. Click any ticker
+            to open the full profile — thesis, financials, filings, news, peers.
+          </p>
+          <div class="layer-body">
+            <div class="stock-layout">
+              <div id="stockGroups"></div>
+              <div class="scatter-wrap">
+                <div class="scatter-title">Revisions × valuation</div>
+                <svg viewBox="0 0 260 240" class="scatter-svg" id="scatterSvg"></svg>
+                <div class="scatter-caption">Top-left = cheap + rising revisions (ideal long)</div>
+              </div>
+            </div>
+          </div>
+          <div class="layer-foot">
+            <div class="layer-meta">
+              <span><span class="k">Avg conviction:</span> <span class="v">3.6 / 5</span></span>
+              <span><span class="k">Catalysts in 14d:</span> <span class="v">3 names</span></span>
+            </div>
+            <a class="open-analysis" data-open="landscape:stock">Open full stock analysis</a>
+          </div>
+        </section>
+
+        <!-- Layer 4 — Weights -->
+        <section class="layer-card" id="layer4">
+          <div class="layer-head">
+            <span class="layer-badge">4</span>
+            <h2 class="layer-verdict">Rebalance today — <span class="sub pos">add UNH +3%</span>, <span class="sub neg">trim NVDA −3%</span>, <span class="sub neg">trim MSFT −2.5%</span></h2>
+            <button class="prov" data-prov="weights">i</button>
+          </div>
+          <p class="layer-lede">
+            Target vector reflects the funnel: 16 names, net <strong>61.5%</strong>, gross <strong>74.2%</strong>.
+            Three high-conviction moves clear the 14-day confirmation gate today — all scaled by Kelly-capped sizing
+            (max 5% single-name, max 22% single-sector). Execute at VWAP across the session; no names breach liquidity cap.
+          </p>
+          <div class="layer-body">
+            <div class="kpi-strip" id="kpiStrip"></div>
+            <div class="weight-layout">
+              <div class="weight-chart-wrap">
+                <svg viewBox="0 0 720 340" class="weight-chart" id="weightChart"></svg>
+              </div>
+              <div class="decision-trail" id="decisionTrail"></div>
+            </div>
+          </div>
+          <div class="layer-foot">
+            <a class="open-analysis" data-open="stock:UNH">See UNH decision trail</a>
+          </div>
+        </section>
+
+        <!-- Layer 5 — Feedback -->
+        <section class="layer-card" id="layer5">
+          <div class="layer-head">
+            <span class="layer-badge">5</span>
+            <h2 class="layer-verdict">Layer-attribution says <span class="sub pos">regime &amp; sector working</span>, <span class="sub neg">stock picks lagging</span></h2>
+            <button class="prov" data-prov="feedback">i</button>
+          </div>
+          <p class="layer-lede">
+            30-day waterfall: Regime +145bp, Sector +82bp, Stock <span class="hi-neg">−34bp</span>, Sizing +22bp.
+            Conviction calibration holds at levels 1–4 but <strong>level 5 over-promised</strong> (0.72 actual vs 0.80 expected, n=9) —
+            sample too small to fix yet, but flag. Closed-trades win rate: <strong>7 / 10</strong>, avg winner +5.1%, avg loser −2.3%.
+          </p>
+          <div class="layer-body">
+            <div class="feedback-layout">
+              <div class="feedback-panel">
+                <div class="feedback-title">30-day attribution (bps)</div>
+                <svg viewBox="0 0 300 240" class="waterfall-svg" id="waterfallSvg"></svg>
+              </div>
+              <div class="feedback-panel">
+                <div class="feedback-title">Conviction calibration</div>
+                <svg viewBox="0 0 300 240" class="calib-svg" id="calibSvg"></svg>
+              </div>
+              <div class="feedback-panel">
+                <div class="feedback-title">Last 10 closed ideas</div>
+                <div class="trades-list" id="tradesList"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <!-- ============================================================
+           TAB: MACRO
+           ============================================================ -->
+      <section class="tab-content" id="tab-macro">
+        <div class="macro-hero">
+          <div>
+            <div class="macro-big-verdict">Late-cycle · <span class="sub">cautious-bullish</span></div>
+            <div class="macro-big-lede">
+              Growth is decelerating but still positive, the Fed is on hold, and inflation is sticky in the low-3s.
+              Credit is calm. In this sleeve of the cycle, quality &amp; duration-ballast historically lead cyclicals —
+              the book is positioned for exactly that. Next major test is the <strong>May 2 FOMC</strong>.
+            </div>
+            <div class="macro-meta-grid">
+              <div class="macro-meta-row"><span class="k">Since</span><span class="v">2026-02-14 (62d)</span></div>
+              <div class="macro-meta-row"><span class="k">Confidence</span><span class="v">0.81</span></div>
+              <div class="macro-meta-row"><span class="k">Prev regime</span><span class="v">Mid-cycle bull</span></div>
+              <div class="macro-meta-row"><span class="k">Next test</span><span class="v">FOMC 2026-05-02</span></div>
+            </div>
+          </div>
+          <div>
+            <div class="feedback-title" style="text-align:left;">Regime history (24m)</div>
+            <svg class="macro-history-svg" id="macroHistorySvg"></svg>
+          </div>
+        </div>
+
+        <div class="macro-section-title">
+          <h3>Event Calendar — past 30d &amp; next 30d</h3>
+          <span class="hint">sorted chronologically · click for full release</span>
+        </div>
+        <div class="event-calendar" id="eventCalendar"></div>
+
+        <div class="macro-section-title">
+          <h3>Recent Releases</h3>
+          <span class="hint">summarized prose + bullets · full statements linked</span>
+        </div>
+        <div id="releaseSummaries"></div>
+
+        <div class="macro-section-title">
+          <h3>Indicator Board</h3>
+          <span class="hint">12 signals · click any for full history</span>
+        </div>
+        <div class="macro-indicators-grid" id="macroIndicators"></div>
+
+        <div class="macro-section-title">
+          <h3>Scenarios — Portfolio sensitivity</h3>
+          <span class="hint">what if the regime is wrong?</span>
+        </div>
+        <div class="card" style="margin-bottom: 0;">
+          <table class="scenarios-table">
+            <thead><tr>
+              <th>Scenario</th><th>P(30d)</th><th>NAV impact</th><th>Layer trigger</th><th>Top mover</th>
+            </tr></thead>
+            <tbody id="scenariosTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           TAB: NEWS
+           ============================================================ -->
+      <section class="tab-content" id="tab-news">
+        <div class="news-layout">
+          <section class="layer-card">
+            <div class="layer-head">
+              <span class="layer-badge">N</span>
+              <h2 class="layer-verdict">Newsflow today — <span class="sub pos">UNH beat</span>, <span class="sub pos">LLY EU approval</span>, <span class="sub neg">TSLA miss</span></h2>
+              <button class="prov" data-prov="news-stream">i</button>
+            </div>
+            <p class="layer-lede">
+              Portfolio-relevant stream filtered by sector overlap and scored for materiality. Healthcare +2.1% on
+              the day leads sector performance; both UNH and LLY news reinforce the OW stance. TSLA miss doesn't
+              affect the book directly (no position) but drags Discretionary. 8 items · 3 high-materiality.
+            </p>
+            <div class="news-filter-bar">
+              <span class="filter-chip active">All</span>
+              <span class="filter-chip">Healthcare</span>
+              <span class="filter-chip">Tech</span>
+              <span class="filter-chip">Financials</span>
+              <span class="filter-chip">Positive</span>
+              <span class="filter-chip">Negative</span>
+              <span class="filter-chip">High materiality</span>
+            </div>
+            <div id="newsStream"></div>
+          </section>
+
+          <div>
+            <section class="card">
+              <div class="card-head">
+                <h3>Top Movers Today</h3>
+                <span class="head-sub">ranked by |move|</span>
+              </div>
+              <div id="topDrivers"></div>
+            </section>
+
+            <section class="card">
+              <div class="card-head">
+                <h3>Narrative Clusters</h3>
+                <span class="head-sub">topic graph · last 7d</span>
+              </div>
+              <svg class="cluster-svg" id="clusterSvg"></svg>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           TAB: VALIDATION
+           ============================================================ -->
+      <section class="tab-content" id="tab-validation">
+        <div class="quality-strip">
+          <div class="quality-card"><div class="ql">Feeds Healthy</div><div class="qv">14 / 16</div></div>
+          <div class="quality-card warn"><div class="ql">Stale Feeds</div><div class="qv">2</div></div>
+          <div class="quality-card err"><div class="ql">Errors (24h)</div><div class="qv">3</div></div>
+          <div class="quality-card"><div class="ql">Monthly Check</div><div class="qv">68%</div></div>
+        </div>
+
+        <div class="validation-grid">
+          <section class="card">
+            <div class="card-head"><h3>Feed Freshness</h3><span class="head-sub">16 sources</span></div>
+            <table class="freshness-table" id="freshnessTable"></table>
+          </section>
+
+          <section class="card">
+            <div class="card-head"><h3>Anomaly Log (48h)</h3></div>
+            <div id="anomalyLog"></div>
+          </section>
+
+          <section class="card" style="grid-column: 1 / -1;">
+            <div class="card-head"><h3>Monthly Validation</h3><span class="head-sub">April 2026 · 2026-04-30 deadline</span></div>
+            <div class="monthly-progress">
+              <div class="progress-bar"><div class="progress-fill" style="width:68%"></div></div>
+              <span class="progress-text">34 / 50 checked</span>
+            </div>
+            <div id="checkList"></div>
+          </section>
+
+          <!-- Sprint 7: narrative dispatcher status. Pulled from /api/triggers
+               which proxies the narrator-dispatcher worker's /status. -->
+          <section class="card" style="grid-column: 1 / -1;">
+            <div class="card-head">
+              <h3>Narrative Dispatcher</h3>
+              <span class="head-sub" id="dispatcherSubHead">loading…</span>
+            </div>
+            <div class="dispatcher-stats" id="dispatcherStats">
+              <div class="quality-card"><div class="ql">Fires (24h)</div><div class="qv" id="dispFires">—</div></div>
+              <div class="quality-card"><div class="ql">LLM calls</div><div class="qv" id="dispLlm">—</div></div>
+              <div class="quality-card"><div class="ql">Stable skips</div><div class="qv" id="dispStable">—</div></div>
+              <div class="quality-card"><div class="ql">Failures</div><div class="qv" id="dispFail">—</div></div>
+            </div>
+            <div class="card-head" style="margin-top: 12px;">
+              <h4 style="font-size: 0.86rem; color: var(--text-1); margin: 0;">Recent fires</h4>
+            </div>
+            <table class="freshness-table" id="dispatcherRecentFires">
+              <thead>
+                <tr>
+                  <th>Time</th><th>Event</th><th>Entity</th>
+                  <th>Outcome</th><th>Duration</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </section>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Entity view wrapper — visible when an entity is open -->
+    <div class="entity-view hidden" id="entityView"></div>
+
+  </main>
+</div>
+
+<div class="mock-notice">MOCK DATA · not wired to pipeline</div>
+
+<!-- Provenance popover -->
+<div class="prov-pop-backdrop hidden" id="provBackdrop"></div>
+<div class="prov-popover hidden" id="provPopover"></div>
+
+<!-- Sprint 14.1: Pipeline log drawer (shown while a local pipeline run is active) -->
+<div id="pipelineLogDrawer">
+  <div class="log-head">
+    <span id="pipelineLogTitle">Pipeline run · starting…</span>
+    <button class="close-btn" id="pipelineLogClose" type="button" title="Hide (run continues)">×</button>
+  </div>
+  <div class="log-body" id="pipelineLogBody"></div>
+</div>
+
+<script src="./portfolio-funnel-mockup.js"></script>
+
+</body>
+</html>

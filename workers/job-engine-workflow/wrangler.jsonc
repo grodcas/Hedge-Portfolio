@@ -3,7 +3,11 @@
   "main": "src/index.js",
   "workers_dev": true,
   "preview_urls": true,
-  "compatibility_date": "2025-01-10",
+  "compatibility_date": "2026-01-07",
+  "observability": {
+    "enabled": true,
+    "logs": { "enabled": true, "head_sampling_rate": 1, "persist": true, "invocation_logs": true }
+  },
   "services": [
     {
       "binding": "BETA_GEN_ORCHESTRATOR",
@@ -91,6 +95,26 @@
       "environment": "production"
     },
     {
+      "binding": "STOCK_FACTOR_BUILDER",
+      "service": "stock-factor-builder",
+      "environment": "production"
+    },
+    {
+      "binding": "SECTOR_FACTOR_BUILDER",
+      "service": "sector-factor-builder",
+      "environment": "production"
+    },
+    {
+      "binding": "SECTOR_TREND_LONG",
+      "service": "sector-trend-long",
+      "environment": "production"
+    },
+    {
+      "binding": "SECTOR_TREND_SHORT",
+      "service": "sector-trend-short",
+      "environment": "production"
+    },
+    {
       "binding": "PROBABILITY_ENGINE",
       "service": "probability-engine",
       "environment": "production"
@@ -128,6 +152,16 @@
     {
       "binding": "WEALTH_DISTRIBUTION",
       "service": "wealth-distribution",
+      "environment": "production"
+    },
+    {
+      "binding": "POSITION_BUILDER",
+      "service": "position-builder",
+      "environment": "production"
+    },
+    {
+      "binding": "NAV_BUILDER",
+      "service": "nav-builder",
       "environment": "production"
     }
   ],

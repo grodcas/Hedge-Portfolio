@@ -5,12 +5,34 @@ import { fileURLToPath } from "url";
 import path from "path";
 import fs from "fs";
 import open from "open";
+import { spawn } from "child_process";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const REPO_ROOT = path.resolve(__dirname, "..");
 
 const app = express();
 const PORT = 4200;
+
+// ============ PIPELINE RUN STATE (Sprint 14.1) ============
+// In-memory: single-run-at-a-time so we don't ship two concurrent pipelines
+// stepping on each other. Cleared on server restart, which is fine — users
+// can re-run whenever.
+const PIPELINE_RUN = {
+  id: null,                // null when idle
+  status: "idle",          // 'idle' | 'running' | 'done' | 'failed'
+  started_at: null,
+  finished_at: null,
+  duration_ms: null,
+  exit_code: null,
+  log_tail: [],            // last 60 lines
+  last_done_at: null,      // timestamp of most recent successful run (persists across runs)
+};
+const LOG_TAIL_MAX = 60;
+function _pushLog(line) {
+  PIPELINE_RUN.log_tail.push(line);
+  if (PIPELINE_RUN.log_tail.length > LOG_TAIL_MAX) PIPELINE_RUN.log_tail.shift();
+}
 
 // Worker API base URL - ALL DATA COMES FROM HERE
 const WORKER_API = "https://portfolio-ingestor.gines-rodriguez-castro.workers.dev";
@@ -216,7 +238,40 @@ app.get("/api/macro-trend/:date", async (req, res) => {
   }
 });
 
+// Get narrative from D1 (NARRATIVE_01_Content)
+// Query:  /api/narrative?entity_type=regime
+//         /api/narrative?entity_type=sector&entity_id=Healthcare
+//         /api/narrative?entity_type=stock&entity_id=UNH
+// Returns: { entity_type, entity_id, fields: { current_reading, identification, recommendation, lede, ... } }
+app.get("/api/narrative", async (req, res) => {
+  try {
+    const entityType = req.query.entity_type;
+    const entityId = req.query.entity_id;
+    if (!entityType) {
+      return res.status(400).json({ error: "entity_type required" });
+    }
+    const qs = new URLSearchParams({ entity_type: entityType });
+    if (entityId) qs.set("entity_id", entityId);
+    const data = await fetchFromWorker(`/query/narrative?${qs.toString()}`);
+    res.json({ ...data, source: "D1" });
+  } catch (error) {
+    handleD1Error(res, "/api/narrative", error);
+  }
+});
+
 // Get reports from D1 (ALPHA_01_REPORTS)
+// Sprint 7: dispatcher status — last tick, entity freshness, recent fires,
+// 24h cost window. Proxied directly from the dispatcher worker's /status.
+app.get("/api/triggers", async (req, res) => {
+  try {
+    const r = await fetch("https://narrator-dispatcher.gines-rodriguez-castro.workers.dev/status");
+    const data = await r.json();
+    res.json(data);
+  } catch (error) {
+    handleD1Error(res, "/api/triggers", error);
+  }
+});
+
 app.get("/api/reports/:ticker", async (req, res) => {
   try {
     const { ticker } = req.params;
@@ -331,6 +386,218 @@ app.get("/api/signal-history", async (req, res) => {
 app.get("/api/earnings-all", async (req, res) => {
   try { res.json(await fetchFromWorker("/query/earnings-all")); }
   catch (error) { handleD1Error(res, "/api/earnings-all", error); }
+});
+
+// Sprint 1–3 endpoints: stock factors, sector factors, sector trends
+app.get("/api/stock-factors", async (req, res) => {
+  try {
+    const { ticker, date, days } = req.query;
+    const params = [];
+    if (ticker) params.push(`ticker=${encodeURIComponent(ticker)}`);
+    if (date) params.push(`date=${encodeURIComponent(date)}`);
+    if (days) params.push(`days=${encodeURIComponent(days)}`);
+    const q = `/query/stock-factors${params.length ? `?${params.join("&")}` : ""}`;
+    res.json(await fetchFromWorker(q));
+  } catch (error) { handleD1Error(res, "/api/stock-factors", error); }
+});
+app.get("/api/sector-factors", async (req, res) => {
+  try {
+    const { sector, date, days } = req.query;
+    const params = [];
+    if (sector) params.push(`sector=${encodeURIComponent(sector)}`);
+    if (date) params.push(`date=${encodeURIComponent(date)}`);
+    if (days) params.push(`days=${encodeURIComponent(days)}`);
+    const q = `/query/sector-factors${params.length ? `?${params.join("&")}` : ""}`;
+    res.json(await fetchFromWorker(q));
+  } catch (error) { handleD1Error(res, "/api/sector-factors", error); }
+});
+app.get("/api/sector-trends", async (req, res) => {
+  try {
+    const sector = req.query.sector;
+    const q = sector ? `/query/sector-trends?sector=${encodeURIComponent(sector)}` : "/query/sector-trends";
+    res.json(await fetchFromWorker(q));
+  } catch (error) { handleD1Error(res, "/api/sector-trends", error); }
+});
+
+// Sprint 9: rich-data profile bundles for stock + sector entity views.
+app.get("/api/stock-profile/:ticker", async (req, res) => {
+  try {
+    const ticker = encodeURIComponent(req.params.ticker);
+    res.json(await fetchFromWorker(`/query/stock-profile?ticker=${ticker}`));
+  } catch (error) { handleD1Error(res, `/api/stock-profile/${req.params.ticker}`, error); }
+});
+app.get("/api/sector-profile/:sector", async (req, res) => {
+  try {
+    const sector = encodeURIComponent(req.params.sector);
+    res.json(await fetchFromWorker(`/query/sector-profile?sector=${sector}`));
+  } catch (error) { handleD1Error(res, `/api/sector-profile/${req.params.sector}`, error); }
+});
+
+// ============ Sprint 14.1: Run pipeline button ============
+// POST /api/run-pipeline     → start `node src/pipeline.js` as a subprocess.
+// GET  /api/run-pipeline     → current run status + log tail.
+// Only one run at a time. Returns 409 if a run is in progress.
+app.post("/api/run-pipeline", (req, res) => {
+  if (PIPELINE_RUN.status === "running") {
+    return res.status(409).json({ error: "A pipeline run is already in progress", run: PIPELINE_RUN });
+  }
+
+  const runId = `run-${Date.now()}`;
+  PIPELINE_RUN.id = runId;
+  PIPELINE_RUN.status = "running";
+  PIPELINE_RUN.started_at = new Date().toISOString();
+  PIPELINE_RUN.finished_at = null;
+  PIPELINE_RUN.duration_ms = null;
+  PIPELINE_RUN.exit_code = null;
+  PIPELINE_RUN.log_tail = [];
+
+  const pipelinePath = path.join(REPO_ROOT, "src", "pipeline.js");
+  _pushLog(`[${new Date().toISOString()}] spawning: node ${pipelinePath}`);
+
+  const child = spawn("node", [pipelinePath], {
+    cwd: REPO_ROOT,
+    env: { ...process.env },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  const capture = (stream, prefix) => {
+    stream.setEncoding("utf8");
+    let buf = "";
+    stream.on("data", (chunk) => {
+      buf += chunk;
+      let idx;
+      while ((idx = buf.indexOf("\n")) !== -1) {
+        const line = buf.slice(0, idx);
+        buf = buf.slice(idx + 1);
+        if (line.trim()) _pushLog(`${prefix}${line}`);
+      }
+    });
+    stream.on("end", () => { if (buf.trim()) _pushLog(`${prefix}${buf.trim()}`); });
+  };
+  capture(child.stdout, "");
+  capture(child.stderr, "[err] ");
+
+  child.on("close", (code) => {
+    PIPELINE_RUN.exit_code = code;
+    PIPELINE_RUN.status = code === 0 ? "done" : "failed";
+    PIPELINE_RUN.finished_at = new Date().toISOString();
+    PIPELINE_RUN.duration_ms = Date.parse(PIPELINE_RUN.finished_at) - Date.parse(PIPELINE_RUN.started_at);
+    if (code === 0) PIPELINE_RUN.last_done_at = PIPELINE_RUN.finished_at;
+    _pushLog(`[${PIPELINE_RUN.finished_at}] pipeline exited with code ${code}`);
+    console.log(`[pipeline] run ${runId} finished status=${PIPELINE_RUN.status} duration=${PIPELINE_RUN.duration_ms}ms`);
+  });
+  child.on("error", (err) => {
+    PIPELINE_RUN.status = "failed";
+    PIPELINE_RUN.finished_at = new Date().toISOString();
+    PIPELINE_RUN.duration_ms = Date.parse(PIPELINE_RUN.finished_at) - Date.parse(PIPELINE_RUN.started_at);
+    _pushLog(`[err] spawn error: ${err.message}`);
+  });
+
+  res.json({ ok: true, run: PIPELINE_RUN });
+});
+
+app.get("/api/run-pipeline", (_req, res) => {
+  res.json(PIPELINE_RUN);
+});
+
+// Sprint 12: valuation curves bundle (price + short + long + realized) for a ticker.
+app.get("/api/valuation-curve/:ticker", async (req, res) => {
+  try {
+    const ticker = encodeURIComponent(req.params.ticker);
+    const days = req.query.days ? `&days=${encodeURIComponent(req.query.days)}` : "";
+    res.json(await fetchFromWorker(`/query/valuation-curve?ticker=${ticker}${days}`));
+  } catch (error) { handleD1Error(res, `/api/valuation-curve/${req.params.ticker}`, error); }
+});
+
+// Sprint 7: trade ledger / positions / NAV / targets
+app.post("/api/trades", async (req, res) => {
+  try {
+    const body = req.body;
+    const workerUrl = "https://portfolio-ingestor.gines-rodriguez-castro.workers.dev/ingest/trades";
+    const r = await fetch(workerUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    res.status(r.status).json(await r.json());
+  } catch (error) { handleD1Error(res, "/api/trades", error); }
+});
+app.get("/api/trades", async (req, res) => {
+  try {
+    const qs = new URLSearchParams(req.query).toString();
+    res.json(await fetchFromWorker(`/query/trades${qs ? "?" + qs : ""}`));
+  } catch (error) { handleD1Error(res, "/api/trades", error); }
+});
+app.get("/api/trades/closed", async (req, res) => {
+  try {
+    const qs = new URLSearchParams(req.query).toString();
+    res.json(await fetchFromWorker(`/query/trades/closed${qs ? "?" + qs : ""}`));
+  } catch (error) { handleD1Error(res, "/api/trades/closed", error); }
+});
+app.get("/api/positions", async (req, res) => {
+  try {
+    const qs = new URLSearchParams(req.query).toString();
+    res.json(await fetchFromWorker(`/query/positions${qs ? "?" + qs : ""}`));
+  } catch (error) { handleD1Error(res, "/api/positions", error); }
+});
+app.get("/api/nav", async (req, res) => {
+  try {
+    const qs = new URLSearchParams(req.query).toString();
+    res.json(await fetchFromWorker(`/query/nav${qs ? "?" + qs : ""}`));
+  } catch (error) { handleD1Error(res, "/api/nav", error); }
+});
+app.get("/api/portfolio-targets", async (req, res) => {
+  try {
+    const qs = new URLSearchParams(req.query).toString();
+    res.json(await fetchFromWorker(`/query/portfolio-targets${qs ? "?" + qs : ""}`));
+  } catch (error) { handleD1Error(res, "/api/portfolio-targets", error); }
+});
+
+// Sprint 9: sector valuation + returns vol
+app.get("/api/sector-valuation", async (req, res) => {
+  try {
+    const qs = new URLSearchParams(req.query).toString();
+    res.json(await fetchFromWorker(`/query/sector-valuation${qs ? "?" + qs : ""}`));
+  } catch (error) { handleD1Error(res, "/api/sector-valuation", error); }
+});
+app.get("/api/returns-vol", async (req, res) => {
+  try {
+    const qs = new URLSearchParams(req.query).toString();
+    res.json(await fetchFromWorker(`/query/returns-vol${qs ? "?" + qs : ""}`));
+  } catch (error) { handleD1Error(res, "/api/returns-vol", error); }
+});
+
+// Sprint 8: attribution + calibration
+app.get("/api/attribution", async (req, res) => {
+  try {
+    const qs = new URLSearchParams(req.query).toString();
+    res.json(await fetchFromWorker(`/query/attribution${qs ? "?" + qs : ""}`));
+  } catch (error) { handleD1Error(res, "/api/attribution", error); }
+});
+app.get("/api/calibration", async (req, res) => {
+  try {
+    res.json(await fetchFromWorker("/query/calibration"));
+  } catch (error) { handleD1Error(res, "/api/calibration", error); }
+});
+
+// Sprint 5 polish: regime / indicator / sector-peers
+app.get("/api/regime-history", async (req, res) => {
+  try {
+    const days = req.query.days || "30";
+    res.json(await fetchFromWorker(`/query/regime-history?days=${encodeURIComponent(days)}`));
+  } catch (error) { handleD1Error(res, "/api/regime-history", error); }
+});
+app.get("/api/indicator-history", async (req, res) => {
+  try {
+    const qs = new URLSearchParams(req.query).toString();
+    res.json(await fetchFromWorker(`/query/indicator-history${qs ? "?" + qs : ""}`));
+  } catch (error) { handleD1Error(res, "/api/indicator-history", error); }
+});
+app.get("/api/sector-peers", async (req, res) => {
+  try {
+    const qs = new URLSearchParams(req.query).toString();
+    res.json(await fetchFromWorker(`/query/sector-peers${qs ? "?" + qs : ""}`));
+  } catch (error) { handleD1Error(res, "/api/sector-peers", error); }
 });
 app.get("/api/operations", async (req, res) => {
   try { res.json(await fetchFromWorker("/query/operations")); }

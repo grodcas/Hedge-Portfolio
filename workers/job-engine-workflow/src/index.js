@@ -23,6 +23,10 @@ var RETRY_POLICY = {
   "earnings-fetcher":           { limit: 2, delay: "30 seconds" },
   "probability-engine":         { limit: 2, delay: "5 seconds" },
   "event-attribution-engine":   { limit: 2, delay: "5 seconds" },
+  "stock-factor-builder":       { limit: 2, delay: "5 seconds" },
+  "sector-factor-builder":      { limit: 2, delay: "5 seconds" },
+  "position-builder":           { limit: 2, delay: "5 seconds" },
+  "nav-builder":                { limit: 2, delay: "5 seconds" },
   // News funnel is AI-heavy but idempotent via BETA_12 row check —
   // one retry is safe and useful for transient Gemini/OpenAI errors.
   "news-funnel-orchestrator":   { limit: 1, delay: "30 seconds" },
@@ -206,6 +210,14 @@ var JobWorkflow = class extends WorkflowEntrypoint {
         return await this.env.MACRO_INTELLIGENCE_BUILDER.fetch("https://internal/build-macro-intelligence", { method: "POST", body });
       case "assessment-engine":
         return await this.env.ASSESSMENT_ENGINE.fetch("https://internal/compute-assessments", { method: "POST", body });
+      case "stock-factor-builder":
+        return await this.env.STOCK_FACTOR_BUILDER.fetch("https://internal/compute-factors", { method: "POST", body });
+      case "sector-factor-builder":
+        return await this.env.SECTOR_FACTOR_BUILDER.fetch("https://internal/compute-sector-factors", { method: "POST", body });
+      case "sector-trend-long":
+        return await this.env.SECTOR_TREND_LONG.fetch("https://internal/build-all", { method: "POST", body });
+      case "sector-trend-short":
+        return await this.env.SECTOR_TREND_SHORT.fetch("https://internal/build-all", { method: "POST", body });
       case "probability-engine":
         return await this.env.PROBABILITY_ENGINE.fetch("https://internal/update-probabilities", { method: "POST", body });
       case "consensus-validator":
@@ -224,6 +236,11 @@ var JobWorkflow = class extends WorkflowEntrypoint {
         return await this.env.OPERATIONS_AGENT.fetch("https://internal/build-all?force=true", { method: "POST", body });
       case "wealth-distribution":
         return await this.env.WEALTH_DISTRIBUTION.fetch("https://internal/build", { method: "POST", body });
+      // --- PORTFOLIO LEDGER ---
+      case "position-builder":
+        return await this.env.POSITION_BUILDER.fetch("https://internal/compute-positions", { method: "POST", body });
+      case "nav-builder":
+        return await this.env.NAV_BUILDER.fetch("https://internal/compute-nav", { method: "POST", body });
       default:
         throw new Error(`Unknown worker: ${worker}`);
     }
@@ -304,6 +321,28 @@ var index_default = {
       await insertJob("earnings-fetcher", 1000);
       await insertJob("beta-trend-orchestrator", 1000);
       await insertJob("news-funnel-orchestrator", 1000);
+
+      // Wave 1500 — stock factor builder (pure math; reads PRICE_01 + FUND_01/02/03)
+      //   fundamentals-fetcher runs locally and POSTs FUND_01 before daily_update
+      //   fires, so only price + earnings workers are in the requires gate.
+      await insertJob("stock-factor-builder", 1500, "price-fetcher,earnings-fetcher");
+      // Portfolio ledger derivatives (Sprint 7/8): replay trades → positions → NAV.
+      await insertJob("position-builder", 1550, "price-fetcher");
+      await insertJob("nav-builder", 1560, "position-builder");
+
+      // Wave 1600 — sector factor builder (pure math; reads STOCK_FACTORS_daily
+      //   + PRICE_01 sector ETFs + latest BETA_10_Daily_macro regime). Regime
+      //   read is best-effort (uses most recent row), so we don't gate on
+      //   macro-intelligence-builder's wave-2000 completion.
+      await insertJob("sector-factor-builder", 1600, "stock-factor-builder,price-fetcher");
+
+      // Wave 1700 — sector-trend-long (gpt-5 daily rebuild, 8 calls).
+      //   Reads SECTOR_FACTORS_daily + constituent TICKER_TREND_long + regime.
+      await insertJob("sector-trend-long", 1700, "sector-factor-builder");
+
+      // Wave 1800 — sector-trend-short (gpt-5 trigger-gated, up to 8 calls).
+      //   Fires on stance change, rs_ratio crossing 100, or ≥7d stale.
+      await insertJob("sector-trend-short", 1800, "sector-factor-builder");
 
       // Wave 2000 — macro intelligence (v2: MACRO_STATE + SPY + BETA_12).
       //   Requires:

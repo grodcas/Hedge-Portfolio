@@ -28,19 +28,20 @@ const TICKERS = [
   "PG", "KO", "HD", "CAT", "BA", "INTC", "AMD", "NFLX", "MS"
 ];
 
-// BRK.B moved to Finance (Berkshire is primarily insurance + financial holdings)
+// Canonical 8-sector SPDR/GICS map (matches stock-factor-builder / sector-factor-builder).
+// GOOGL, META, NFLX → XLC (Communication); AMZN, TSLA, HD → XLY (ConsDisc);
+// PG, KO → XLP (Staples). BRK.B in Finance.
 const SECTOR_MAP = {
-  AAPL: "Technology", MSFT: "Technology", GOOGL: "Technology", AMZN: "Technology",
-  NVDA: "Technology", META: "Technology", INTC: "Technology", AMD: "Technology", NFLX: "Technology",
-  TSLA: "Technology",
+  AAPL: "Technology", MSFT: "Technology", NVDA: "Technology",
+  INTC: "Technology", AMD: "Technology",
+  AMZN: "ConsDisc", TSLA: "ConsDisc", HD: "ConsDisc",
+  GOOGL: "Communication", META: "Communication", NFLX: "Communication",
   JPM: "Finance", GS: "Finance", BAC: "Finance", MS: "Finance", "BRK.B": "Finance",
   XOM: "Energy", CVX: "Energy",
   UNH: "Healthcare", LLY: "Healthcare", JNJ: "Healthcare",
-  PG: "Consumer", KO: "Consumer", HD: "Consumer",
+  PG: "Staples", KO: "Staples",
   CAT: "Industrial", BA: "Industrial",
 };
-
-const INGESTOR_URL = "https://portfolio-ingestor.gines-rodriguez-castro.workers.dev";
 
 export default {
   async fetch(req, env) {
@@ -301,22 +302,22 @@ export default {
       factors.push({ name: "Press materiality", value: f7, weight: 2.5, trust: 2, reason: f7reason });
 
       // -------------------------------------------------------
-      // Factor 8: Macro alignment (is this sector favored by macro intelligence?)
+      // Factor 8: Macro alignment — is this sector overweight/underweight
+      // in today's macro recommendation? (canonical names, exact match)
       // -------------------------------------------------------
       let f8 = 0, f8reason = "No macro intelligence";
-      if (macroIntel?.portfolio_action) {
-        const pa = macroIntel.portfolio_action;
-        const overweight = (pa.overweight || []).map(s => s.toLowerCase());
-        const underweight = (pa.underweight || []).map(s => s.toLowerCase());
-        const sectorLower = sector.toLowerCase();
-        if (overweight.some(s => s.includes(sectorLower) || sectorLower.includes(s))) {
+      const tilt = macroIntel?.sector_tilt;
+      if (tilt && (Array.isArray(tilt.overweight) || Array.isArray(tilt.underweight))) {
+        const over = tilt.overweight || [];
+        const under = tilt.underweight || [];
+        if (over.includes(sector)) {
           f8 = 1;
-          f8reason = `${sector} sector in overweight recommendation`;
-        } else if (underweight.some(s => s.includes(sectorLower) || sectorLower.includes(s))) {
+          f8reason = `${sector} overweight in macro tilt`;
+        } else if (under.includes(sector)) {
           f8 = -1;
-          f8reason = `${sector} sector in underweight recommendation`;
+          f8reason = `${sector} underweight in macro tilt`;
         } else {
-          f8reason = `${sector} sector not mentioned in macro action`;
+          f8reason = `${sector} neutral in macro tilt`;
         }
         sources.push("BETA_10_Daily_macro");
       }
@@ -386,30 +387,42 @@ export default {
     }
 
     // =========================================================
-    // WRITE TO D1 VIA INGESTOR
+    // WRITE TO D1 — direct binding (Sprint 13.1 fix)
     // =========================================================
-    try {
-      const payload = assessments.map(a => ({
-        ticker: a.ticker,
-        date: a.date,
-        score: a.score,
-        factors_json: JSON.stringify(a.factors),
-        explanation: a.explanation || "",
-        sources_json: JSON.stringify(a.sources),
-      }));
-
-      const res = await fetch(`${INGESTOR_URL}/ingest/assessments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        console.log(`[ASSESSMENT v2] Ingested ${data.inserted} assessments`);
+    // The previous implementation POSTed to portfolio-ingestor over public
+    // HTTPS. Cloudflare's worker-to-worker same-account public fetch triggers
+    // error 1042 (loop detection) silently: res.ok comes back false, no
+    // exception is thrown, the if-block skips the success log, and nothing
+    // lands in D1. stock-factor-builder documents this exact failure mode at
+    // src/worker.js:59-60 and uses direct DB binding — we now do the same.
+    const nowIso = new Date().toISOString();
+    let inserted = 0;
+    for (const a of assessments) {
+      try {
+        const id = await rowIdHash(`${a.ticker}|assessment|${a.date}`);
+        await db.prepare(
+          `INSERT INTO SIGNAL_01_Assessment
+             (id, ticker, date, score, factors_json, explanation, sources_json, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             score = excluded.score,
+             factors_json = excluded.factors_json,
+             explanation = excluded.explanation,
+             sources_json = excluded.sources_json,
+             created_at = excluded.created_at`,
+        ).bind(
+          id, a.ticker, a.date, a.score,
+          JSON.stringify(a.factors),
+          a.explanation || "",
+          JSON.stringify(a.sources),
+          nowIso,
+        ).run();
+        inserted++;
+      } catch (err) {
+        console.error(`[ASSESSMENT v2] Write failed for ${a.ticker}: ${err.message}`);
       }
-    } catch (err) {
-      console.error(`[ASSESSMENT v2] Ingest failed: ${err.message}`);
     }
+    console.log(`[ASSESSMENT v2] Ingested ${inserted}/${assessments.length} assessments`);
 
     return Response.json({
       ok: true,
@@ -429,3 +442,11 @@ function indexBy(rows, key) {
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Matches portfolio-ingestor's SIGNAL_01_Assessment id convention
+// (shortHash full 64-char SHA-256 hex on "ticker|assessment|date") so rows
+// written directly here collide with ingestor-routed rows on the same key.
+async function rowIdHash(input) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+}

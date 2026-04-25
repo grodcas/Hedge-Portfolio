@@ -1,0 +1,33 @@
+{
+  "name": "narrator-dispatcher",
+  "main": "src/worker.js",
+  "workers_dev": true,
+  "preview_urls": false,
+  "compatibility_date": "2026-01-07",
+  "observability": {
+    "enabled": true,
+    "logs": { "enabled": true, "head_sampling_rate": 1, "persist": true, "invocation_logs": true }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_id": "e306b0a8-7d5e-4032-b46e-9b50fc6c4f99"
+    }
+  ],
+  // Sprint 7: service bindings to sibling narrator workers. Worker-to-worker
+  // fetch over public URLs triggers Cloudflare loop detection (error 1042);
+  // service bindings bypass the public edge and call the worker directly.
+  "services": [
+    { "binding": "NARRATOR_REGIME",            "service": "narrator-regime" },
+    { "binding": "NARRATOR_SECTOR_LANDSCAPE",  "service": "narrator-sector-landscape" },
+    { "binding": "NARRATOR_STOCK_LANDSCAPE",   "service": "narrator-stock-landscape" },
+    { "binding": "NARRATOR_SECTOR",            "service": "narrator-sector" },
+    { "binding": "NARRATOR_STOCK",             "service": "narrator-stock" }
+  ],
+  // Sprint 7 cron triggers.
+  //   */15 * * * *  → /tick  (event-driven narrative refresh)
+  //   0 6 * * *     → /safety-sweep (7-day safety-net rebuild)
+  "triggers": {
+    "crons": ["*/15 * * * *", "0 6 * * *"]
+  }
+}

@@ -136,7 +136,8 @@ Output EXACTLY this JSON — no markdown, no prose outside the object:
   "window_rationale": "one sentence: why this window, anchored to an event or shift in the data",
   "drivers":   [{"text": "short bullet", "bias": "bull" | "bear" | "neutral"}],
   "narrative": [{"text": "short bullet", "bias": "bull" | "bear" | "neutral"}],
-  "sp500_direction": {"p_up": 0.0, "p_flat": 0.0, "p_down": 0.0}
+  "sp500_direction": {"p_up": 0.0, "p_flat": 0.0, "p_down": 0.0},
+  "confidence": 0.0
 }
 
 RULES
@@ -147,8 +148,9 @@ RULES
 - Each array MUST be sorted by magnitude of market impact, MOST IMPACTFUL FIRST.
 - bias: "bull" = pushes markets up, "bear" = pushes markets down, "neutral" = genuinely two-sided.
 - Keep text < 20 words. Concrete, grounded in the data above.
+- confidence: float 0.0–1.0 reflecting conviction in the regime call given data completeness and signal clarity. 1.0 = unambiguous (drivers aligned, full data), 0.5 = mixed or partial signals, 0.0 = insufficient data to call.
 - If the data is sparse or contradictory, pick "neutral" regime and say so in window_rationale.
-- Do NOT output upcoming catalysts here — those are produced by the recommendation call downstream.`;
+- Do NOT output upcoming catalysts or an economic calendar — those come from MACRO_STATE_calendar (read downstream by narrator gatherers), not this call.`;
 
     const trend = await callGPT5(apiKey, trendPrompt);
     if (!trend?.regime) {
@@ -197,7 +199,8 @@ Output EXACTLY this JSON:
   "drivers":   [{"text": "short bullet", "bias": "bull" | "bear" | "neutral"}],
   "narrative": [{"text": "short bullet", "bias": "bull" | "bear" | "neutral"}],
   "regime_tension": "none" | "mild" | "strong",
-  "tension_note": "one sentence only if regime_tension != none, else empty string"
+  "tension_note": "one sentence only if regime_tension != none, else empty string",
+  "confidence": 0.0
 }
 
 RULES
@@ -210,7 +213,8 @@ RULES
     * "mild"   — today's move is the opposite sign of the regime but < 0.75%
     * "strong" — today's move is the opposite sign and >= 0.75%
 - A +1% day in a bearish regime is "strong". A +0.2% day in a bearish regime is "none".
-- Bullet text < 20 words each. Ground everything in the provided data.`;
+- Bullet text < 20 words each. Ground everything in the provided data.
+- confidence: float 0.0–1.0 reflecting conviction in today's read given headline quality and move clarity. 1.0 = sharp, well-explained move; 0.5 = ambiguous; 0.0 = insufficient signal.`;
 
     const todayOut = await callGPT5(apiKey, todayPrompt);
     if (!todayOut?.spy_direction) {
@@ -222,7 +226,7 @@ RULES
 
     // ---- Call 3: Recommendation ----
     const currentSpy = Number(todayBar.close) || 0;
-    const recoPrompt = `You are the same macro analyst. The regime (trend) and today's context are below. Now produce an actionable recommendation, a FACTUAL list of upcoming catalysts, and a three-scenario outlook.
+    const recoPrompt = `You are the same macro analyst. The regime (trend) and today's context are below. Now produce an actionable recommendation, a three-scenario outlook, and a sector tilt. The upcoming economic calendar is NOT generated here — it lives in MACRO_STATE_calendar (Finnhub-sourced) and is read directly by narrator gatherers.
 
 REGIME VERDICT
 ${JSON.stringify(trend, null, 2)}
@@ -244,15 +248,16 @@ Output EXACTLY this JSON:
     "confidence": "low" | "medium" | "high",
     "bullets": [{"text": "rationale bullet", "bias": "bull" | "bear" | "neutral"}]
   },
-  "catalysts": [
-    {"event": "short event name", "date": "YYYY-MM-DD", "type": "release" | "meeting" | "earnings" | "geopol"}
-  ],
   "scenarios": {
     "horizon_weeks": 4,
     "current_spy": ${currentSpy.toFixed(2)},
     "bull": {"probability": 0.0, "target_spy": 0.0, "thesis": "one sentence"},
     "base": {"probability": 0.0, "target_spy": 0.0, "thesis": "one sentence"},
     "bear": {"probability": 0.0, "target_spy": 0.0, "thesis": "one sentence"}
+  },
+  "sector_tilt": {
+    "overweight":  ["<0-3 sector names from the allowed list>"],
+    "underweight": ["<0-3 sector names from the allowed list>"]
   }
 }
 
@@ -264,13 +269,20 @@ RULES
     * "hold"      — maintain current positioning
     * "rotate"    — shift between sectors/factors without changing net exposure
     * "hedge"     — add protection while keeping core exposure
-- catalysts: 3-6 items. Be FACTUAL and UNBIASED — just the event and its date. Do NOT include directional language. Sort chronologically. Only include events within the next 4-6 weeks.
+- DO NOT produce an economic calendar here. The real Finnhub-sourced calendar
+  lives in MACRO_STATE_calendar and is read directly by narrator gatherers —
+  generated dates from this call were prone to hallucination.
 - scenarios:
     * probabilities must sum to 1.0
     * base = the most likely path; bull = upside surprise; bear = downside surprise
     * target_spy must be grounded in recent range and consistent with the regime
     * a bullish regime should have bull target > base > bear, and base > current_spy usually
     * each thesis in one sentence, referencing a specific driver from the trend
+- sector_tilt:
+    * Allowed sector names (use these EXACTLY, case-sensitive): Technology, ConsDisc, Communication, Finance, Energy, Healthcare, Staples, Industrial.
+    * overweight = sectors the current regime favors; underweight = sectors it disfavors.
+    * 0-3 names each side. No overlap. Leave arrays empty if the regime is genuinely neutral on sector allocation.
+    * Ground the tilt in the trend/today drivers — not in generic "risk-on = Tech" heuristics.
 - Everything must be internally consistent with the regime verdict and today's context above.`;
 
     const reco = await callGPT5(apiKey, recoPrompt);
@@ -290,14 +302,39 @@ RULES
     }
 
     // ---- Combine + persist ----
+    // Top-level confidence = min of trend + today (conservative aggregation).
+    // Separate from recommendation.confidence (action conviction, string "low|medium|high").
+    const trendConf = typeof trend.confidence === "number" ? trend.confidence : null;
+    const todayConf = typeof todayOut.confidence === "number" ? todayOut.confidence : null;
+    const topConfidence = (trendConf != null && todayConf != null)
+      ? Math.min(trendConf, todayConf)
+      : (trendConf ?? todayConf);
+
+    // Sanitize sector_tilt: keep only canonical names, drop overlaps, cap 3 each.
+    const ALLOWED_SECTORS = new Set([
+      "Technology", "ConsDisc", "Communication", "Finance",
+      "Energy", "Healthcare", "Staples", "Industrial",
+    ]);
+    const rawTilt = reco.sector_tilt || {};
+    const pickSectors = (arr) =>
+      Array.from(new Set((arr || []).filter((s) => ALLOWED_SECTORS.has(s)))).slice(0, 3);
+    const overweight = pickSectors(rawTilt.overweight);
+    const underweightSet = new Set(pickSectors(rawTilt.underweight).filter((s) => !overweight.includes(s)));
+    const sectorTilt = { overweight, underweight: Array.from(underweightSet) };
+
+    // Sprint 11: `catalysts` removed from the macro blob. The economic calendar
+    // is now sourced from MACRO_STATE_calendar (Finnhub), read directly by
+    // narrator gatherers. Any legacy consumer still reading `catalysts` should
+    // switch to MACRO_STATE_calendar; this field is intentionally absent here.
     const blob = {
       version: "macro-v3",
       built_at: new Date().toISOString(),
+      confidence: topConfidence,
       trend,
       today: todayOut,
       recommendation: reco.recommendation,
-      catalysts: reco.catalysts || [],
       scenarios: reco.scenarios,
+      sector_tilt: sectorTilt,
     };
 
     const id = await shortHash(`daily-macro|${today}`);

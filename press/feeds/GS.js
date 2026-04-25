@@ -9,17 +9,18 @@ async function scrapeGS(url) {
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
   );
 
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20000 });
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+  // GS renders the press list via JS after DOMContentLoaded; wait for items to appear.
+  await page.waitForSelector('li[data-gs-uitk-component="content-list-item"]', { timeout: 15000 }).catch(() => {});
   const html = await page.content();
   await browser.close();
 
   const $ = load(html);
   const items = [];
 
-  // Each item = li[data-gs-uitk-component="content-list-item"]
   $('li[data-gs-uitk-component="content-list-item"]').each((_, el) => {
-    const date = $(el).find('[data-eyebrow="true"]').text().trim();
-    const linkEl = $(el).find("a.gs-link");
+    const date = $(el).find('[data-eyebrow="true"]').first().text().trim();
+    const linkEl = $(el).find("a.gs-link").first();
     const title = linkEl.text().trim();
     const href = linkEl.attr("href");
 

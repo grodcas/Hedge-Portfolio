@@ -20,13 +20,16 @@
  *   GET /build-all[?force=true]
  */
 
+// Canonical 8-sector SPDR/GICS map (matches stock-factor-builder / sector-factor-builder).
 const SECTOR_MAP = {
-  Technology: ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "INTC", "AMD", "NFLX", "TSLA"],
-  Finance: ["JPM", "GS", "BAC", "MS", "BRK.B"],
-  Energy: ["XOM", "CVX"],
-  Healthcare: ["UNH", "LLY", "JNJ"],
-  Consumer: ["PG", "KO", "HD"],
-  Industrial: ["CAT", "BA"],
+  Technology:    ["AAPL", "MSFT", "NVDA", "INTC", "AMD"],
+  ConsDisc:      ["AMZN", "TSLA", "HD"],
+  Communication: ["GOOGL", "META", "NFLX"],
+  Finance:       ["JPM", "GS", "BAC", "MS", "BRK.B"],
+  Energy:        ["XOM", "CVX"],
+  Healthcare:    ["UNH", "LLY", "JNJ"],
+  Staples:       ["PG", "KO"],
+  Industrial:    ["CAT", "BA"],
 };
 const ALL_SECTORS = Object.keys(SECTOR_MAP);
 

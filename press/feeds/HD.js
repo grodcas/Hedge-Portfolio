@@ -1,22 +1,29 @@
-import puppeteer from "puppeteer";
+import puppeteerExtra from "puppeteer-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import { load } from "cheerio";
 
+puppeteerExtra.use(StealthPlugin());
+
 async function scrapeHD(url) {
-  const browser = await puppeteer.launch({ headless: true });
+  const browser = await puppeteerExtra.launch({
+    headless: "new",
+    args: ["--no-sandbox", "--disable-setuid-sandbox"]
+  });
   const page = await browser.newPage();
 
   await page.setUserAgent(
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
   );
 
-  await page.goto(url, { waitUntil: "networkidle0" });
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+  // Cloudflare interstitial: give it time to clear, then wait for the press table.
+  await page.waitForSelector("tr .pr-date-field", { timeout: 20000 }).catch(() => {});
   const html = await page.content();
   await browser.close();
 
   const $ = load(html);
   const items = [];
 
-  // each row = <tr>
   $("tr").each((_, el) => {
     const date = $(el).find(".pr-date-field").text().trim();
     const linkEl = $(el).find(".pr-title-field a");
@@ -35,7 +42,7 @@ async function scrapeHD(url) {
   return items.slice(0, 10);
 }
 
-// usage
-scrapeHD("https://ir.homedepot.com/news-releases/2025")
+const year = new Date().getFullYear();
+scrapeHD(`https://ir.homedepot.com/news-releases/${year}`)
   .then(console.log)
   .catch(console.error);

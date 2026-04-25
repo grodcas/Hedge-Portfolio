@@ -20,21 +20,28 @@ const TICKERS = [
   "PG", "KO", "HD", "CAT", "BA", "INTC", "AMD", "NFLX", "MS"
 ];
 
-// Sector map — BRK.B now in Finance (per Round 2 fix)
+// Canonical 8-sector SPDR/GICS map (matches stock-factor-builder / sector-factor-builder).
 const SECTOR_MAP = {
-  AAPL: "Technology", MSFT: "Technology", GOOGL: "Technology", AMZN: "Technology",
-  NVDA: "Technology", META: "Technology", INTC: "Technology", AMD: "Technology", NFLX: "Technology",
-  TSLA: "Technology",
+  AAPL: "Technology", MSFT: "Technology", NVDA: "Technology",
+  INTC: "Technology", AMD: "Technology",
+  AMZN: "ConsDisc", TSLA: "ConsDisc", HD: "ConsDisc",
+  GOOGL: "Communication", META: "Communication", NFLX: "Communication",
   JPM: "Finance", GS: "Finance", BAC: "Finance", MS: "Finance", "BRK.B": "Finance",
   XOM: "Energy", CVX: "Energy",
   UNH: "Healthcare", LLY: "Healthcare", JNJ: "Healthcare",
-  PG: "Consumer", KO: "Consumer", HD: "Consumer",
+  PG: "Staples", KO: "Staples",
   CAT: "Industrial", BA: "Industrial",
 };
 
 const SECTOR_ETF = {
-  Technology: "XLK", Finance: "XLF", Energy: "XLE",
-  Healthcare: "XLV", Consumer: "XLP", Industrial: "XLI",
+  Technology: "XLK",
+  ConsDisc: "XLY",
+  Communication: "XLC",
+  Finance: "XLF",
+  Energy: "XLE",
+  Healthcare: "XLV",
+  Staples: "XLP",
+  Industrial: "XLI",
 };
 
 // Classification thresholds (percent daily return)

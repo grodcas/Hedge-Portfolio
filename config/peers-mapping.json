@@ -1,0 +1,384 @@
+{
+  "AAPL": {
+    "sector": "Technology",
+    "industry": "Technology",
+    "peers": [
+      "SNDK",
+      "DELL",
+      "WDC",
+      "HPE",
+      "NTAP",
+      "HPQ",
+      "SMCI",
+      "IONQ",
+      "GPGI",
+      "INFQ"
+    ]
+  },
+  "MSFT": {
+    "sector": "Technology",
+    "industry": "Technology",
+    "peers": [
+      "ORCL",
+      "PANW",
+      "CRWD",
+      "NOW",
+      "FTNT",
+      "ZS",
+      "GEN",
+      "RBRK",
+      "DLB",
+      "PATH"
+    ]
+  },
+  "GOOGL": {
+    "sector": "Media",
+    "industry": "Media",
+    "peers": [
+      "META",
+      "RDDT",
+      "PINS",
+      "SNAP",
+      "MTCH",
+      "CARG",
+      "IAC",
+      "DJT",
+      "RUM",
+      "GRND"
+    ]
+  },
+  "AMZN": {
+    "sector": "Retail",
+    "industry": "Retail",
+    "peers": [
+      "EBAY",
+      "CPNG",
+      "DDS",
+      "ETSY",
+      "OLLI",
+      "M",
+      "PTRN",
+      "KSS",
+      "SVV",
+      "GRPN"
+    ]
+  },
+  "NVDA": {
+    "sector": "Semiconductors",
+    "industry": "Semiconductors",
+    "peers": [
+      "AVGO",
+      "MU",
+      "AMD",
+      "INTC",
+      "TXN",
+      "ADI",
+      "QCOM",
+      "MRVL",
+      "MPWR",
+      "MRVL"
+    ]
+  },
+  "META": {
+    "sector": "Media",
+    "industry": "Media",
+    "peers": [
+      "GOOGL",
+      "RDDT",
+      "PINS",
+      "SNAP",
+      "MTCH",
+      "CARG",
+      "IAC",
+      "DJT",
+      "RUM",
+      "GRND"
+    ]
+  },
+  "TSLA": {
+    "sector": "Automobiles",
+    "industry": "Automobiles",
+    "peers": [
+      "GM",
+      "F",
+      "RIVN",
+      "THO",
+      "LCID",
+      "WGO",
+      "SEV",
+      "FFAI",
+      "CENN"
+    ]
+  },
+  "BRK.B": {
+    "sector": "Financial Services",
+    "industry": "Financial Services",
+    "peers": [
+      "BRK.A",
+      "CODI",
+      "CNNE",
+      "RAFI",
+      "TMXN",
+      "QEDN",
+      "AZIL",
+      "ACGX",
+      "PVNO",
+      "JMON",
+      "HZHI"
+    ]
+  },
+  "JPM": {
+    "sector": "Banking",
+    "industry": "Banking",
+    "peers": [
+      "BAC",
+      "WFC",
+      "C",
+      "PNC",
+      "USB",
+      "FITB",
+      "FCNCA",
+      "KEY",
+      "FINN"
+    ]
+  },
+  "GS": {
+    "sector": "Financial Services",
+    "industry": "Financial Services",
+    "peers": [
+      "MS",
+      "SCHW",
+      "IBKR",
+      "HOOD",
+      "RJF",
+      "LPLA",
+      "EVR",
+      "SF",
+      "HLI",
+      "FRHC",
+      "JEF"
+    ]
+  },
+  "BAC": {
+    "sector": "Banking",
+    "industry": "Banking",
+    "peers": [
+      "JPM",
+      "WFC",
+      "C",
+      "PNC",
+      "USB",
+      "FITB",
+      "FCNCA",
+      "KEY",
+      "FINN"
+    ]
+  },
+  "XOM": {
+    "sector": "Energy",
+    "industry": "Energy",
+    "peers": [
+      "CVX",
+      "OXY",
+      "UNTC"
+    ]
+  },
+  "CVX": {
+    "sector": "Energy",
+    "industry": "Energy",
+    "peers": [
+      "XOM",
+      "OXY",
+      "UNTC"
+    ]
+  },
+  "UNH": {
+    "sector": "Health Care",
+    "industry": "Health Care",
+    "peers": [
+      "ELV",
+      "HUM",
+      "CNC",
+      "MOH",
+      "HQY",
+      "ALHC",
+      "PGNY",
+      "CLOV",
+      "PFHO",
+      "MRDH"
+    ]
+  },
+  "LLY": {
+    "sector": "Pharmaceuticals",
+    "industry": "Pharmaceuticals",
+    "peers": [
+      "JNJ",
+      "MRK",
+      "PFE",
+      "BMY",
+      "ZTS",
+      "RPRX",
+      "VTRS",
+      "ELAN",
+      "AXSM"
+    ]
+  },
+  "JNJ": {
+    "sector": "Pharmaceuticals",
+    "industry": "Pharmaceuticals",
+    "peers": [
+      "LLY",
+      "MRK",
+      "PFE",
+      "BMY",
+      "ZTS",
+      "RPRX",
+      "VTRS",
+      "ELAN",
+      "AXSM"
+    ]
+  },
+  "PG": {
+    "sector": "Consumer products",
+    "industry": "Consumer products",
+    "peers": [
+      "CL",
+      "KMB",
+      "CHD",
+      "CLX",
+      "REYN",
+      "WDFC",
+      "CENT",
+      "SPB",
+      "ENR",
+      "ODC",
+      "PURE"
+    ]
+  },
+  "KO": {
+    "sector": "Beverages",
+    "industry": "Beverages",
+    "peers": [
+      "PEP",
+      "MNST",
+      "KDP",
+      "COKE",
+      "PRMW.TO",
+      "CELH",
+      "PRMB",
+      "FIZZ",
+      "COCO",
+      "MINE",
+      "ZVIA"
+    ]
+  },
+  "HD": {
+    "sector": "Retail",
+    "industry": "Retail",
+    "peers": [
+      "LOW",
+      "FND",
+      "TTSH",
+      "GRWG",
+      "POLCQ"
+    ]
+  },
+  "CAT": {
+    "sector": "Machinery",
+    "industry": "Machinery",
+    "peers": [
+      "CMI",
+      "PCAR",
+      "WAB",
+      "ALSN",
+      "OSK",
+      "FSS",
+      "TEX",
+      "ATMU",
+      "TRN",
+      "BLBD"
+    ]
+  },
+  "BA": {
+    "sector": "Aerospace & Defense",
+    "industry": "Aerospace & Defense",
+    "peers": [
+      "GE",
+      "RTX",
+      "LMT.TO",
+      "LMT",
+      "HWM",
+      "NOC",
+      "GD",
+      "TDG",
+      "LHX",
+      "RKLB",
+      "HEI"
+    ]
+  },
+  "INTC": {
+    "sector": "Semiconductors",
+    "industry": "Semiconductors",
+    "peers": [
+      "NVDA",
+      "AVGO",
+      "MU",
+      "AMD",
+      "TXN",
+      "ADI",
+      "QCOM",
+      "MRVL",
+      "MPWR",
+      "MRVL"
+    ]
+  },
+  "AMD": {
+    "sector": "Semiconductors",
+    "industry": "Semiconductors",
+    "peers": [
+      "NVDA",
+      "AVGO",
+      "MU",
+      "INTC",
+      "TXN",
+      "ADI",
+      "QCOM",
+      "MRVL",
+      "MPWR",
+      "MRVL"
+    ]
+  },
+  "NFLX": {
+    "sector": "Media",
+    "industry": "Media",
+    "peers": [
+      "DIS",
+      "WBD",
+      "LYV",
+      "TKO",
+      "FWONA",
+      "ROKU",
+      "WMG",
+      "MSGS",
+      "SPHR",
+      "CNK"
+    ]
+  },
+  "MS": {
+    "sector": "Financial Services",
+    "industry": "Financial Services",
+    "peers": [
+      "GS",
+      "SCHW",
+      "IBKR",
+      "HOOD",
+      "RJF",
+      "LPLA",
+      "EVR",
+      "SF",
+      "HLI",
+      "FRHC",
+      "JEF"
+    ]
+  }
+}

@@ -53,31 +53,50 @@ function fixAAIIDate(str) {
 }
 
 //-------------------------------------------------------------
-// 1) AAII SENTIMENT SURVEY (RAW)
+// 1) AAII SENTIMENT SURVEY (LIVE SCRAPE, MHTML FALLBACK)
 //-------------------------------------------------------------
-async function scrapeAAII() {
-  const raw = fs.readFileSync(
-    path.join(__dirname, "AAII.mhtml"),
-    "utf8"
-  );
+function parseUSDate(s) {
+  const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!m) return null;
+  return `${m[3]}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}`;
+}
 
+async function scrapeAAIILive() {
+  const r = await axios.get("https://www.aaii.com/sentiment-survey", {
+    timeout: 15000,
+    headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36" }
+  });
+  const $ = cheerio.load(r.data);
+  const rows = [];
+  $(".bars").each((_, el) => {
+    const wrapper = $(el).parent();
+    const dateText = wrapper.text().match(/(\d{1,2}\/\d{1,2}\/\d{4})/)?.[1];
+    if (!dateText) return;
+    const bullish = parseFloat($(el).find(".bar.bullish").text().replace("%", ""));
+    const neutral = parseFloat($(el).find(".bar.neutral").text().replace("%", ""));
+    const bearish = parseFloat($(el).find(".bar.bearish").text().replace("%", ""));
+    if (![bullish, neutral, bearish].every(Number.isFinite)) return;
+    rows.push({ date: parseUSDate(dateText), bullish, neutral, bearish });
+  });
+  return rows.slice(0, 3);
+}
+
+function scrapeAAIIMhtml() {
+  const file = path.join(__dirname, "AAII.mhtml");
+  if (!fs.existsSync(file)) return [];
+  const raw = fs.readFileSync(file, "utf8");
   const htmlIdx = raw.indexOf("Content-Type: text/html");
   if (htmlIdx === -1) return [];
-
   const headerEndMatch = raw.slice(htmlIdx).match(/(\r?\n\r?\n)/);
   if (!headerEndMatch) return [];
-
   const qpBody = raw.slice(htmlIdx + headerEndMatch.index + headerEndMatch[0].length);
   const decodedHtml = iconv.decode(qp.decode(qpBody), "utf8");
-
   const $ = cheerio.load(decodedHtml);
   const rows = [];
-
   $("table.bordered tr").each((i, el) => {
     if (i === 0) return;
     const cols = $(el).find("td");
     if (cols.length !== 4) return;
-
     rows.push({
       date: fixAAIIDate($(cols[0]).text().trim()),
       bullish: parseFloat($(cols[1]).text().replace("%", "")),
@@ -85,8 +104,17 @@ async function scrapeAAII() {
       bearish: parseFloat($(cols[3]).text().replace("%", ""))
     });
   });
+  return rows.slice(0, 3);
+}
 
-  return rows.slice(0, 3); // latest 3 weeks
+async function scrapeAAII() {
+  try {
+    const live = await scrapeAAIILive();
+    if (live.length > 0) return live;
+  } catch (e) {
+    console.error("AAII live scrape failed:", e.message);
+  }
+  return scrapeAAIIMhtml();
 }
 
 //-------------------------------------------------------------
@@ -99,7 +127,11 @@ async function scrapeCOT() {
     return x === "." ? 0 : parseInt(x.replace(/,/g, ""), 10) || 0;
   }
 
-  const { data } = await axios.get(URL, { responseType: "text" });
+  // CFTC's Cloudflare blocks Node's TLS fingerprint; curl is whitelisted.
+  const { spawnSync } = await import("child_process");
+  const r = spawnSync("curl", ["-fsSL", "--max-time", "20", URL], { encoding: "utf8" });
+  if (r.status !== 0 || !r.stdout) throw new Error(`COT curl failed: status=${r.status}`);
+  const data = r.stdout;
   const lines = data.split("\n").map(x => x.trim()).filter(Boolean);
 
   let es = null;

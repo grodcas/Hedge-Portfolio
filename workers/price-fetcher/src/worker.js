@@ -12,7 +12,7 @@ const TICKERS = [
   "PG", "KO", "HD", "CAT", "BA", "INTC", "AMD", "NFLX", "MS"
 ];
 
-const SECTOR_ETFS = ["SPY", "XLK", "XLF", "XLE", "XLV", "XLP", "XLI"];
+const SECTOR_ETFS = ["SPY", "XLK", "XLF", "XLE", "XLV", "XLP", "XLI", "XLY", "XLC", "XLB", "XLU", "XLRE"];
 
 const ALL_SYMBOLS = [...TICKERS, ...SECTOR_ETFS];
 

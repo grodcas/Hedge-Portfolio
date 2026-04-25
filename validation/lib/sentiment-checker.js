@@ -4,6 +4,7 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
 import fs from "fs";
+import { spawnSync } from "child_process";
 import { SENTIMENT_INDICATORS } from "../config.js";
 
 /**
@@ -15,7 +16,7 @@ async function checkUrl(url, options = {}) {
       timeout: options.timeout || 15000,
       validateStatus: () => true,
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         ...options.headers
       }
     });
@@ -34,6 +35,17 @@ async function checkUrl(url, options = {}) {
       error: err.message
     };
   }
+}
+
+/**
+ * Fetch via curl (used for endpoints whose Cloudflare bot rules block Node's TLS fingerprint).
+ */
+function fetchViaCurl(url, timeoutSec = 20) {
+  const r = spawnSync("curl", ["-fsSL", "--max-time", String(timeoutSec), url], { encoding: "utf8" });
+  if (r.status !== 0 || !r.stdout) {
+    return { valid: false, statusCode: null, data: null, error: `curl exit=${r.status}` };
+  }
+  return { valid: true, statusCode: 200, data: r.stdout, error: null };
 }
 
 /**
@@ -146,34 +158,44 @@ function validateCBOEData(html) {
 }
 
 /**
- * Validate AAII data
+ * Validate AAII data from live HTML
  */
-function validateAAIIData(filePath) {
+function validateAAIIData(html) {
   try {
-    const content = fs.readFileSync(filePath, "utf8");
-
-    // Look for percentage values
-    const percentMatch = content.match(/(\d{1,2}\.\d)%/g);
-    if (!percentMatch || percentMatch.length < 3) {
-      return { valid: false, value: null, error: "No percentage data found" };
+    const $ = cheerio.load(html);
+    const bullish = parseFloat($(".bar.bullish").first().text().replace("%", ""));
+    const neutral = parseFloat($(".bar.neutral").first().text().replace("%", ""));
+    const bearish = parseFloat($(".bar.bearish").first().text().replace("%", ""));
+    if (![bullish, neutral, bearish].every(Number.isFinite)) {
+      return { valid: false, value: null, error: "No sentiment percentages found" };
     }
-
-    // Parse latest values
-    const values = percentMatch.slice(0, 3).map(p => parseFloat(p.replace("%", "")));
-    const sum = values.reduce((a, b) => a + b, 0);
-
-    // Should roughly sum to 100
+    const sum = bullish + neutral + bearish;
     if (sum < 95 || sum > 105) {
-      return { valid: false, value: values, error: `Percentages don't sum to 100: ${sum}` };
+      return { valid: false, value: [bullish, neutral, bearish], error: `Percentages don't sum to 100: ${sum}` };
     }
-
     return {
       valid: true,
-      value: `Bull:${values[0]}% Neut:${values[1]}% Bear:${values[2]}%`,
+      value: `Bull:${bullish}% Neut:${neutral}% Bear:${bearish}%`,
       error: null
     };
   } catch (err) {
     return { valid: false, value: null, error: err.message };
+  }
+}
+
+/**
+ * Check AAII live HTML format (basic structure check)
+ */
+function checkAAIILiveFormat(html) {
+  if (!html || typeof html !== "string") return { valid: false, error: "No HTML" };
+  try {
+    const $ = cheerio.load(html);
+    if ($(".bar.bullish").length === 0) {
+      return { valid: false, error: "No .bar.bullish elements found" };
+    }
+    return { valid: true, error: null };
+  } catch (err) {
+    return { valid: false, error: err.message };
   }
 }
 
@@ -237,13 +259,11 @@ async function checkIndicator(indicatorKey) {
     }
 
     case "AAII": {
-      // AAII uses local MHTML file
-      const filePath = config.localFile;
-      urlResult = { valid: fs.existsSync(filePath) };
+      urlResult = await checkUrl(config.url);
       if (urlResult.valid) {
-        formatResult = checkAAIIFormat(filePath);
+        formatResult = checkAAIILiveFormat(urlResult.data);
         if (formatResult.valid) {
-          dataResult = validateAAIIData(filePath);
+          dataResult = validateAAIIData(urlResult.data);
           displayValue = dataResult.value || "ERROR";
         } else {
           dataResult = { valid: false };
@@ -252,13 +272,14 @@ async function checkIndicator(indicatorKey) {
       } else {
         formatResult = { valid: false };
         dataResult = { valid: false };
-        displayValue = "FILE NOT FOUND";
+        displayValue = `URL: ${urlResult.error || urlResult.statusCode}`;
       }
       break;
     }
 
     case "COT": {
-      urlResult = await checkUrl(config.url);
+      // CFTC blocks Node's TLS fingerprint at the Cloudflare layer; curl is whitelisted.
+      urlResult = fetchViaCurl(config.url);
       if (urlResult.valid) {
         formatResult = checkCOTFormat(urlResult.data);
         if (formatResult.valid) {
