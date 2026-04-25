@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HF Trading Journal - Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <h1>HF Trading Journal</h1>
+      <div class="header-info">
+        <span class="label">Source:</span>
+        <span class="source-badge d1" id="dataSource">D1</span>
+        <span class="label">Log:</span>
+        <span class="value" id="logFile">--</span>
+        <span class="label">Updated:</span>
+        <span class="value" id="lastUpdate">--</span>
+      </div>
+      <div class="header-controls">
+        <select id="dateSelector">
+          <option value="">Select Date</option>
+        </select>
+        <button id="refreshBtn" class="btn btn-primary">Refresh</button>
+      </div>
+    </header>
+
+    <!-- Tabs -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="overview">Overview</button>
+      <button class="tab" data-tab="daily">Daily</button>
+      <button class="tab" data-tab="macro">Macro</button>
+      <button class="tab" data-tab="portfolio">Portfolio</button>
+      <button class="tab" data-tab="validation">Validation</button>
+      <button class="tab" data-tab="monthly">Monthly Check</button>
+    </nav>
+
+    <!-- Tab Content -->
+    <main class="content">
+      <!-- Overview Tab -->
+      <section id="overview" class="tab-content active">
+        <!-- Portfolio Performance Snapshot -->
+        <div class="card overview-performance">
+          <div class="perf-header">
+            <h3>Portfolio Performance (Today)</h3>
+            <span class="perf-date" id="perfDate">--</span>
+          </div>
+          <div class="perf-grid">
+            <div class="perf-item">
+              <span class="perf-label">Top Gainers</span>
+              <div class="perf-list" id="topGainers"></div>
+            </div>
+            <div class="perf-item">
+              <span class="perf-label">Top Losers</span>
+              <div class="perf-list" id="topLosers"></div>
+            </div>
+            <div class="perf-item">
+              <span class="perf-label">S&P 500</span>
+              <div class="perf-spy" id="perfSpy">--</div>
+            </div>
+            <div class="perf-item">
+              <span class="perf-label">Signals</span>
+              <div class="perf-signals">
+                <span id="perfBuyCount">--</span> buy
+                <span class="sep">/</span>
+                <span id="perfSellCount">--</span> sell
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="overview-grid">
+          <!-- Health Cards -->
+          <div class="card health-card">
+            <h3>Ingestion Health</h3>
+            <div class="health-value" id="ingestionHealth">--</div>
+            <div class="health-label">Success Rate</div>
+          </div>
+          <div class="card health-card">
+            <h3>Processing</h3>
+            <div class="health-value" id="processingHealth">--</div>
+            <div class="health-label">Success Rate</div>
+          </div>
+          <div class="card health-card">
+            <h3>Data Freshness</h3>
+            <div class="health-value" id="freshness">--</div>
+            <div class="health-label">Last Update</div>
+          </div>
+
+          <!-- Quick Stats -->
+          <div class="card stats-card">
+            <h3>Today's Stats</h3>
+            <div class="stats-grid">
+              <div class="stat">
+                <span class="stat-value" id="secFilings">--</span>
+                <span class="stat-label">SEC Filings</span>
+              </div>
+              <div class="stat">
+                <span class="stat-value" id="macroUpdates">--</span>
+                <span class="stat-label">Macro Updates</span>
+              </div>
+              <div class="stat">
+                <span class="stat-value" id="newsArticles">--</span>
+                <span class="stat-label">News Articles</span>
+              </div>
+              <div class="stat">
+                <span class="stat-value" id="pressReleases">--</span>
+                <span class="stat-label">Press Releases</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Calendar Events -->
+          <div class="card calendar-card">
+            <h3>Calendar Events Today</h3>
+            <ul id="calendarEvents" class="event-list">
+              <li class="loading">Loading...</li>
+            </ul>
+          </div>
+
+          <!-- Action Required -->
+          <div class="card action-card">
+            <h3>Action Required</h3>
+            <ul id="actionRequired" class="action-list">
+              <li class="loading">Loading...</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Validation Tab -->
+      <section id="validation" class="tab-content">
+        <!-- Pipeline Health Panel (auto-refreshes every 10s when pipeline running) -->
+        <div class="card pipeline-health-card">
+          <div class="section-header">
+            <h3>Pipeline Health <span class="sub-label">(Cloudflare workflow queue)</span></h3>
+            <span class="pipeline-summary" id="pipelineSummary">--</span>
+          </div>
+          <div class="pipeline-waves" id="pipelineWaves">
+            <span class="loading">Loading...</span>
+          </div>
+        </div>
+
+        <!-- Maintenance: Pipeline Run Log (local pipeline stages + streaming logs) -->
+        <div class="card pipeline-logs-card">
+          <div class="section-header">
+            <h3>Pipeline Run Log <span class="sub-label">(local run — stages, timing, errors)</span></h3>
+            <div class="pipeline-logs-meta">
+              <span id="pipelineLogsFile" class="pipeline-logs-file">--</span>
+              <label class="autoRefreshLabel">
+                <input type="checkbox" id="pipelineLogsAutoRefresh" checked> auto-refresh
+              </label>
+              <button id="pipelineLogsRefreshBtn" class="btn btn-secondary btn-sm">Refresh</button>
+            </div>
+          </div>
+
+          <!-- Stage grid: one row per wave, stages in a wave run in parallel -->
+          <div class="pipeline-stage-grid" id="pipelineStageGrid">
+            <span class="loading">Loading...</span>
+          </div>
+
+          <!-- Streaming log feed -->
+          <div class="pipeline-log-feed-header">
+            <strong>Log Feed</strong>
+            <div class="log-filter-buttons">
+              <button class="log-filter-btn active" data-log-filter="all">All</button>
+              <button class="log-filter-btn" data-log-filter="fail">Errors</button>
+              <button class="log-filter-btn" data-log-filter="warn">Warnings</button>
+              <button class="log-filter-btn" data-log-filter="ok">OK</button>
+            </div>
+            <span id="pipelineLogCount" class="log-count">0 entries</span>
+          </div>
+          <div class="pipeline-log-feed" id="pipelineLogFeed">
+            <span class="loading">No log data yet</span>
+          </div>
+        </div>
+
+        <!-- AI FACT VERIFICATION - Prominent Section at Top -->
+        <div class="fact-verification-section">
+          <!-- Critical Issues Alert (shown at very top) -->
+          <div class="critical-issues-banner" id="criticalIssuesBanner" style="display:none;">
+            <div class="critical-header">
+              <span class="critical-icon">⚠</span>
+              <h2>Potential Hallucinations Detected</h2>
+              <span class="critical-count" id="criticalCount">0</span>
+            </div>
+            <div class="critical-issues-list" id="criticalIssuesList">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- Verification Header -->
+          <div class="verification-header">
+            <div class="verification-title">
+              <h2>AI Summary Verification</h2>
+              <p>Fact-checking AI-generated summaries against source documents (runs automatically in pipeline)</p>
+            </div>
+            <div class="verification-controls">
+              <button id="runContentValidation" class="btn btn-secondary">
+                <span class="btn-icon">↻</span> Refresh
+              </button>
+              <span id="contentValStatus" class="status-text"></span>
+            </div>
+          </div>
+
+          <!-- Overall Stats Bar -->
+          <div class="verification-stats-bar" id="verificationStatsBar">
+            <div class="stat-item">
+              <span class="stat-number" id="statTotalItems">--</span>
+              <span class="stat-label">Summaries Checked</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-number" id="statTotalFacts">--</span>
+              <span class="stat-label">Status</span>
+            </div>
+            <div class="stat-item verified">
+              <span class="stat-number" id="statVerified">--</span>
+              <span class="stat-label">Passed</span>
+            </div>
+            <div class="stat-item warning" style="display:none">
+              <span class="stat-number" id="statNotFound">--</span>
+              <span class="stat-label">Warnings</span>
+            </div>
+            <div class="stat-item error">
+              <span class="stat-number" id="statContradicted">--</span>
+              <span class="stat-label">Failed</span>
+            </div>
+            <div class="stat-item">
+              <div class="overall-score" id="overallScore">--%</div>
+              <span class="stat-label">Accuracy</span>
+            </div>
+          </div>
+
+          <!-- Items Grid - Each Processed Element -->
+          <div class="verification-items-grid" id="verificationItemsGrid">
+            <!-- Placeholder when no data -->
+            <div class="verification-placeholder">
+              <p>AI fact verification runs automatically at the end of the daily pipeline.</p>
+              <p class="placeholder-sub">Run the pipeline to generate verification results, or click Refresh to reload.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Parser Health Checks -->
+        <h2 class="section-title" style="margin-top:2rem">Parser Health Checks</h2>
+
+          <div class="validation-grid">
+            <!-- SEC Validation -->
+            <div class="card validation-section">
+              <h3>SEC Edgar Validation</h3>
+              <div class="validation-summary" id="secSummary"></div>
+              <table class="validation-table" id="secTable">
+                <thead>
+                  <tr>
+                    <th>CAL</th>
+                    <th>Ticker</th>
+                    <th>Ingestor</th>
+                    <th>SEC Check</th>
+                    <th>Match</th>
+                    <th>New</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <!-- Macro Validation -->
+            <div class="card validation-section">
+              <h3>Macro Indicators Validation</h3>
+              <div class="validation-summary" id="macroSummary"></div>
+              <table class="validation-table" id="macroTable">
+                <thead>
+                  <tr>
+                    <th>CAL</th>
+                    <th>Indicator</th>
+                    <th>URL</th>
+                    <th>Format</th>
+                    <th>Data</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <!-- Sentiment Validation -->
+            <div class="card validation-section">
+              <h3>Sentiment Validation</h3>
+              <table class="validation-table" id="sentimentTable">
+                <thead>
+                  <tr>
+                    <th>Indicator</th>
+                    <th>URL</th>
+                    <th>Format</th>
+                    <th>Data</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <!-- Policy Validation -->
+            <div class="card validation-section">
+              <h3>White House / FOMC Validation</h3>
+              <table class="validation-table" id="policyTable">
+                <thead>
+                  <tr>
+                    <th>Source</th>
+                    <th>URL</th>
+                    <th>Format</th>
+                    <th>Text</th>
+                    <th>Latest</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <!-- Press Releases Validation -->
+            <div class="card validation-section">
+              <h3>Press Releases Validation</h3>
+              <div class="validation-summary" id="pressSummary"></div>
+              <table class="validation-table" id="pressTable">
+                <thead>
+                  <tr>
+                    <th>Ticker</th>
+                    <th>URL</th>
+                    <th>Format</th>
+                    <th>Text</th>
+                    <th>AI</th>
+                    <th>Latest</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+      </section>
+
+      <!-- Daily Intelligence Feed (Redesigned v2) -->
+      <section id="daily" class="tab-content">
+        <div class="daily-v2">
+          <!-- RELEASES TODAY -->
+          <div class="card">
+            <h3>Releases Today</h3>
+            <div class="releases-row" id="releaseBadges">
+              <span class="loading">Loading...</span>
+            </div>
+          </div>
+
+          <!-- UPCOMING CATALYSTS -->
+          <div class="card">
+            <h3>Upcoming Catalysts</h3>
+            <div class="catalysts-list" id="catalystsList">
+              <span class="loading">Loading...</span>
+            </div>
+          </div>
+
+          <!-- MACRO HEADLINES -->
+          <div class="card">
+            <div class="section-header">
+              <h3>Macro Headlines</h3>
+              <span class="headline-count" id="macroHeadlineCount">0</span>
+            </div>
+            <div class="headlines-list" id="macroHeadlinesList">
+              <span class="loading">Loading...</span>
+            </div>
+          </div>
+
+          <!-- TICKER HEADLINES -->
+          <div class="card">
+            <div class="section-header">
+              <h3>Ticker Headlines</h3>
+              <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="sec">SEC</button>
+                <button class="filter-btn" data-filter="press">Press</button>
+                <button class="filter-btn" data-filter="news">News</button>
+              </div>
+            </div>
+            <div class="headlines-list" id="tickerHeadlinesList">
+              <span class="loading">Loading...</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Macro Tab (v3 — window-scoped regime + today) -->
+      <section id="macro" class="tab-content">
+        <div class="macro-v2">
+          <!-- Regime + Window header (SPY chart on left, regime/probs on right) -->
+          <div class="card macro-regime-card">
+            <div class="regime-top">
+              <div class="regime-chart-col">
+                <svg id="macroSpyChart" viewBox="0 0 400 200" preserveAspectRatio="none"></svg>
+                <div class="spy-chart-meta" id="macroSpyMeta"></div>
+              </div>
+              <div class="regime-info-col">
+                <div>
+                  <span class="regime-badge" id="macroRegime">--</span>
+                  <span class="regime-window" id="macroWindow"></span>
+                </div>
+                <div class="regime-probabilities">
+                  <div class="prob-bar">
+                    <span class="prob-label">Up</span>
+                    <div class="prob-fill prob-up" id="probUp" style="width:33%"></div>
+                    <span class="prob-pct" id="probUpPct">--%</span>
+                  </div>
+                  <div class="prob-bar">
+                    <span class="prob-label">Flat</span>
+                    <div class="prob-fill prob-flat" id="probFlat" style="width:33%"></div>
+                    <span class="prob-pct" id="probFlatPct">--%</span>
+                  </div>
+                  <div class="prob-bar">
+                    <span class="prob-label">Down</span>
+                    <div class="prob-fill prob-down" id="probDown" style="width:33%"></div>
+                    <span class="prob-pct" id="probDownPct">--%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="regime-rationale" id="macroWindowRationale"></div>
+          </div>
+
+          <!-- Trend: drivers / narrative -->
+          <div class="macro-grid-2">
+            <div class="card">
+              <h3>Drivers</h3>
+              <ul class="macro-bullets" id="macroDrivers"><li class="loading">Loading...</li></ul>
+            </div>
+            <div class="card">
+              <h3>Narrative</h3>
+              <ul class="macro-bullets" id="macroNarrative"><li class="loading">Loading...</li></ul>
+            </div>
+          </div>
+
+          <!-- Recommendation & Outlook -->
+          <div class="card macro-reco-card">
+            <div class="reco-header">
+              <h3>Recommendation &amp; Outlook</h3>
+              <div class="reco-header-chips">
+                <span class="reco-action" id="recoAction">--</span>
+                <span class="reco-confidence" id="recoConfidence">--</span>
+              </div>
+            </div>
+            <div class="reco-headline" id="recoHeadline"></div>
+            <div class="reco-body">
+              <div class="reco-left">
+                <h4>Rationale</h4>
+                <ul class="macro-bullets" id="recoBullets"><li class="loading">Loading...</li></ul>
+                <h4>Upcoming catalysts</h4>
+                <ul class="catalysts-list" id="recoCatalysts"><li class="loading">Loading...</li></ul>
+              </div>
+              <div class="reco-right">
+                <h4>Scenarios — 4-week outlook</h4>
+                <div class="scenarios-wrap">
+                  <svg id="scenariosChart" viewBox="0 0 520 280" preserveAspectRatio="xMidYMid meet"></svg>
+                </div>
+                <div class="scenarios-legend" id="scenariosLegend"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Today block -->
+          <div class="card macro-today-card">
+            <div class="today-header">
+              <h3>Today</h3>
+              <span class="today-move" id="macroTodayMove">--</span>
+              <span class="tension-flag" id="macroTension"></span>
+            </div>
+            <ul class="macro-bullets" id="macroTodayDrivers"><li class="loading">Loading...</li></ul>
+            <ul class="macro-bullets" id="macroTodayNarrative"></ul>
+          </div>
+
+          <!-- FOMC Countdown -->
+          <div class="card">
+            <h3>Next FOMC Meeting</h3>
+            <div class="fomc-countdown">
+              <div class="fomc-date" id="fomcNextDate">--</div>
+              <div class="temperature-bar">
+                <div class="temp-fill" id="fomcTempBar"></div>
+              </div>
+              <div class="fomc-days" id="fomcDaysLeft">-- days away</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Portfolio Tab (v2 — identification + operations) -->
+      <section id="portfolio" class="tab-content">
+        <div class="portfolio-v2">
+          <!-- 1. Sector Performance + Bargraph -->
+          <div class="card">
+            <h3>Sector Performance Today</h3>
+            <div class="sector-bar" id="sectorBar"><span class="loading">Loading...</span></div>
+          </div>
+
+          <!-- 2. Main Movers of the Day -->
+          <div class="card">
+            <h3>Main Movers</h3>
+            <div class="movers-layout">
+              <div class="movers-left" id="moversExplanations"></div>
+              <div class="movers-right">
+                <svg id="moversChart" viewBox="0 0 320 320" preserveAspectRatio="xMidYMid meet"></svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Operations (unified — no buy/sell split) -->
+          <div class="card">
+            <div class="ops-header">
+              <h3>Operations</h3>
+              <span class="ops-meta" id="opsMeta"></span>
+            </div>
+            <div id="operationsList"><span class="loading">Loading...</span></div>
+          </div>
+
+          <!-- 4. Portfolio Rebalancing -->
+          <div class="card">
+            <h3>Portfolio Rebalancing</h3>
+            <div class="rebalance-summary" id="rebalanceSummary"></div>
+            <ul class="macro-bullets" id="rebalanceRationale"><li class="loading">Loading...</li></ul>
+            <svg id="rebalanceChart" viewBox="0 0 800 220" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+
+          <!-- 5. All Portfolio Tickers -->
+          <div class="card">
+            <h3>All Portfolio Tickers</h3>
+            <div id="tickersGrid"><span class="loading">Loading...</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Monthly Check Tab -->
+      <section id="monthly" class="tab-content">
+        <div class="monthly-controls">
+          <span id="monthlyStatus"></span>
+        </div>
+
+        <div class="monthly-grid">
+          <!-- Macro Check -->
+          <div class="card full-width">
+            <div class="section-header-inline"><h3>Macro Indicators</h3><button id="openMacroUrls" class="btn btn-secondary">Open All</button></div>
+            <table class="check-table" id="monthlyMacroTable">
+              <thead>
+                <tr>
+                  <th>Indicator</th>
+                  <th>Value</th>
+                  <th>Date</th>
+                  <th>URL</th>
+                  <th>Verify</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <!-- Press Check -->
+          <div class="card full-width">
+            <div class="section-header-inline"><h3>Press Releases</h3><button id="openPressUrls" class="btn btn-secondary">Open All</button></div>
+            <table class="check-table" id="monthlyPressTable">
+              <thead>
+                <tr>
+                  <th>Ticker</th>
+                  <th>Latest Title</th>
+                  <th>Date</th>
+                  <th>URL</th>
+                  <th>Verify</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <!-- FOMC / Policy Check -->
+          <div class="card full-width">
+            <div class="section-header-inline"><h3>FOMC / Policy</h3><button id="openPolicyUrls" class="btn btn-secondary">Open All</button></div>
+            <table class="check-table" id="monthlyFomcTable">
+              <thead>
+                <tr>
+                  <th>Source</th>
+                  <th>Title</th>
+                  <th>Date</th>
+                  <th>URL</th>
+                  <th>Verify</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="verification-summary">
+          <h3>Verification Progress</h3>
+          <div class="progress-bar">
+            <div class="progress-fill" id="verifyProgress"></div>
+          </div>
+          <span id="verifyCount">0 / 0 checked</span>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span>Last updated: <span id="lastUpdate">--</span></span>
+      <span>Log file: <span id="logFile">--</span></span>
+    </footer>
+  </div>
+
+  <!-- Report Modal -->
+  <div id="reportModal" class="modal">
+    <div class="modal-content">
+      <span class="modal-close">&times;</span>
+      <h3 id="modalTitle">Report Summary</h3>
+      <div id="modalBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

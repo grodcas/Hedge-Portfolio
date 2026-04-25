@@ -247,7 +247,7 @@ Kept intentionally for now (scaffolding, mockups, fallbacks). Safe to delete bef
 
 | Path | Status | Note |
 |------|--------|------|
-| `dashboard/portfolio-funnel-mockup.html` / `.js` | Mockup, not routed by `dashboard/server.js` | Kept as design reference for future portfolio tab |
+| `dashboard/archive/` | Old "research-brief" dashboard | Superseded by the pro funnel (now `index.html` / `app.js`); kept for reference, not routed |
 | `workers/nav-builder/` | Wired (`wrangler.jsonc` + `src/worker.js`) but uncalled | No pipeline step, dashboard route, or service binding invokes it |
 | `workers/position-builder/` | Same — wired but uncalled | — |
 | `workers/probability-curve-builder/` | Same — wired but uncalled | — |
