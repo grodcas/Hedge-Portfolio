@@ -81,11 +81,22 @@ const PAGE_HTML = `<!DOCTYPE html>
     color: #555;
   }
   .mermaid {
-    background: white; padding: 6pt; margin: 12pt auto;
-    text-align: center; page-break-inside: avoid;
+    background: white; padding: 4pt; margin: 8pt auto;
+    text-align: center;
     max-width: 100%;
+    /* No page-break-inside:avoid — small diagrams forced onto fresh pages
+       were leaving the cluster title alone + a blank gap before the
+       diagram. Letting them flow naturally keeps title + diagram + table
+       packed on one or two pages. */
   }
-  .mermaid svg { max-width: 100% !important; height: auto !important; }
+  .mermaid svg {
+    max-width: 100% !important;
+    max-height: 200mm !important;   /* never exceed a single A4 page */
+    width: auto !important;
+    height: auto !important;
+    display: block;
+    margin: 0 auto;
+  }
   .page-break { page-break-after: always; height: 0; line-height: 0; }
   hr { border: none; border-top: 1px solid #bbb; margin: 16pt 0; }
   ul, ol { margin: 6pt 0 6pt 20pt; padding: 0; }
