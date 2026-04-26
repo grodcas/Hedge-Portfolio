@@ -347,23 +347,30 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    R1(Polygon · 8 sector ETFs<br/>+ constituents):::src
-    R2(Alpha Vantage<br/>fundamentals):::src
+    R1(Polygon · 8 sector ETFs<br/>+ 25 constituents + SPY):::src
+    R2(Finnhub · analyst recs<br/>per ticker):::src
+    R3(SSGA monthly fact sheets<br/>per-sector forward P/E):::src
 
     C1[price-fetcher]:::code
-    C2[stock-factor-builder]:::code
-    C3[sector-factor-builder]:::code
-    C4[sector-trend-long<br/>GPT-5 · structural]:::code
-    C5[sector-trend-short<br/>GPT-5 · event-driven]:::code
+    C2[FUND_03 writer<br/>cluster 3 chain]:::code
+    C3[stock-factor-builder<br/>cluster 3 chain]:::code
+    C4[scrape-ssga-pe.js<br/>monthly script]:::code
+    C5[sector-factor-builder<br/>deterministic + table lookup]:::code
+    C6[sector-trend-long<br/>GPT-5 · structural]:::code
+    C7[sector-trend-short<br/>GPT-5 · event-driven]:::code
 
     T1[(PRICE_01_Daily)]:::db
-    T2[(STOCK_FACTORS_daily)]:::db
-    T3[(SECTOR_FACTORS_daily)]:::db
-    T4[(SECTOR_TREND_long)]:::db
-    T5[(SECTOR_TREND_short)]:::db
-    T6[(NARRATIVE_01_Content)]:::db
-    T7[(BETA_10_Daily_macro<br/>cluster 1)]:::db
-    T8[(BETA_12_News_digest<br/>cluster 10)]:::db
+    T2[(FUND_03_Recommendations)]:::db
+    T3[(STOCK_FACTORS_daily)]:::db
+    T4[(SECTOR_VALUATION_monthly<br/>SSGA forward P/E)]:::db
+    T5[(SECTOR_FACTORS_daily)]:::db
+    T6[(SECTOR_TREND_long)]:::db
+    T7[(SECTOR_TREND_short)]:::db
+    T8[(BETA_10_Daily_macro<br/>cluster 1 · regime label)]:::db
+    T9[(BETA_12_News_digest<br/>cluster 10)]:::db
+    T10[(NARRATIVE_01_Content)]:::db
+
+    K1[[REGIME_AFFINITY table<br/>hand-tuned 5×8 matrix]]:::agentDet
 
     A1{{narrator-sector<br/>identification · GPT-5}}:::agentLLM
     A2{{narrator-sector<br/>recommendation · GPT-5}}:::agentLLM
@@ -378,33 +385,42 @@ flowchart TD
     D4[/Layer 2 lede/]:::ui
 
     R1 --> C1 --> T1
-    T1 --> C2 --> T2
-    T1 --> C3
+    R2 --> C2 --> T2
+    R3 --> C4 --> T4
+
+    T1 --> C3 --> T3
     T2 --> C3
-    C3 --> T3
+
+    T1 --> C5
     T3 --> C5
-    C4 --> T4
     T4 --> C5
+    T8 --> C5
+    K1 --> C5
     C5 --> T5
 
-    T3 --> A1 --> A2 --> A3
-    T5 --> A1
+    T5 --> C7
+    C6 --> T6
+    T6 --> C7
+    C7 --> T7
+
+    T5 --> A1 --> A2 --> A3
     T7 --> A1
     T8 --> A1
-    A1 --> T6
-    A2 --> T6
-    A3 --> T6
+    T9 --> A1
+    A1 --> T10
+    A2 --> T10
+    A3 --> T10
 
-    T3 --> A4 --> A5 --> A6
-    T5 --> A4
-    A4 --> T6
-    A5 --> T6
-    A6 --> T6
+    T5 --> A4 --> A5 --> A6
+    T7 --> A4
+    A4 --> T10
+    A5 --> T10
+    A6 --> T10
 
-    T3 --> D1
-    T3 --> D2
-    T3 --> D3
-    T6 --> D4
+    T5 --> D1
+    T5 --> D2
+    T5 --> D3
+    T10 --> D4
 
     classDef src fill:#e3f2fd,stroke:#1976d2,color:#0d47a1
     classDef code fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
@@ -416,29 +432,35 @@ flowchart TD
 
 | Tag | What it means |
 |---|---|
-| R1 | **Polygon prices** for the 8 SPDR sector ETFs (the standard sector proxies — XLK Tech, XLY Discretionary, XLC Communication, XLF Finance, XLE Energy, XLV Healthcare, XLP Staples, XLI Industrial) plus all 25 portfolio tickers. |
-| R2 | **Alpha Vantage** fundamentals — used to compute sector-level valuation (median forward P/E across each sector's tickers). |
-| C1 | **price-fetcher**. |
-| C2 | **stock-factor-builder** (same as cluster 3). |
-| C3 | **sector-factor-builder**. Pure math, no LLM. Aggregates the 25 stocks' factors into 8 sector-level factors per day: **regime_fit** (how well the sector fits the current macro regime), **earn_momentum** (sector-wide earnings revision direction), **valuation_sigma** (cheap/expensive vs sector's own history, in σ units), **rel_strength_13w** (13-week relative strength vs the broad market), and the **RRG coordinates** (rs_ratio, rs_momentum — both centered at 100). |
-| C4 | **sector-trend-long** worker, **GPT-5**. Writes the slow-changing structural thesis per sector — refreshed when major sector-relevant events happen (10-Q earnings, regulatory shifts), not daily. |
-| C5 | **sector-trend-short** worker, **GPT-5**. Writes the tactical thesis per sector — fires when sector factors change meaningfully or every 7 days (staleness floor). |
-| T1 | Daily prices. |
-| T2 | Stock factors (per ticker). |
-| T3 | Sector factors (one row per sector per day). The thing the sector table reads. |
-| T4 | Long-term sector thesis (one row per sector). |
-| T5 | Short-term sector thesis (one row per sector). |
-| T6 | Narrative content — stores the narrators' bullet outputs. |
-| T7 | Daily macro blob (from cluster 1). Provides regime context to the sector narrators. |
-| T8 | News digest (from cluster 10). Provides per-sector news context to the narrators. |
-| A1 | Per-sector identification (**GPT-5**). **What it does:** writes 3-5 bullets explaining what is happening in *this specific sector*. Each bullet must reference a number from the input data and provide an interpretation, not just restate the number. |
-| A2 | Per-sector recommendation (**GPT-5**). **What it does:** names which constituents to **ADD** and which to **CUT**, with conviction and edge-vs-consensus. Hard rule: at least one ADD ticker AND one CUT ticker, both from the sector's actual constituents. |
-| A3 | Per-sector lede (**GPT-4o-mini**). 3-4 line summary at the top of the sector view. |
-| A4 | Sector-landscape identification (**GPT-5**). **What it does:** comparative bullets across all 8 sectors. Each bullet must reference at least 2 sectors. |
-| A5 | Sector-landscape recommendation (**GPT-5**). **What it does:** cross-sector rotation calls (rotate from X to Y). |
-| A6 | Sector-landscape lede (**GPT-4o-mini**). The Layer 2 headline you see on the dashboard. |
-| D1 | The 8-row sector table on Layer 2. Columns: regime fit, earnings momentum, valuation σ, relative strength, stance (**OW** Overweight / **EW** Equal-weight / **UW** Underweight). Cell colors are per-column with thresholds matched to each factor's natural data range; the valuation column is *inverted* — negative σ (cheap) shows green because cheap is what the buyer wants. |
-| D2 | The **Relative Rotation Graph (RRG)** — a four-quadrant chart plotting each sector ETF in (rs_ratio × rs_momentum) space, both centered at 100. Quadrants: **Leading** (top-right, both >100), **Improving** (top-left), **Lagging** (bottom-right), **Weakening** (bottom-left). The chart auto-fits its scale to the actual data range. |
+| R1 | **Polygon prices** for the 8 SPDR sector ETFs (XLK Tech, XLY Discretionary, XLC Communication, XLF Finance, XLE Energy, XLV Healthcare, XLP Staples, XLI Industrial), all 25 portfolio tickers, and SPY. Drives every price-based factor in this cluster: 13-week relative strength, RRG coordinates, breadth above 200-day moving average. |
+| R2 | **Finnhub** analyst recommendations — per-ticker bullish/buy/hold/sell/strong-sell counts. The 4-week change in the bullish-recs ratio is what eventually feeds `earn_momentum`. (Note: NOT raw Alpha Vantage fundamentals — sector-level analysis doesn't touch AV directly.) |
+| R3 | **SSGA (State Street) monthly fact sheets**. State Street publishes a fact sheet for each SPDR ETF that lists the ETF's weighted-harmonic forward P/E. We scrape those once a month to build a per-sector P/E history. *Why SSGA, not Alpha Vantage:* averaging individual constituents' forward P/E from AV is biased toward mega-caps; SSGA's published number is the actual ETF-weighted P/E. |
+| C1 | **price-fetcher** worker. Daily. |
+| C2 | The recommendations writer (sparse, currently). Belongs to cluster 3's chain. |
+| C3 | **stock-factor-builder** (cluster 3 chain). Reads R1 + R2 to produce per-ticker factors including `eps_rev_4w`. Cluster 4 only consumes the output (T3); it does not run this worker itself. |
+| C4 | **`scripts/scrape-ssga-pe.js`** — a manually-run script (no cron yet) that scrapes the latest SSGA fact sheet for each sector ETF and writes the forward P/E into T4. Run it monthly to keep the valuation history alive. |
+| C5 | **sector-factor-builder** — the heart of this cluster. Pure math + a table lookup, no LLM. Per sector, computes:<br/>• **regime_fit** = `K1[regime_label][sector]` — pure lookup. The regime_label string comes from T8.<br/>• **earn_momentum** = mean of constituent `eps_rev_4w` from T3.<br/>• **valuation_sigma** = z-score of latest sector forward P/E (from T4) vs trailing 12-month median/stdev. Falls back to a cross-sectional comparison vs other sectors today if T4 has fewer than 3 monthly snapshots.<br/>• **rel_strength_13w** = `sector_ETF_63d_return − SPY_63d_return` (both from T1).<br/>• **rs_ratio** = `100 + 10 × ((rs_raw_today − mean(rs_raw_last_63d)) / stdev(rs_raw_last_63d))`, where `rs_raw_t = sector_close / spy_close`. The classic JdK RRG normalization. (T1 only.)<br/>• **rs_momentum** = `rs_ratio_today − rs_ratio_21_days_ago + 100`. Rises when the rs_ratio is accelerating. (T1 only.)<br/>• **stance_score** = `0.30·FIT + 0.20·EARN + 0.15·VAL + 0.15·RS + 0.10·beat_rate`, with null inputs renormalized.<br/>• **stance** = bucket: `> +0.33` → OW, `< −0.33` → UW, otherwise EW. |
+| C6 | **sector-trend-long** worker, GPT-5. Slow structural thesis per sector — refreshed when major sector-relevant events happen, not daily. |
+| C7 | **sector-trend-short** worker, GPT-5. Tactical thesis per sector — fires when factors change or every 7 days. |
+| T1 | Daily prices for every ticker the cluster needs (8 sector ETFs + 25 stocks + SPY). |
+| T2 | Per-ticker analyst-recommendation history. |
+| T3 | Per-ticker daily-factors table (cluster 3 output). The `eps_rev_4w` column is the only one this cluster reads. |
+| T4 | **Per-sector monthly forward P/E**, scraped from SSGA. The valuation_sigma history. |
+| T5 | Per-sector daily-factors table — what the dashboard reads. |
+| T6 | Long-term sector thesis (one row per sector). |
+| T7 | Short-term sector thesis (one row per sector). |
+| T8 | Daily macro blob from cluster 1. Provides the regime label string (`bullish`, `cautious_bullish`, `neutral`, `cautious_bearish`, `bearish`) that drives both the regime_fit lookup AND the narrator gather context. |
+| T9 | News digest from cluster 10. Per-sector news context for the narrators. |
+| T10 | Narrative content — the narrators' bullet outputs. |
+| K1 | **The hardcoded `REGIME_AFFINITY` table** in `workers/sector-factor-builder/src/worker.js:51-58`. A 5-regime × 8-sector matrix of hand-tuned numbers in [-1, +1]. e.g. when regime is `bullish`: Technology = +0.8, ConsDisc = +0.7, Staples = -0.4. When `bearish`: Technology = -0.6, Staples = +0.7. **Important:** these numbers are not learned and not derived from data — they are the system designer's prior on which sectors do well in which regime. Editable as a constant. |
+| A1 | Per-sector identification (GPT-5). 3-5 bullets explaining what is happening in *this specific sector*. Each bullet must cite a number from the input data + provide an interpretation. |
+| A2 | Per-sector recommendation (GPT-5). Names which constituents to ADD and which to CUT, with conviction and edge-vs-consensus. Hard rule: ≥1 ADD ticker AND ≥1 CUT ticker, both from the sector's actual constituents. |
+| A3 | Per-sector lede (GPT-4o-mini). 3-4 line summary at the top of the sector view. |
+| A4 | Sector-landscape identification (GPT-5). Comparative bullets across all 8 sectors. Each bullet must reference at least 2 sectors. |
+| A5 | Sector-landscape recommendation (GPT-5). Cross-sector rotation calls (rotate from X to Y). |
+| A6 | Sector-landscape lede (GPT-4o-mini). The Layer 2 headline. |
+| D1 | The 8-row sector table on Layer 2. Columns: regime fit, earnings momentum, valuation σ, relative strength, stance (**OW** Overweight / **EW** Equal-weight / **UW** Underweight). Cell colors are per-column with thresholds matched to each factor's data range; the valuation column is *inverted* — negative σ (cheap) shows green. |
+| D2 | The **Relative Rotation Graph (RRG)** — quadrant chart plotting each sector ETF in (rs_ratio × rs_momentum) space, both centered at 100. Quadrants: **Leading** (top-right, both >100), **Improving** (top-left), **Lagging** (bottom-right), **Weakening** (bottom-left). |
 | D3 | The horizontal allocation bar — sector weights summing to 100%. |
 | D4 | The 1-paragraph lede above Layer 2 — pulls from the sector-landscape narrator (priority) or per-sector narrator (fallback). |
 
