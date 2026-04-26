@@ -33,14 +33,14 @@ The diagrams in Part 2 are written in **Mermaid**. They render natively in GitHu
 
 Each cluster diagram has 5 layers. Every node carries a tag:
 
-| Tag prefix | Shape           | Layer        | Color             |
-|------------|-----------------|--------------|-------------------|
-| `R<n>`     | rounded `(…)`   | source       | blue              |
-| `C<n>`     | rectangle `[…]` | code module  | green             |
-| `T<n>`     | cylinder `[(…)]`| D1 table     | yellow            |
-| `A<n>`     | hexagon `{{…}}` | LLM agent    | pink              |
-| `A<n>`     | subroutine `[[…]]` | deterministic agent | grey      |
-| `D<n>`     | parallelogram `[/…/]` | dashboard field | purple    |
+| Tag prefix | Shape                   | Layer                | Color version | B&W version       |
+|------------|-------------------------|----------------------|---------------|-------------------|
+| `R<n>`     | rounded `(…)`           | source               | blue          | thin border       |
+| `C<n>`     | rectangle `[…]`         | code module          | green         | thick border      |
+| `T<n>`     | cylinder `[(…)]`        | D1 table             | yellow        | cylinder shape    |
+| `A<n>`     | hexagon `{{…}}`         | LLM agent            | pink          | light grey fill   |
+| `A<n>`     | subroutine `[[…]]`      | deterministic agent  | grey          | dashed border     |
+| `D<n>`     | parallelogram `[/…/]`   | dashboard field      | purple        | dark grey fill    |
 
 Tag numbering is **local to each cluster** — `R1` in cluster 1 is unrelated to `R1` in cluster 2. Each cluster is self-contained. A reference table directly below each diagram maps every tag to its file path / table / prompt section.
 
@@ -102,8 +102,6 @@ One Mermaid diagram per dashboard feature, plus a cross-reference at the end.
 | 10 | News stream                                           | News           |
 | 11 | Top movers                                            | News           |
 | 12 | Regime detail — 12-indicator board + events           | Regime detail  |
-
-\pagebreak
 
 ## Cluster 1 · Regime card — verdict + lede + 4 macro chips
 
