@@ -125,6 +125,14 @@ RULES:
 - IGNORE: generic conferences, SEO content, irrelevant geographies, opinions.
 - Do not invent headlines. Use EXACT titles from the list.
 
+MAGNITUDE — be granular, not categorical. Sign matches sentiment.
+  0.05 - 0.20 = trivial (analyst tweak, minor color)
+  0.25 - 0.45 = mild   (incremental positive/negative read)
+  0.50 - 0.70 = moderate (clear meaningful event, e.g. small beat/miss, mid-tier guidance change)
+  0.75 - 0.90 = strong (earnings beat/miss with raised/cut guide, major M&A, regulatory action)
+  0.91 - 1.00 = exceptional (existential — accounting fraud, takeover, major recall)
+  Pick a SPECIFIC value, not a bucket midpoint. Avoid defaulting to ±0.5.
+
 OUTPUT (strict JSON, no markdown):
 {
   "headlines": [
@@ -186,6 +194,14 @@ RULES:
 - IGNORE: local politics with no US market impact, routine diplomatic meetings, opinion pieces.
 - Think: how does this affect sectors in our portfolio (tech, pharma, oil/energy, banks, consumer, industrial)?
 - Do not invent headlines. Use EXACT titles from the list.
+
+MAGNITUDE — be granular, not categorical. Sign matches sentiment.
+  0.05 - 0.20 = trivial (rumor, minor color)
+  0.25 - 0.45 = mild   (incremental policy nudge, modest data print)
+  0.50 - 0.70 = moderate (clear macro event — surprise inflation print, central-bank tilt)
+  0.75 - 0.90 = strong (rate cut/hike, major geopolitical shock, regime-relevant)
+  0.91 - 1.00 = exceptional (war escalation, Fed emergency action, sovereign crisis)
+  Pick a SPECIFIC value, not a bucket midpoint. Avoid defaulting to ±0.5.
 
 OUTPUT (strict JSON, no markdown):
 {

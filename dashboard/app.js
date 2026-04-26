@@ -3673,9 +3673,17 @@ function renderSectorTable() {
 function renderRRG() {
   const svg = document.getElementById('rrgSvg');
   const W = 260, H = 260, cx = W/2, cy = H/2;
-  // Data is centered around 100 with ±4 range. Scale so ±4 spans half-width.
   const half = W/2 - 14;
-  const scale = v => (v - 100) / 4 * half;
+  // Compute symmetric scale around 100 from actual data so points always fit
+  // on canvas. sector-factor-builder emits rs_ratio / rs_momentum that have
+  // ranged ~60-140 in production; the prior fixed ±4 scale assumed values
+  // were ~96-104 and pushed all points 10× off-canvas.
+  let maxDev = 4;
+  for (const p of (DATA.rrgPoints || [])) {
+    maxDev = Math.max(maxDev, Math.abs(Number(p.x) - 100), Math.abs(Number(p.y) - 100));
+  }
+  maxDev = Math.ceil(maxDev * 1.05); // small padding so points don't touch the edge
+  const scale = v => (v - 100) / maxDev * half;
   let svgHtml = `
     <rect x="${cx}" y="10" width="${cx-10}" height="${cy-10}" fill="rgba(63,185,80,0.06)"/>
     <rect x="10" y="10" width="${cx-10}" height="${cy-10}" fill="rgba(88,166,255,0.06)"/>
@@ -3800,6 +3808,12 @@ function renderStockGroups() {
 function renderScatter() {
   const svg = document.getElementById('scatterSvg');
   const W = 260, H = 240, pad = 24;
+  // Build ticker → backend-bucket map so we can colour by sector when
+  // Piotroski is missing (most upstream rows have piotroski_f = null).
+  const sectorByTicker = {};
+  for (const [displaySector, list] of Object.entries(DATA.stockShortlist || {})) {
+    for (const s of list) sectorByTicker[s.ticker] = displaySector;
+  }
   const allStocks = Object.values(DATA.stockShortlist).flat();
   // X-axis: eps_rev_4w as decimal (e.g., 0.02 = +2%). Plot range ±0.05 = ±5%.
   // Y-axis: rel_pe_sigma, clamped to ±2σ. Cheap (negative σ) → top of chart
@@ -3825,14 +3839,23 @@ function renderScatter() {
   let plotted = 0;
   allStocks.forEach(s => {
     if (s.rel_pe_sigma == null || s.eps_rev_4w == null) return;
+    // Treat (0, 0) as the missing-data sentinel. stock-factor-builder writes
+    // 0 when fundamentals haven't refreshed; plotting them stacks ~half the
+    // universe on the y-axis and makes the chart unreadable.
+    if (s.eps_rev_4w === 0 && s.rel_pe_sigma === 0) return;
     const x = xScale(clamp(s.eps_rev_4w, xMin, xMax));
     const y = yScale(clamp(s.rel_pe_sigma, yMin, yMax));
-    // Color by Piotroski F as a proxy for quality: high=green, low=red.
+    // Colour: Piotroski F when available (green/yellow/red by quality bucket).
+    // Otherwise fall back to the ticker's sector colour so the chart still
+    // carries information instead of dropping to grey.
     const pio = s.piotroski_f;
-    const col = (pio == null)    ? 'var(--text-2)'
-              : (pio >= 7)       ? 'var(--green)'
-              : (pio <= 3)       ? 'var(--red)'
-              :                    'var(--yellow)';
+    let col;
+    if (pio != null) {
+      col = pio >= 7 ? 'var(--green)' : pio <= 3 ? 'var(--red)' : 'var(--yellow)';
+    } else {
+      const sec = sectorByTicker[s.ticker];
+      col = (sec && DATA.sectorColors[sec]) || 'var(--text-2)';
+    }
     const r = 5;
     svgHtml += `
       <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${col}" fill-opacity="0.5" stroke="${col}" stroke-width="1"/>
