@@ -46,6 +46,10 @@
 
 
 
+    "render-pdf": "node scripts/render-pdf.js",
+
+
+
     "verify": "echo 'Fact verification runs as pipeline step 9 or via dashboard button'"
 
 
