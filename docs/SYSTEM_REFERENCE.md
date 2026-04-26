@@ -191,25 +191,34 @@ flowchart TD
     classDef ui fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
 ```
 
-| Tag | What |
+| Tag | What it means |
 |---|---|
-| R1 | `api.stlouisfed.org/fred/series/observations` |
-| R2 | `api.bls.gov/publicAPI/v2/timeseries/data/` |
-| R3 | `federalreserve.gov/feeds/press_monetary.xml` |
-| R4 | `finnhub.io/api/v1/calendar/economic` |
-| R5 | `api.polygon.io/v2/aggs/ticker/SPY/...` |
-| C1 | `workers/macro-state-fetcher/src/worker.js` |
-| C2 | `workers/fomc-statement-fetcher/src/worker.js` |
-| C3 | `workers/economic-calendar-fetcher/src/worker.js` |
-| C4 | `workers/price-fetcher/src/worker.js` |
-| C5 | `macro/index.js` (invoked by `src/steps/ingest-macro.js`) |
-| A1–A3 | `workers/macro-intelligence-builder/src/worker.js` · prompts §6.8 |
-| A4 | `workers/narrator/regime/identification.js` · prompt §6.9 |
-| A5 | `workers/narrator/regime/recommendation.js` · prompt §6.10 |
-| A6 | `workers/narrator/regime/lede.js` · prompt §6.11 |
-| D1 | `dashboard/index.html:1663` `<h2 class="layer-verdict">` |
-| D2 | `dashboard/index.html:1666` `<p class="layer-lede">` |
-| D3 | `dashboard/index.html:1677` `#regimeSignals` (chips) |
+| R1 | **FRED** — Federal Reserve Economic Data, the St. Louis Fed's free public API. We pull three interest-rate series: **DGS10** (10-year US Treasury yield — the long-term safe rate), **DGS2** (2-year Treasury yield — short-term safe rate), and **FEDFUNDS** (the *effective federal funds rate*, the overnight rate the Fed sets). Together these are the "cost of money" signal that drives regime classification. |
+| R2 | **BLS** — US Bureau of Labor Statistics. We pull **CPI_CORE** (Core Consumer Price Index — inflation excluding volatile food and energy), **NFP** (Non-Farm Payrolls — monthly US jobs added), and **UNEMP** (unemployment rate). The "is the labor market healthy and is inflation under control" signal. |
+| R3 | **Fed RSS** — an RSS feed the Federal Reserve publishes for monetary-policy press releases. We extract **FOMC** (Federal Open Market Committee) statements: the official text the Fed publishes after each rate-setting meeting (~8 per year). |
+| R4 | **Finnhub** — a commercial financial-data API. We use it for the upcoming-economic-events calendar (when the next CPI print, FOMC meeting, or NFP release is scheduled). |
+| R5 | **Polygon** — another commercial data API. We use it for daily price bars of **SPY** (the largest S&P 500 ETF — used as the proxy for "the US stock market"). |
+| C1 | The **macro-state-fetcher** worker. Runs once a day at 00:10 UTC on Cloudflare. Pulls every series in R1 + R2 and writes the latest values to T1. This is what keeps the regime card's chips fresh every day. |
+| C2 | The **fomc-statement-fetcher** worker. Runs at midnight UTC daily. Downloads any new FOMC statement text into T2. |
+| C3 | The **economic-calendar-fetcher** worker. Runs at midnight UTC daily. Pulls the next 45 days of scheduled economic releases from Finnhub into T3. |
+| C4 | The **price-fetcher** worker. Pulls daily price bars. Used here just for SPY rows; the same worker covers all 25 portfolio tickers and the 8 sector ETFs. |
+| C5 | A Node script run during the nightly pipeline (step 5). Re-fetches some FRED/BLS data into T4 for an older summary code path. There is mild redundancy with C1 — flagged in Part 7. |
+| T1 | Where every macro indicator value lands. One row per (indicator code, release date). |
+| T2 | Where FOMC statement text lands — one row per Fed meeting. |
+| T3 | The upcoming-events calendar — date, event code (CPI / NFP / FOMC / etc.), expected value, prior value. |
+| T4 | The legacy macro table, used by the older summary code. Same data as T1 in a different shape. |
+| T5 | Daily price bars for every ticker. SPY rows are what this cluster uses. |
+| A1 | First of three **GPT-5** calls inside `macro-intelligence-builder`. **What it does:** classifies the current regime as one of *bullish · cautious-bullish · neutral · cautious-bearish · bearish*, by reading 8 weeks of macro indicators + recent FOMC text + SPY moves. Picks the time window inside those 8 weeks that best frames the regime, lists 3-5 drivers, gives a confidence score. |
+| A2 | Second **GPT-5** call. **What it does:** given A1's regime, reads today's SPY move + today's macro headlines. Explains today's price action and — most importantly — flags whether today's move *contradicts* the regime (the "regime tension" check). |
+| A3 | Third **GPT-5** call. **What it does:** turns A1+A2 into an actionable recommendation — *add risk / trim risk / hold / rotate / hedge* — plus three 4-week SPY scenarios (bull/base/bear with probabilities summing to 1) and which sectors to overweight/underweight. |
+| A4 | Narrator's regime *identification* stage (**GPT-5**). **What it does:** writes 3-5 bullets explaining what is currently driving the regime, each bullet citing a specific number from the data. Hard rule: bullets that just restate a number without interpretation are rejected. |
+| A5 | Narrator's regime *recommendation* stage (**GPT-5**). **What it does:** produces a one-sentence stance ("net 60% long, OW quality, 0.81 conviction, edge vs consensus is X") plus 3-5 forward-looking signposts. Each signpost names a future dated event + a numeric threshold + the action to take if breached. |
+| A6 | Narrator's regime *lede* stage (**GPT-4o-mini**). **What it does:** a 3-4 sentence summary, ≤45 words, that opens the regime view on the dashboard. Pulls one number, one diagnosis, one stance, one next trigger. |
+| T6 | The daily-macro blob — one row per day, storing A1+A2+A3 output as JSON. |
+| T7 | Stores the narrator's identification, recommendation, and lede output. Multi-row per entity (regime, each of 8 sectors, each of 25 tickers, plus the two landscape views). |
+| D1 | The big "Late-cycle · cautious-bullish" headline at the top of Layer 1. Pulled from T6's regime classification. If the API call fails, the dashboard shows the static fallback label. |
+| D2 | The paragraph below the headline. Explains the regime + what the book is doing. The narrator lede (T7) is the primary source; T6's macro-intelligence summary is a fallback when narrator data is missing. |
+| D3 | The four small chips: 10-year yield, 2-year yield, Core CPI, Fed Funds rate. Each chip shows the latest value + a colored direction arrow (rising = red for inflation/rates, green for falling). |
 
 \pagebreak
 
@@ -249,17 +258,20 @@ flowchart TD
     classDef ui fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
 ```
 
-| Tag | What |
+| Tag | What it means |
 |---|---|
-| C1 | `dashboard/server.js POST /api/trades` proxy → `portfolio-ingestor /ingest/trades` |
-| C2–C4 | `workers/{price-fetcher, position-builder, nav-builder}/src/worker.js` |
-| T1 | `TRADE_01_Ledger` (migration 0025) |
-| T3 | `POSITION_01_Daily` (0026) — `qty × close, weight_pct` |
-| T4 | `NAV_01_Daily` (0026) — `gross_long, gross_short, net_value` |
-| A1 | Browser-side: `(gross_long − gross_short) / net_value × 100`, clamped to `[0, 100]` |
-| D1 | `dashboard/index.html:1681` `<svg id="gaugeSvg">` · `app.js renderGauge()` |
-
-**No LLM in this cluster.** Pure arithmetic.
+| R1 | **User-entered trades**. You manually log buy/sell trades through the dashboard form (or via the one-shot `seed-trades.js` initialization script). Each trade is ticker + side + quantity + price + date. |
+| R2 | **Polygon prices** — the same daily price bars used everywhere — current market price for held tickers. |
+| C1 | The browser POSTs to `/api/trades`. The dashboard server forwards to `portfolio-ingestor`'s ingest endpoint, which writes one row to the trade ledger. |
+| C2 | **price-fetcher** worker. Pulls today's close for every held ticker. |
+| C3 | **position-builder** worker. Replays the trade ledger to compute current quantity per ticker, then multiplies by today's close to get market value, and computes each position's % weight in the book. |
+| C4 | **nav-builder** worker. Sums the positions to compute total long exposure, total short, net asset value (NAV), and how much cash is left. |
+| T1 | The trade ledger — one row per buy/sell. Append-only. The system never modifies past trades. |
+| T2 | Daily price bars (shared with every cluster). |
+| T3 | Daily positions table — one row per (ticker, date) with quantity, cost basis, market value, and weight %. Re-derivable from T1 + T2 at any time. |
+| T4 | Daily NAV — one row per date with `gross_long`, `gross_short`, `net_value`, `cash`, `leverage`, `day_pnl`. |
+| A1 | **Browser-side computation, no LLM.** Reads the latest NAV row, computes `(gross_long − gross_short) ÷ net_value × 100`, clamps to [0, 100]. Above 100 would mean leverage; below 0 would mean net short. |
+| D1 | The half-circle gauge at the top of Layer 1. Needle position shows your current **net exposure** to equities. Below 50% = defensive book; near 100% = fully long; above 100% (would require leverage) = aggressive. |
 
 \pagebreak
 
@@ -312,12 +324,24 @@ flowchart TD
     classDef ui fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
 ```
 
-| Tag | What |
+| Tag | What it means |
 |---|---|
-| C2 | Smart-fetch: skips ticker if `T2.fiscal_period_ending ≥` SEC's latest 10-Q period |
-| C5 | `workers/stock-factor-builder/src/worker.js` — emits 9 factors per ticker |
-| A1 | `dashboard/app.js bootstrapStyleTilts()` — weighted average across positions: Quality (Piotroski), Low vol (returns-vol), Growth (eps_rev_4w × 20), Value (−rel_pe_sigma/2), Momentum (mom_12_1) |
-| D1 | `dashboard/index.html:1686` `<div id="tiltRows">` · `app.js renderTilts()` |
+| R1 | **Polygon prices**. Used to compute realized volatility per ticker — the input to the **Low-vol** tilt. |
+| R2 | **Alpha Vantage** — a commercial API. We pull four endpoints per ticker: *OVERVIEW* (live snapshot — current PE, market cap), *INCOME_STATEMENT* (revenue, gross profit, net income), *BALANCE_SHEET* (assets, debt, shares outstanding), *CASH_FLOW* (operating cash flow — actual cash the business generates). Together these feed the **Piotroski F-score**, a 0-9 financial-health score. |
+| R3 | **Finnhub recommendations** — per-ticker analyst recommendation buckets (strong-buy / buy / hold / sell / strong-sell). Used to derive the analyst-revision factor. |
+| R4 | **SEC EDGAR 10-Q filings** — the quarterly reports US public companies file with the SEC. Used as a *gate*: we only ask Alpha Vantage for fresh fundamentals when SEC says a new 10-Q has been filed for that ticker. Saves Alpha Vantage API quota. |
+| C1 | **price-fetcher** — same as cluster 2. |
+| C2 | The fundamentals fetcher (`src/steps/fetch-fundamentals.js`). Smart-fetch logic: only refreshes a ticker's fundamentals when SEC reports a new 10-Q AND ≥2 days have passed (Alpha Vantage indexing lag). |
+| C3 | The recommendations writer (currently sparse — refreshes irregularly because Finnhub free-tier limits). |
+| C4 | **position-builder** — same as cluster 2. Provides per-ticker weight % needed to weight the tilt. |
+| C5 | **stock-factor-builder**. Pure math, no LLM. Reads prices + fundamentals + recommendations and emits 9 deterministic factors per ticker per day (Piotroski F, fwd P/E, eps_rev_4w, mom_12_1, etc). |
+| T1 | Daily prices. |
+| T2 | Per-ticker fundamentals snapshot — one row per (ticker, date). Stores everything needed to compute Piotroski. |
+| T3 | Analyst recommendations history (sparse). |
+| T4 | Daily positions (used for weighting the tilt). |
+| T5 | Daily stock-factors table — 9 factors per ticker. Read directly by the dashboard. |
+| A1 | **Browser-side computation, no LLM.** Takes the 9 stock factors + your current positions + per-ticker volatility, and computes a portfolio-weighted score for each of the 5 style tilts: **Quality** (average Piotroski F-score across positions), **Low vol** (inverse of average daily realized volatility), **Growth** (analyst-revision direction × 20), **Value** (negative of valuation σ ÷ 2 — cheap → positive tilt), **Momentum** (12-month price momentum, t-252 to t-21). |
+| D1 | The five horizontal bars at the bottom of Layer 1. Each bar is centered on 0; left-leaning = anti-tilt, right-leaning = pro-tilt. Tells you whether your book is leaning quality, momentum, growth, etc. |
 
 \pagebreak
 
@@ -392,15 +416,33 @@ flowchart TD
     classDef ui fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
 ```
 
-| Tag | What |
+| Tag | What it means |
 |---|---|
-| C3 | `workers/sector-factor-builder/src/worker.js` — emits per-sector regime_fit, earn_momentum, valuation_sigma, rel_strength_13w, rs_ratio, rs_momentum, stance |
-| C4–C5 | `sector-trend-{long,short}` workers · GPT-5 |
-| A1–A3 | `workers/narrator/sector/*.js` · per-sector ×8 |
-| A4–A6 | `workers/narrator/sector-landscape/*.js` · cross-sector once |
-| D1 | sector table; per-column thresholds matched to factor scales (val column inverted: cheap = green) |
-| D2 | RRG with dynamic `maxDev` auto-fit |
-| D4 | Layer 2 lede (sector-landscape takes priority over per-sector lede when fresh) |
+| R1 | **Polygon prices** for the 8 SPDR sector ETFs (the standard sector proxies — XLK Tech, XLY Discretionary, XLC Communication, XLF Finance, XLE Energy, XLV Healthcare, XLP Staples, XLI Industrial) plus all 25 portfolio tickers. |
+| R2 | **Alpha Vantage** fundamentals — used to compute sector-level valuation (median forward P/E across each sector's tickers). |
+| C1 | **price-fetcher**. |
+| C2 | **stock-factor-builder** (same as cluster 3). |
+| C3 | **sector-factor-builder**. Pure math, no LLM. Aggregates the 25 stocks' factors into 8 sector-level factors per day: **regime_fit** (how well the sector fits the current macro regime), **earn_momentum** (sector-wide earnings revision direction), **valuation_sigma** (cheap/expensive vs sector's own history, in σ units), **rel_strength_13w** (13-week relative strength vs the broad market), and the **RRG coordinates** (rs_ratio, rs_momentum — both centered at 100). |
+| C4 | **sector-trend-long** worker, **GPT-5**. Writes the slow-changing structural thesis per sector — refreshed when major sector-relevant events happen (10-Q earnings, regulatory shifts), not daily. |
+| C5 | **sector-trend-short** worker, **GPT-5**. Writes the tactical thesis per sector — fires when sector factors change meaningfully or every 7 days (staleness floor). |
+| T1 | Daily prices. |
+| T2 | Stock factors (per ticker). |
+| T3 | Sector factors (one row per sector per day). The thing the sector table reads. |
+| T4 | Long-term sector thesis (one row per sector). |
+| T5 | Short-term sector thesis (one row per sector). |
+| T6 | Narrative content — stores the narrators' bullet outputs. |
+| T7 | Daily macro blob (from cluster 1). Provides regime context to the sector narrators. |
+| T8 | News digest (from cluster 10). Provides per-sector news context to the narrators. |
+| A1 | Per-sector identification (**GPT-5**). **What it does:** writes 3-5 bullets explaining what is happening in *this specific sector*. Each bullet must reference a number from the input data and provide an interpretation, not just restate the number. |
+| A2 | Per-sector recommendation (**GPT-5**). **What it does:** names which constituents to **ADD** and which to **CUT**, with conviction and edge-vs-consensus. Hard rule: at least one ADD ticker AND one CUT ticker, both from the sector's actual constituents. |
+| A3 | Per-sector lede (**GPT-4o-mini**). 3-4 line summary at the top of the sector view. |
+| A4 | Sector-landscape identification (**GPT-5**). **What it does:** comparative bullets across all 8 sectors. Each bullet must reference at least 2 sectors. |
+| A5 | Sector-landscape recommendation (**GPT-5**). **What it does:** cross-sector rotation calls (rotate from X to Y). |
+| A6 | Sector-landscape lede (**GPT-4o-mini**). The Layer 2 headline you see on the dashboard. |
+| D1 | The 8-row sector table on Layer 2. Columns: regime fit, earnings momentum, valuation σ, relative strength, stance (**OW** Overweight / **EW** Equal-weight / **UW** Underweight). Cell colors are per-column with thresholds matched to each factor's natural data range; the valuation column is *inverted* — negative σ (cheap) shows green because cheap is what the buyer wants. |
+| D2 | The **Relative Rotation Graph (RRG)** — a four-quadrant chart plotting each sector ETF in (rs_ratio × rs_momentum) space, both centered at 100. Quadrants: **Leading** (top-right, both >100), **Improving** (top-left), **Lagging** (bottom-right), **Weakening** (bottom-left). The chart auto-fits its scale to the actual data range. |
+| D3 | The horizontal allocation bar — sector weights summing to 100%. |
+| D4 | The 1-paragraph lede above Layer 2 — pulls from the sector-landscape narrator (priority) or per-sector narrator (fallback). |
 
 \pagebreak
 
@@ -461,14 +503,21 @@ flowchart TD
     classDef ui fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
 ```
 
-| Tag | What |
+| Tag | What it means |
 |---|---|
-| C4 | Computes `fwd_pe`, `rel_pe_sigma`, `eps_rev_4w`, `rev_breadth_4w`, `sue`, `mom_12_1`, `rs_vs_sector_3m`, `piotroski_f`, `days_to_catalyst` |
-| A1–A3 | `workers/narrator/stock-landscape/*.js` · prompts §6.9 (landscape variant) |
-| D1 | `app.js renderStockGroups()` — exact-zero treated as flat (sentinel for missing data) |
-| D2 | `app.js renderScatter()` — skips (0,0) sentinel; sector colour fallback when Piotroski null |
+| R1–R4 | Same sources as cluster 3 — Polygon prices, Alpha Vantage fundamentals, Finnhub recommendations, SEC 10-Q filings (gating refresh). |
+| C1–C3 | Same fetchers as cluster 3. |
+| C4 | **stock-factor-builder** — same worker as cluster 3. Emits 9 deterministic factors per ticker: **fwd_pe** (forward Price-to-Earnings ratio), **rel_pe_sigma** (cheap/expensive vs sector peers, in σ units; negative = cheap), **eps_rev_4w** (4-week change in analyst-bullish ratio — the EPS-revision proxy), **rev_breadth_4w** (4-week change in net bullish-minus-bearish breadth), **sue** (Standardized Unexpected Earnings — most recent earnings surprise normalized by past surprise volatility), **mom_12_1** (12-month price momentum, skipping the most recent month — the classic Jegadeesh-Titman factor), **rs_vs_sector_3m** (3-month return minus sector-ETF return), **piotroski_f** (0-9 financial-health score), **days_to_catalyst** (days to next earnings — null if overdue). |
+| T1–T5 | Same tables as cluster 3. |
+| T6 | Narrative content — stores the stock-landscape narrator output. |
+| A1 | Stock-landscape identification (**GPT-5**). **What it does:** comparative bullets across all 25 tickers. What separates the top of the shortlist from the bottom? Each bullet must reference at least 2 tickers. |
+| A2 | Stock-landscape recommendation (**GPT-5**). **What it does:** which tickers are gaining conviction vs falling. |
+| A3 | Stock-landscape lede (**GPT-4o-mini**). |
+| D1 | The per-sector stock-group rows on Layer 3. Each row shows a ticker's 9 factors. Exact-zero values render as "flat / no signal" (some upstream tables write 0 as a missing-data sentinel — without this fix the EPS-revision column was a wall of red). |
+| D2 | The scatter chart at the bottom of Layer 3. **X-axis:** 4-week analyst-revision direction. **Y-axis:** cheap/expensive vs sector peers (cheap is up). Top-right quadrant = ideal long candidate (improving estimates AND cheap). Sector colors fall back when Piotroski is null. |
+| D3 | The Layer 3 lede paragraph. |
 
-**Note:** `narrator/stock` (per-ticker) writes its own rows used by the **stock entity-detail view** when you click a ticker — separate from the Layer 3 grid above.
+**Note:** there's also a per-ticker narrator (`narrator/stock`, ×25) that writes its own rows used by the **stock entity-detail view** when you click on a ticker. Separate from the Layer 3 grid here.
 
 \pagebreak
 
@@ -532,12 +581,29 @@ flowchart TD
     classDef ui fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
 ```
 
-| Tag | What |
+| Tag | What it means |
 |---|---|
-| C5 | Currently a placeholder — returns flat `target_pct: 4` per ticker until `wealth-distribution` produces real targets |
-| A1 | Picks the ticker with the largest `\|current − target\|` weight gap; composes 4 steps (regime / sector / stock / sizing) from data already fetched |
-| D1, D4 | Headers labelled `1d P&L` or `Nd P&L` based on the actual gap between the latest two NAV rows |
-| D5 | Auto-fits x-axis from data (no longer hardcoded at 7%) |
+| R1 | User-entered trades (same as cluster 2). |
+| R2 | **Polygon prices** for held tickers + **SPY** (the S&P 500 ETF, used as the benchmark line on the NAV chart). |
+| R3-R5 | Outputs from clusters 1, 4, 5 — the macro/sector/stock data the *decision trail* uses to compose its 4-step explanation. |
+| C1 | POST `/api/trades` → ingestor (same as cluster 2). |
+| C2 | **price-fetcher**. |
+| C3 | **position-builder**. |
+| C4 | **nav-builder**. |
+| C5 | The `/query/portfolio-targets` endpoint. **Currently a placeholder** — returns a flat 4% target per ticker. The real target source (the `wealth-distribution` worker) hasn't been wired in yet. So the weight chart shows everything as "should be 4%" today. |
+| T1 | Trade ledger. |
+| T2 | Daily prices. |
+| T3 | Daily positions. |
+| T4 | Daily NAV. |
+| A1 | **Browser-side composition, no LLM.** Picks the ticker with the largest gap between current weight and target weight (so the most-overweight or most-underweight name). Composes a 4-step explanation: (1) what the regime is, (2) why this sector matters in that regime, (3) where this ticker stands on key factors, (4) the implied buy/trim sizing action. |
+| D1 | The KPI strip at the top of the **PM tab**: Net Exposure, Gross Exposure, Position count, Cash %, period P&L, NAV total. |
+| D2 | The NAV curve on the PM tab — your portfolio value over time, plotted alongside SPY normalized to start at the same level. Visualizes whether you're beating or trailing the market. |
+| D3 | The full positions table on the PM tab — every holding with quantity, cost basis, market price, market value, weight, unrealized P&L %, period P&L %, days held. |
+| D4 | The same KPI strip, repeated at the top of Portfolio Layer 4 — same data, different tab. |
+| D5 | The weight chart on Layer 4 — each ticker shown as (current dot → target dot) with a connecting line. Auto-fits the x-axis if any weight exceeds 7%. |
+| D6 | The 4-step decision trail on Layer 4. Tells you *"we picked LLY because the regime favors quality, healthcare scores well in this regime, LLY's factor mix is strong, so we'd add 1.5%"*. |
+
+**Pill labels** ("1d P&L" vs "Nd P&L"): the dashboard reads the actual gap in days between the two latest NAV rows and labels honestly. If your pipeline ran daily, both labels say "1d". If it ran 7 days ago, both say "7d". Without this honesty you'd think a 7-day return was a 1-day return.
 
 \pagebreak
 
@@ -576,11 +642,17 @@ flowchart TD
     classDef ui fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
 ```
 
-| Tag | What |
+| Tag | What it means |
 |---|---|
-| C4 | `workers/portfolio-ingestor/src/worker.js · /query/attribution`. **No worker writes attribution**; computed on every read. |
-| A1 | Fixed-split proxy until per-position attribution lands |
-| D1 | `app.js renderWaterfall()` · caption reads "Proxy split (40/30/20/10) until per-position attribution lands" |
+| R1 | **Polygon SPY bars** — daily price of SPY (S&P 500 ETF), used as the benchmark for "what would the market have given me?" |
+| R2 | User trades + held-ticker prices — drive your portfolio's NAV. |
+| C1-C3 | **price-fetcher**, **position-builder**, **nav-builder** (same chain as cluster 6). |
+| C4 | The `/query/attribution` endpoint inside `portfolio-ingestor`. **Computed live on every request — no worker writes attribution to a table.** Reads each consecutive pair of NAV rows, computes the *active return* (your portfolio's return minus SPY's return for that period), and splits it across four buckets. |
+| T1 | Daily prices (SPY rows). |
+| T2 | Daily positions. |
+| T3 | Daily NAV. |
+| A1 | **Proxy attribution, no LLM.** The 40/30/20/10 split across (Regime call / Sector tilt / Stock picks / Sizing) is *fixed* — it's not real attribution. Real attribution requires per-position-per-day P&L tables, which don't exist yet. The current proxy is a placeholder. The dashboard chart caption says so explicitly. |
+| D1 | The waterfall chart on Layer 5. Four bars stack to a total in **basis points** (1 bp = 0.01%). Bar order: Regime → Sector → Stock → Sizing → Total. The italicized caption under the chart reads "Proxy split (40/30/20/10) until per-position attribution lands" — so you know not to trust the split as real signal yet. |
 
 \pagebreak
 
@@ -613,14 +685,18 @@ flowchart TD
     classDef ui fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
 ```
 
-| Tag | What |
+| Tag | What it means |
 |---|---|
-| C2 | FIFO lot-matching of buys against sells per ticker |
-| C3 | Buckets closed trades by conviction (1–5); suppresses bucket if `n < 3` |
-| D1 | Always shows expected-prior dashed line; actual dots populate as trades close |
-| D2 | Empty-state placeholder when no sells exist |
+| R1 | User-entered trades — must include sells, since the system needs both legs to compute realized P&L. |
+| R2 | Per-trade **conviction** (1-5). You enter this when logging a trade. Higher number = stronger belief. The whole point of calibration is to compare *predicted* hit-rate (from conviction) against *actual* hit-rate. |
+| C1 | POST `/api/trades` with conviction. |
+| C2 | The `/query/trades/closed` endpoint. **FIFO lot-matching** (First-In-First-Out): each sell is matched against the *oldest* unsold buy of that same ticker, producing one closed-trade row with realized P&L %. This is the standard accounting method for tracking trade outcomes. |
+| C3 | The `/query/calibration` endpoint. Buckets all closed trades by conviction level (1, 2, 3, 4, 5). For each bucket, computes the actual hit rate (% of trades that closed positive). Suppresses any bucket with fewer than 3 trades — too few to draw a conclusion. |
+| T1 | The trade ledger (with the conviction column added in migration 0027). |
+| D1 | The calibration scatter on Layer 5. **Dashed line** = expected hit rate per conviction level (~20% for conv 1, ~80% for conv 5 — based on prior). **Filled dots** = actual hit rate, drawn only when you have ≥3 closed trades in that bucket. Tells you whether your conviction is well-calibrated to outcomes. |
+| D2 | The closed-trades list on Layer 5. Empty placeholder until you log sells. |
 
-**Status:** `TRADE_01_Ledger` currently has 25 BUY rows (seed) and zero SELLs. Both panels show empty state — by design.
+**Status today:** the trade ledger currently has 25 BUY rows (from `seed-trades.js` initialization) and zero SELLs. Both panels show empty state — that's correct, by design. They'll populate as you log sells.
 
 \pagebreak
 
@@ -666,11 +742,21 @@ flowchart TD
     classDef ui fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
 ```
 
-| Tag | What |
+| Tag | What it means |
 |---|---|
-| R3 | Static FOMC list in `dashboard/server.js` |
-| A1 | `bootstrapCalendar()` filters to `today−14 days … today+28 days`, dedupes |
-| D1 | Cells render up to 4 events + impact tag; weekend / today / past styling |
+| R1 | **Finnhub economic calendar** — the upcoming-releases API. Includes scheduled prints of CPI, NFP, PMI (Purchasing Managers' Index), GDP, retail sales, and other macro data. |
+| R2 | **Finnhub earnings calendar** — per-ticker next-earnings date. We have this for ~25 of our portfolio tickers. |
+| R3 | A **hardcoded list of FOMC meeting dates** kept in `dashboard/server.js`. The Fed publishes its meeting schedule a year in advance so we just embed it directly. Updated manually each year. |
+| C1 | The **economic-calendar-fetcher** worker (cron 00:00 UTC daily). Pulls R1 into T1. |
+| C2 | The **earnings-fetcher** worker. Pulls R2 into T2. |
+| C3 | The dashboard endpoint that derives the next-earnings date per ticker from T2 + the last-filing-date heuristic in T3 (in case Finnhub doesn't have it scheduled). |
+| C4 | The dashboard endpoint that returns the hardcoded FOMC list (R3). |
+| C5 | The dashboard endpoint that proxies the economic-calendar query to portfolio-ingestor. |
+| T1 | Economic calendar table — one row per (event date, event code, country). |
+| T2 | Earnings table — historical earnings prints per ticker. |
+| T3 | SEC filings table — used to estimate next-earnings dates when Finnhub data is missing. |
+| A1 | **Browser-side, no LLM.** Unions the three calendar sources (earnings + FOMC + macro events), filters to today−14 days through today+28 days (~6 weeks total), dedupes overlapping items, and lays them out on a Mon-Sun grid. |
+| D1 | The 6-week calendar grid on the **Calendar tab**. Each cell shows up to 4 events for that day, with an impact tag (high / medium / low). Today is highlighted; weekends are shaded; past days are dimmed. |
 
 \pagebreak
 
@@ -715,14 +801,18 @@ flowchart TD
     classDef ui fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
 ```
 
-| Tag | What |
+| Tag | What it means |
 |---|---|
-| C1–C3 | Three chained workers; orchestrator dispatches via service bindings |
-| A1 | `filterTickerHeadlines()` · prompt §6.1 |
-| A2 | `filterMacroHeadlines()` · prompt §6.2 |
-| A3 | Gemini 2.5-flash summary loop · prompt §6.3 |
-| T1 | `BETA_12_News_digest` (migration 0008) — `magnitude` is granular in `[-1, 1]` per the prompt |
-| D1 | `app.js renderNewsStream()` — sorts by `\|magnitude\|` desc; `mat = round(\|mag\| × 10)` |
+| R1 | **Google News RSS** feeds — public RSS endpoints. We make 33 parallel queries: one per ticker (25), and one per macro category (8 categories: Fed/rates, geopolitics, energy, regulation, M&A, AI/tech, healthcare, banks). |
+| R2 | **Finnhub /company-news** — per-ticker financial news. Supplements R1 with finance-specific sources (Reuters, Bloomberg syndication, etc). |
+| C1 | The **news-funnel-orchestrator** worker. The top-level coordinator that runs the 3-stage pipeline. Dispatches C2 → C3 → A3 in sequence. |
+| C2 | The **news-funnel-gatherer** worker. Collects raw headlines from R1+R2, dedupes by title hash, returns the list to the orchestrator. |
+| C3 | The **news-funnel-filter** worker. Receives the deduped list and fans out 33 parallel LLM calls to filter for relevance (A1 + A2). |
+| A1 | **GPT-5-mini**, 25 calls per run (one per ticker). **What it does:** from the gathered ticker headlines, picks the 1-4 most market-relevant ones. Assigns a sentiment (bullish/bearish/neutral) and a granular magnitude (0.05 trivial → 1.00 exceptional). The prompt explicitly forbids defaulting to ±0.5 — it requires specific values like 0.35 or 0.78 — to prevent the LLM from getting lazy and returning binary scores. |
+| A2 | **GPT-5-mini**, 8 calls per run (one per macro category). Picks the 1-2 most-impactful headlines per category, with the same sentiment + magnitude scheme. |
+| A3 | **Gemini 2.5-flash with Google Search grounding**, ~40 summary calls per run. **What it does:** for each filtered headline, generates a 2-3 sentence factual summary. The Google Search tool lets Gemini look up additional context if needed (so the summary isn't limited to the headline itself). |
+| T1 | The **news digest** table — one row per (date, type, ticker/category, rank). Stores title, summary, source, sentiment, magnitude. |
+| D1 | The news stream on the **News tab**. Top 12 items by absolute magnitude. Each item shows title, sentiment chip (positive/negative/neutral), source, and a **materiality pill** (0-10 = `round(|magnitude| × 10)`). |
 
 \pagebreak
 
@@ -764,12 +854,21 @@ flowchart TD
     classDef ui fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
 ```
 
-| Tag | What |
+| Tag | What it means |
 |---|---|
-| C4 | `workers/big-movers-why/src/worker.js` — picks top-5 up + top-5 down by `\|move%\|`, calls A1 per mover |
-| A1 | GPT-5 prompt §6.7 — outputs thesis + bullets grounded in news/press |
-| T4 | `MOVER_EXPLANATIONS_daily` (migration 0021) |
-| D1 | `app.js renderTopDrivers()` — sorts by `\|move_pct\|`; renders ticker + move + reason |
+| R1 | **Polygon prices** — needed to compute today's % move per ticker. |
+| R2 | **News digest** from cluster 10 — the per-ticker headlines that explain the move. |
+| R3 | **Press releases** from pipeline step 1 — additional ground-truth context (e.g. an earnings press release explains a 10% earnings-day move). |
+| C1 | **price-fetcher**. |
+| C2 | **news-funnel-orchestrator** (cluster 10's pipeline). |
+| C3 | The press scrapers (pipeline step 1). |
+| C4 | The **big-movers-why** worker. Picks the top 5 up-movers and top 5 down-movers by absolute % move. For each one, calls A1. |
+| T1 | Daily prices. |
+| T2 | News digest. |
+| T3 | Press releases. |
+| T4 | The mover-explanations table — one row per (date, ticker) explaining why it moved. |
+| A1 | **GPT-5**, one call per mover. **What it does:** produces a one-sentence thesis + 2-4 bullets explaining why this stock moved today, grounded in the day's headlines and recent press. **Important:** if no news explains the move, the prompt explicitly asks the model to *say so* ("likely broad market / sector flows") rather than invent a reason. Anti-hallucination rule. |
+| D1 | The "Top Drivers" panel on the **News tab**. Up to 5 rows: ticker + % move + one-sentence reason. Sorted by absolute move size. |
 
 \pagebreak
 
@@ -809,12 +908,21 @@ flowchart TD
     classDef ui fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
 ```
 
-| Tag | What |
+| Tag | What it means |
 |---|---|
-| A1 | Maps `T1` rows to label set: 10Y, 2Y, derived 2s10s curve, Core CPI, CPI Headline, Fed Funds, NFP, Unemployment |
-| A2 | Past 4 + upcoming 4 events sorted chronologically |
-| D1 | `macroIndicators` shows 7+ chips with value + Δ + trend |
-| D2 | `regimeLatestEvents` — "upcoming" pill on future dates |
+| R1 | **FRED** macro indicators — same source as cluster 1. **DGS10** = 10-year US Treasury yield. **DGS2** = 2-year yield. **FEDFUNDS** = the federal funds rate (the Fed's policy rate). |
+| R2 | **BLS** macro indicators — same source as cluster 1. **CPI** = Consumer Price Index (inflation). **NFP** = Non-Farm Payrolls (monthly jobs report). **UNEMP** = unemployment rate. |
+| R3 | **Finnhub economic calendar** — upcoming macro releases, same source as cluster 9. |
+| C1 | The **macro-state-fetcher** worker — same as cluster 1, reused (no duplication). |
+| C2 | The **economic-calendar-fetcher** worker — same as cluster 9, reused. |
+| C3 | The dashboard endpoint that returns the latest reading per indicator code (used here to populate the 12-chip board). |
+| C4 | The dashboard endpoint that proxies the calendar query (same as cluster 9). |
+| T1 | Indicator history table (same as cluster 1's T1). |
+| T2 | Economic calendar table (same as cluster 9's T1). |
+| A1 | **Browser-side, no LLM.** Maps the indicator history rows into the macro-board labels and computes the **derived 2s10s curve** (10Y yield minus 2Y yield, expressed in basis points — when this goes negative the curve is "inverted", historically a recession warning). For each chip: latest value, change vs prior reading, trend direction (up/flat/down). |
+| A2 | **Browser-side, no LLM.** Sorts the calendar events chronologically; picks the 4 most-recent past + 4 closest upcoming. |
+| D1 | The **12-indicator board** that you see when you click "Open full regime analysis" on Layer 1. Compact grid of macro chips: 10Y, 2Y, 2s10s curve (derived), Core CPI, CPI Headline, Fed Funds, NFP, Unemployment, plus a few empty slots reserved for future indicators (HY spread, DXY, oil, gold, VIX) once their data sources are wired. |
+| D2 | The "Latest releases & upcoming events" mini-list directly below the indicator board. Past events on top, future events with an "upcoming" pill below. |
 
 \pagebreak
 
