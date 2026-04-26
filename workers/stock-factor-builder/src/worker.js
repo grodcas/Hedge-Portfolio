@@ -352,9 +352,14 @@ function computeDaysToCatalyst(earnings, todayStr) {
   const last = new Date(latest.report_date);
   const daysSince = Math.floor((today - last) / 86400000);
   const remaining = 91 - daysSince;
-  // Clamp: negative → assume earnings imminent/overdue, cap at 0.
-  // Very large → next earnings in a different cycle; cap at 180.
-  return Math.max(0, Math.min(180, remaining));
+  // The 91-day "next earnings" estimate is only meaningful when the previous
+  // report is recent. If we're past the expected next-earnings date, we
+  // genuinely don't know when the next one is (the ticker is probably about
+  // to report or has just reported and FUND_02 hasn't refreshed yet).
+  // Returning null lets the dashboard render "—" instead of "0d (soon)" for
+  // tickers that are 95+ days past their last report.
+  if (remaining < 0) return null;
+  return Math.min(180, remaining);
 }
 
 // ============================================================

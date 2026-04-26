@@ -580,6 +580,18 @@ async function bootstrapLayer4() {
 
     if (Array.isArray(navRows) && navRows.length > 0) {
       const cur = navRows[navRows.length - 1];
+      const prev = navRows.length >= 2 ? navRows[navRows.length - 2] : null;
+      // nav-builder computes day_pnl_pct as (cur - prev)/prev where prev is
+      // the immediately-preceding NAV row, regardless of date gap. When NAV
+      // rows are sparse, that's a multi-day return mislabelled as "1d".
+      // Read the actual gap and label honestly.
+      const gapDays = (prev && cur.date && prev.date)
+        ? Math.max(1, Math.round((new Date(cur.date) - new Date(prev.date)) / 86400000))
+        : null;
+      DATA.navGapDays = gapDays;
+      const pnlLabel = gapDays == null ? 'Period P&L'
+                     : gapDays === 1   ? '1d P&L'
+                     :                   `${gapDays}d P&L`;
       const netExpPct = cur.net_value > 0 ? (cur.gross_long - cur.gross_short) / cur.net_value * 100 : 0;
       const grossExpPct = cur.net_value > 0 ? (cur.gross_long + cur.gross_short) / cur.net_value * 100 : 0;
       const cashPct = cur.net_value > 0 ? cur.cash / cur.net_value * 100 : 0;
@@ -589,7 +601,7 @@ async function bootstrapLayer4() {
         { label: 'Gross Exposure', value: `${grossExpPct.toFixed(1)}%`, delta: '',              cls: '' },
         { label: 'Positions',      value: String(cur.positions_count),  delta: '',              cls: '' },
         { label: 'Cash %',         value: `${cashPct.toFixed(1)}%`,     delta: '',              cls: '' },
-        { label: '1d P&L',         value: dayPnl != null ? `${dayPnl > 0 ? '+' : ''}${dayPnl.toFixed(2)}%` : '—',
+        { label: pnlLabel,         value: dayPnl != null ? `${dayPnl > 0 ? '+' : ''}${dayPnl.toFixed(2)}%` : '—',
                                    delta: cur.day_pnl_usd != null ? `$${Math.abs(cur.day_pnl_usd).toFixed(0)}` : '',
                                    cls: dayPnl != null ? (dayPnl > 0 ? 'up' : dayPnl < 0 ? 'down' : '') : '' },
         { label: 'NAV',            value: `$${(cur.net_value / 1_000_000).toFixed(2)}M`, delta: '', cls: '' },
@@ -3651,9 +3663,22 @@ function renderSectorTable() {
     if (v == null || Number.isNaN(v)) return '—';
     return v > 0 ? `+${v.toFixed(2)}` : v.toFixed(2);
   };
-  const col = v => {
+  // Per-column thresholds matched to the actual factor scales:
+  //   regime_fit       lives in ~[-1, +1]              → ±0.20
+  //   earn_momentum    is a fractional rev/EPS Δ       → ±0.005 (≈0.5pp)
+  //   valuation_sigma  z-score in σ units              → ±0.50 (semantically inverted: cheap=good)
+  //   rel_strength_13w fractional 13w return diff      → ±0.05 (≈5pp)
+  // The ±0.30 single-threshold previously used left earn/rs columns permanently
+  // neutral (their natural range is < the threshold), and coloured the val
+  // column the wrong way (positive σ = expensive, but was rendered green).
+  const colorFor = (v, kind) => {
     if (v == null || Number.isNaN(v)) return 'color:var(--text-3)';
-    return v > 0.3 ? 'color:var(--green)' : v < -0.3 ? 'color:var(--red)' : 'color:var(--text-1)';
+    const t = { regime: 0.20, earn: 0.005, val: 0.50, rs: 0.05 }[kind] ?? 0.30;
+    if (kind === 'val') {
+      // Cheap (negative σ) is the buyer's good outcome.
+      return v < -t ? 'color:var(--green)' : v > t ? 'color:var(--red)' : 'color:var(--text-1)';
+    }
+    return v > t ? 'color:var(--green)' : v < -t ? 'color:var(--red)' : 'color:var(--text-1)';
   };
   host.innerHTML = DATA.sectors.map(s => {
     const refKey = `sector:${s.name}`;
@@ -3661,10 +3686,10 @@ function renderSectorTable() {
     const nameCell = hasEntity ? `<td data-open="${refKey}">${s.name}</td>` : `<td>${s.name}</td>`;
     return `<tr>
       ${nameCell}
-      <td><span class="score-cell" style="${col(s.regime)}">${fmt(s.regime)}</span></td>
-      <td><span class="score-cell" style="${col(s.earn)}">${fmt(s.earn)}</span></td>
-      <td><span class="score-cell" style="${col(s.val)}">${fmt(s.val)}</span></td>
-      <td><span class="score-cell" style="${col(s.rs)}">${fmt(s.rs)}</span></td>
+      <td><span class="score-cell" style="${colorFor(s.regime, 'regime')}">${fmt(s.regime)}</span></td>
+      <td><span class="score-cell" style="${colorFor(s.earn,   'earn')}">${fmt(s.earn)}</span></td>
+      <td><span class="score-cell" style="${colorFor(s.val,    'val')}">${fmt(s.val)}</span></td>
+      <td><span class="score-cell" style="${colorFor(s.rs,     'rs')}">${fmt(s.rs)}</span></td>
       <td><span class="stance-badge stance-${s.stance.toLowerCase()}">${s.stance}</span></td>
     </tr>`;
   }).join('');
@@ -3885,7 +3910,15 @@ function renderWeightChart() {
   const svg = document.getElementById('weightChart');
   const W = 720, H = 340, pad = 28;
   const rowH = (H - 2*pad) / DATA.weights.length;
-  const maxW = 7;
+  // Auto-fit max axis: any current/target weight is allowed past the prior
+  // hardcoded 7% cap. Floor at 7 so the gridline labels stay sensible when
+  // every position is small (early backfill, equal-weight initial state).
+  let maxW = 7;
+  for (const w of DATA.weights) {
+    if (w.current > maxW) maxW = w.current;
+    if (w.target  > maxW) maxW = w.target;
+  }
+  maxW = Math.ceil(maxW * 1.1);
   const xScale = v => pad + 80 + (v / maxW) * (W - pad - 100);
 
   let svgHtml = '';
@@ -4125,10 +4158,23 @@ function renderPMNav() {
 
 function renderPMTable() {
   const tbl = document.getElementById('pmTable');
+  // position-builder writes day_pnl_pct as (price_today - price_prev) / price_prev,
+  // where "prev" is the previous POSITION_01_Daily row — same gap as the NAV
+  // gap. Compute that gap from DATA.navCurve so the header label is honest
+  // when the pipeline hasn't run daily.
+  let gapDays = DATA.navGapDays;
+  if (gapDays == null && Array.isArray(DATA.navCurve) && DATA.navCurve.length >= 2) {
+    const a = DATA.navCurve[DATA.navCurve.length - 2]?.date;
+    const b = DATA.navCurve[DATA.navCurve.length - 1]?.date;
+    if (a && b) gapDays = Math.max(1, Math.round((new Date(b) - new Date(a)) / 86400000));
+  }
+  const pnlHeader = gapDays == null ? 'Period %'
+                  : gapDays === 1   ? '1d %'
+                  :                   `${gapDays}d %`;
   tbl.innerHTML = `
     <thead><tr>
       <th>Ticker</th><th>Sector</th><th>Qty</th><th>Cost</th><th>Price</th>
-      <th>MV (£)</th><th>Wt %</th><th>Unrlz %</th><th>1d %</th><th>Days</th>
+      <th>MV (£)</th><th>Wt %</th><th>Unrlz %</th><th>${pnlHeader}</th><th>Days</th>
     </tr></thead>
     <tbody>
       ${DATA.positions.map(p => {
