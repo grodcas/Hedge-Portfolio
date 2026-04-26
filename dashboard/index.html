@@ -1483,6 +1483,94 @@ a { color: inherit; text-decoration: none; }
   .regime-chip { display: none; }
   .prov-popover { width: calc(100vw - 20px); }
 }
+
+/* ===== Calendar tab ===== */
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  padding: 0 4px 6px 4px;
+  font-size: 0.65rem;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-family: ui-monospace, monospace;
+}
+.calendar-weekdays > div { text-align: left; padding-left: 6px; }
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: minmax(95px, auto);
+  gap: 4px;
+  background: var(--bg-1);
+  border-radius: 6px;
+  padding: 4px;
+}
+.calendar-day {
+  background: var(--bg-2);
+  border: 1px solid var(--bg-3);
+  border-radius: 4px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  position: relative;
+  overflow: hidden;
+}
+.calendar-day.past { opacity: 0.55; }
+.calendar-day.today { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+.calendar-day.weekend { background: rgba(0,0,0,0.18); }
+.calendar-day-num {
+  font-family: ui-monospace, monospace;
+  color: var(--text-2);
+  font-size: 0.65rem;
+  letter-spacing: 0.3px;
+}
+.calendar-day-num.month-start { color: var(--text-0); font-weight: 600; }
+.calendar-day-num .today-pill {
+  display: inline-block;
+  background: var(--blue);
+  color: var(--bg-0);
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 4px;
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.calendar-event {
+  background: var(--bg-3);
+  border-radius: 3px;
+  padding: 2px 5px;
+  font-size: 0.62rem;
+  line-height: 1.25;
+  border-left: 2px solid var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.calendar-event.earn  { border-left-color: var(--blue);   }
+.calendar-event.fomc  { border-left-color: var(--yellow); }
+.calendar-event.macro { border-left-color: var(--purple); }
+.calendar-event.high  { font-weight: 600; }
+.calendar-legend {
+  display: flex;
+  gap: 14px;
+  margin-top: 10px;
+  font-size: 0.7rem;
+  color: var(--text-2);
+}
+.calendar-legend .legend-item { display: inline-flex; align-items: center; }
+.calendar-legend .legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  margin-right: 5px;
+}
+.calendar-legend .legend-dot.earn  { background: var(--blue);   }
+.calendar-legend .legend-dot.fomc  { background: var(--yellow); }
+.calendar-legend .legend-dot.macro { background: var(--purple); }
 </style>
 </head>
 <body>
@@ -1538,7 +1626,7 @@ a { color: inherit; text-decoration: none; }
   <nav class="main-tabs" id="mainTabs">
     <button class="tab" data-tab="pm"><span class="tab-num">0</span><span>PM</span></button>
     <button class="tab active" data-tab="portfolio"><span class="tab-num">1</span><span>Portfolio</span></button>
-    <button class="tab" data-tab="macro"><span class="tab-num">2</span><span>Macro</span></button>
+    <button class="tab" data-tab="calendar"><span class="tab-num">2</span><span>Calendar</span></button>
     <button class="tab" data-tab="news"><span class="tab-num">3</span><span>News</span></button>
     <button class="tab" data-tab="validation"><span class="tab-num">4</span><span>Validation</span></button>
   </nav>
@@ -1837,57 +1925,19 @@ a { color: inherit; text-decoration: none; }
       <!-- ============================================================
            TAB: MACRO
            ============================================================ -->
-      <section class="tab-content" id="tab-macro">
-        <div class="macro-hero">
-          <div>
-            <div class="macro-big-verdict">Late-cycle · <span class="sub">cautious-bullish</span></div>
-            <div class="macro-big-lede">
-              Growth is decelerating but still positive, the Fed is on hold, and inflation is sticky in the low-3s.
-              Credit is calm. In this sleeve of the cycle, quality &amp; duration-ballast historically lead cyclicals —
-              the book is positioned for exactly that. Next major test is the <strong>May 2 FOMC</strong>.
-            </div>
-            <div class="macro-meta-grid">
-              <div class="macro-meta-row"><span class="k">Since</span><span class="v">2026-02-14 (62d)</span></div>
-              <div class="macro-meta-row"><span class="k">Confidence</span><span class="v">0.81</span></div>
-              <div class="macro-meta-row"><span class="k">Prev regime</span><span class="v">Mid-cycle bull</span></div>
-              <div class="macro-meta-row"><span class="k">Next test</span><span class="v">FOMC 2026-05-02</span></div>
-            </div>
-          </div>
-          <div>
-            <div class="feedback-title" style="text-align:left;">Regime history (24m)</div>
-            <svg class="macro-history-svg" id="macroHistorySvg"></svg>
-          </div>
-        </div>
-
+      <section class="tab-content" id="tab-calendar">
         <div class="macro-section-title">
-          <h3>Event Calendar — past 30d &amp; next 30d</h3>
-          <span class="hint">sorted chronologically · click for full release</span>
+          <h3>Calendar — 2 weeks back, 4 weeks forward</h3>
+          <span class="hint">earnings · FOMC · macro releases</span>
         </div>
-        <div class="event-calendar" id="eventCalendar"></div>
-
-        <div class="macro-section-title">
-          <h3>Recent Releases</h3>
-          <span class="hint">summarized prose + bullets · full statements linked</span>
+        <div class="calendar-weekdays">
+          <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
         </div>
-        <div id="releaseSummaries"></div>
-
-        <div class="macro-section-title">
-          <h3>Indicator Board</h3>
-          <span class="hint">12 signals · click any for full history</span>
-        </div>
-        <div class="macro-indicators-grid" id="macroIndicators"></div>
-
-        <div class="macro-section-title">
-          <h3>Scenarios — Portfolio sensitivity</h3>
-          <span class="hint">what if the regime is wrong?</span>
-        </div>
-        <div class="card" style="margin-bottom: 0;">
-          <table class="scenarios-table">
-            <thead><tr>
-              <th>Scenario</th><th>P(30d)</th><th>NAV impact</th><th>Layer trigger</th><th>Top mover</th>
-            </tr></thead>
-            <tbody id="scenariosTable"></tbody>
-          </table>
+        <div class="calendar-grid" id="calendarGrid"></div>
+        <div class="calendar-legend">
+          <span class="legend-item"><span class="legend-dot earn"></span>Earnings</span>
+          <span class="legend-item"><span class="legend-dot fomc"></span>FOMC</span>
+          <span class="legend-item"><span class="legend-dot macro"></span>Macro release</span>
         </div>
       </section>
 

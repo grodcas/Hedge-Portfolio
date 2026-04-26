@@ -613,6 +613,15 @@ app.get("/api/movers", async (req, res) => {
     res.json(await fetchFromWorker(`/query/movers?date=${date}`));
   } catch (error) { handleD1Error(res, "/api/movers", error); }
 });
+app.get("/api/calendar", async (req, res) => {
+  try {
+    const params = new URLSearchParams();
+    if (req.query.from) params.set("from", String(req.query.from));
+    if (req.query.to)   params.set("to",   String(req.query.to));
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    res.json(await fetchFromWorker(`/query/calendar${qs}`));
+  } catch (error) { handleD1Error(res, "/api/calendar", error); }
+});
 
 // Get portfolio signals (assessments + probabilities + consensus + prices) from D1
 app.get("/api/portfolio-signals/:date", async (req, res) => {

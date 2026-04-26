@@ -84,6 +84,13 @@ async function scrapeAAIILive() {
 function scrapeAAIIMhtml() {
   const file = path.join(__dirname, "AAII.mhtml");
   if (!fs.existsSync(file)) return [];
+  // Staleness guard: MHTML is a manual snapshot. If older than 14 days, it's
+  // stale enough that returning it would silently lie about sentiment.
+  const ageDays = (Date.now() - fs.statSync(file).mtimeMs) / (1000 * 60 * 60 * 24);
+  if (ageDays > 14) {
+    console.error(`AAII MHTML fallback is ${Math.round(ageDays)} days stale; refusing to use.`);
+    return [];
+  }
   const raw = fs.readFileSync(file, "utf8");
   const htmlIdx = raw.indexOf("Content-Type: text/html");
   if (htmlIdx === -1) return [];
@@ -111,8 +118,9 @@ async function scrapeAAII() {
   try {
     const live = await scrapeAAIILive();
     if (live.length > 0) return live;
+    console.error("AAII live scrape returned 0 rows — falling back to MHTML.");
   } catch (e) {
-    console.error("AAII live scrape failed:", e.message);
+    console.error("AAII live scrape failed:", e.message, "— falling back to MHTML.");
   }
   return scrapeAAIIMhtml();
 }

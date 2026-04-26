@@ -308,6 +308,25 @@ function showPortfolioError(message) {
   container.prepend(banner);
 }
 
+// Small inline pill that surfaces a "data unavailable" state on a specific
+// panel when its bootstrap returned no rows. Replaces the silent fallback
+// that left a panel's hardcoded stub data looking authoritative.
+function setDataUnavailable(elOrId, opts = {}) {
+  const el = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
+  if (!el) return;
+  const label = opts.label || 'data unavailable';
+  const existing = el.querySelector(':scope > .data-unavailable-pill');
+  if (opts.clear) { if (existing) existing.remove(); return; }
+  if (existing) return;
+  const pill = document.createElement('div');
+  pill.className = 'data-unavailable-pill';
+  pill.textContent = label;
+  pill.style.cssText = 'position:absolute;top:6px;right:6px;z-index:5;background:rgba(248,81,73,0.12);color:var(--red);border:1px solid var(--red);font-size:9px;padding:2px 6px;border-radius:3px;letter-spacing:0.5px;font-family:ui-monospace,monospace;text-transform:uppercase;pointer-events:none;';
+  const cs = getComputedStyle(el);
+  if (cs.position === 'static') el.style.position = 'relative';
+  el.appendChild(pill);
+}
+
 // --- SECTOR_FACTORS_daily row → DATA.sectors shape ---
 // Backend: {sector, regime_fit, earn_momentum, valuation_sigma, rel_strength_13w,
 //           stance, stance_score, fwd_pe_sector, rs_ratio, rs_momentum, ...}
@@ -739,13 +758,306 @@ async function bootstrapRegimeSignals() {
       signalFromRates('FEDFUNDS', 'Fed Funds', pct),
     ].filter(Boolean);
 
+    const regimeHost = document.getElementById('regimeSignals');
     if (signals.length > 0) {
       DATA.regime.signals = signals;
       renderRegimeSignals();
+      if (regimeHost) setDataUnavailable(regimeHost, { clear: true });
+    } else if (regimeHost) {
+      setDataUnavailable(regimeHost, { label: 'no indicator data in D1' });
     }
   } catch (err) {
     console.warn('[regime] signals bootstrap failed:', err);
+    const regimeHost = document.getElementById('regimeSignals');
+    if (regimeHost) setDataUnavailable(regimeHost, { label: 'indicator fetch failed' });
   }
+}
+
+// PM tab: replace hardcoded DATA.positions + DATA.navCurve with live data
+// from /api/positions (POSITION_01_Daily) and /api/nav (NAV_01_Daily).
+// SPY benchmark line on the NAV chart pulls from /api/ticker-history/SPY.
+async function bootstrapPMTab() {
+  try {
+    const [positions, navRows, stockFactors, spyHistory] = await Promise.all([
+      fetchJSON('/api/positions').catch(() => []),
+      fetchJSON('/api/nav?limit=180').catch(() => []),
+      fetchJSON('/api/stock-factors').catch(() => []),
+      fetchJSON('/api/ticker-history/SPY?range=180').catch(() => null),
+    ]);
+
+    const sectorByTicker = {};
+    for (const r of (stockFactors || [])) {
+      sectorByTicker[r.ticker] = SECTOR_DISPLAY[r.sector] || r.sector || 'Other';
+    }
+
+    const pmTableHost = document.getElementById('pmTable')?.parentElement;
+    const pmNavHost = document.getElementById('pmNavSvg')?.parentElement;
+    if (!Array.isArray(positions) || positions.length === 0) {
+      if (pmTableHost) setDataUnavailable(pmTableHost, { label: 'no positions in D1' });
+    } else if (pmTableHost) {
+      setDataUnavailable(pmTableHost, { clear: true });
+    }
+    if (!Array.isArray(navRows) || navRows.length === 0) {
+      if (pmNavHost) setDataUnavailable(pmNavHost, { label: 'no NAV history in D1' });
+    } else if (pmNavHost) {
+      setDataUnavailable(pmNavHost, { clear: true });
+    }
+
+    if (Array.isArray(positions) && positions.length > 0) {
+      DATA.positions = positions.map(p => {
+        const cost = Number(p.avg_cost) || 0;
+        const qty = Number(p.qty) || 0;
+        const baseCost = qty * cost;
+        const unrlzUsd = Number(p.unrlz_pnl_usd) || 0;
+        const unrlzPct = baseCost > 0 ? (unrlzUsd / baseCost) * 100 : 0;
+        return {
+          ticker: p.ticker,
+          sector: sectorByTicker[p.ticker] || 'Other',
+          qty,
+          cost,
+          price: Number(p.market_price) || 0,
+          weight: Number(p.weight_pct) || 0,
+          unrlzPnl: unrlzPct,
+          dayPnl: Number(p.day_pnl_pct) || 0,
+          daysHeld: 0, // POSITION_01_Daily doesn't track holding period; could derive from TRADE_01_Ledger
+        };
+      });
+      renderPMTable();
+    }
+
+    if (Array.isArray(navRows) && navRows.length > 0) {
+      const spyMap = {};
+      const spyData = spyHistory?.prices || [];
+      for (const s of spyData) spyMap[s.date] = Number(s.close) || 0;
+      DATA.navCurve = navRows
+        .map(n => ({
+          date: n.date,
+          nav: Number(n.net_value) || 0,
+          spy: spyMap[n.date] || 0,
+        }))
+        .filter(d => d.nav > 0);
+      // No SPY overlap → flatline the dashed benchmark on NAV so the chart still draws.
+      if (DATA.navCurve.length > 0 && !DATA.navCurve.some(d => d.spy > 0)) {
+        DATA.navCurve = DATA.navCurve.map(d => ({ ...d, spy: d.nav }));
+      }
+      if (DATA.navCurve.length > 0) renderPMNav();
+    }
+  } catch (err) {
+    console.warn('[PM] bootstrap failed:', err);
+  }
+}
+
+// News tab: replace hardcoded DATA.news + DATA.topDrivers with live data
+// from /api/news-digest/{today} (BETA_12_News_digest) and /api/movers
+// (MOVER_EXPLANATIONS_daily). Both endpoints fall back to latest available
+// date server-side, so this works even on weekends/holidays.
+async function bootstrapNewsTab() {
+  const today = todayISO();
+  try {
+    const [digest, movers] = await Promise.all([
+      fetchJSON(`/api/news-digest/${today}`).catch(() => null),
+      fetchJSON('/api/movers').catch(() => []),
+    ]);
+
+    const newsHost = document.getElementById('newsStream')?.parentElement;
+    const moversHost = document.getElementById('topDrivers')?.parentElement;
+    if (!digest) {
+      if (newsHost) setDataUnavailable(newsHost, { label: 'no news digest in D1' });
+    } else if (newsHost) {
+      setDataUnavailable(newsHost, { clear: true });
+    }
+    if (!Array.isArray(movers) || movers.length === 0) {
+      if (moversHost) setDataUnavailable(moversHost, { label: 'no movers in D1' });
+    } else if (moversHost) {
+      setDataUnavailable(moversHost, { clear: true });
+    }
+
+    if (digest) {
+      const sentMap = (s) => s === 'bullish' ? 'pos' : s === 'bearish' ? 'neg' : 'neu';
+      const items = [];
+      for (const h of (digest.macro_headlines || [])) {
+        const mag = Number(h.magnitude) || 0;
+        items.push({
+          title: h.title || '',
+          src: h.source || 'news',
+          date: digest.date || '',
+          tickers: [],
+          sent: sentMap(h.sentiment),
+          score: mag,
+          mat: Math.max(1, Math.round(Math.abs(mag) * 10)),
+        });
+      }
+      for (const [ticker, rows] of Object.entries(digest.ticker_headlines || {})) {
+        for (const h of (rows || [])) {
+          const mag = Number(h.magnitude) || 0;
+          items.push({
+            title: h.title || '',
+            src: h.source || 'news',
+            date: digest.date || '',
+            tickers: [ticker],
+            sent: sentMap(h.sentiment),
+            score: mag,
+            mat: Math.max(1, Math.round(Math.abs(mag) * 10)),
+          });
+        }
+      }
+      items.sort((a, b) => Math.abs(b.score) - Math.abs(a.score));
+      if (items.length > 0) {
+        DATA.news = items.slice(0, 12);
+        renderNewsStream();
+      }
+    }
+
+    if (Array.isArray(movers) && movers.length > 0) {
+      const sorted = [...movers].sort((a, b) => Math.abs(Number(b.move_pct) || 0) - Math.abs(Number(a.move_pct) || 0));
+      DATA.topDrivers = sorted.slice(0, 5).map(m => {
+        const pct = Number(m.move_pct) || 0;
+        return {
+          ticker: m.ticker,
+          move: `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`,
+          reason: m.thesis || m.headline || '—',
+        };
+      });
+      renderTopDrivers();
+    }
+  } catch (err) {
+    console.warn('[news] bootstrap failed:', err);
+  }
+}
+
+// Calendar tab: rolling 6-week grid (~14 days back, ~28 days forward).
+// Sources: /api/earnings-calendar (Finnhub via portfolio-ingestor),
+// /api/fomc-calendar (hardcoded schedule), /api/calendar (MACRO_STATE_calendar
+// — CPI/NFP/PMI/etc., populated by economic-calendar-fetcher worker).
+const CAL_DAYS_BACK = 14;
+const CAL_DAYS_FORWARD = 28;
+
+function calendarRangeISO() {
+  const today = new Date();
+  const from = new Date(today.getTime() - CAL_DAYS_BACK * 86400000);
+  const to = new Date(today.getTime() + CAL_DAYS_FORWARD * 86400000);
+  return {
+    fromISO: from.toISOString().slice(0, 10),
+    toISO:   to.toISOString().slice(0, 10),
+  };
+}
+
+async function bootstrapCalendar() {
+  const { fromISO, toISO } = calendarRangeISO();
+  const events = [];
+  try {
+    const [earn, fomc, macro] = await Promise.all([
+      fetchJSON('/api/earnings-calendar').catch(() => null),
+      fetchJSON('/api/fomc-calendar').catch(() => null),
+      fetchJSON(`/api/calendar?from=${fromISO}&to=${toISO}`).catch(() => []),
+    ]);
+
+    // Earnings: shape {TICKER: {nextEarnings, type, lastFiling}}
+    if (earn && typeof earn === 'object') {
+      for (const [ticker, info] of Object.entries(earn)) {
+        if (ticker === 'source' || !info?.nextEarnings) continue;
+        events.push({
+          date: info.nextEarnings,
+          type: 'earn',
+          title: `${ticker} earnings`,
+          sub: info.type || '',
+          impact: 'medium',
+        });
+      }
+    }
+
+    // FOMC: shape {nextFOMC, upcoming: [{date, type}]}
+    for (const f of (fomc?.upcoming || [])) {
+      if (!f?.date) continue;
+      events.push({
+        date: f.date,
+        type: 'fomc',
+        title: `FOMC ${f.type || 'Meeting'}`,
+        sub: '',
+        impact: 'high',
+      });
+    }
+
+    // Macro: shape [{event_date, event_code, event_label, impact}]
+    for (const m of (Array.isArray(macro) ? macro : [])) {
+      if (!m?.event_date) continue;
+      events.push({
+        date: m.event_date,
+        type: 'macro',
+        title: m.event_code || 'Macro',
+        sub: m.event_label || '',
+        impact: m.impact || 'medium',
+      });
+    }
+  } catch (err) {
+    console.warn('[calendar] bootstrap failed:', err);
+  }
+  // Filter to range, dedupe (FOMC may appear in both /fomc-calendar and /calendar via "FOMC" code)
+  const inRange = events.filter(e => e.date >= fromISO && e.date <= toISO);
+  const seen = new Set();
+  DATA.calendarEvents = inRange.filter(e => {
+    const k = `${e.date}|${e.type}|${e.title}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const grid = document.getElementById('calendarGrid');
+  if (!grid) return;
+  const events = DATA.calendarEvents || [];
+  const eventsByDate = {};
+  for (const e of events) (eventsByDate[e.date] ||= []).push(e);
+
+  const today = new Date();
+  const todayISOStr = today.toISOString().slice(0, 10);
+  const start = new Date(today.getTime() - CAL_DAYS_BACK * 86400000);
+  // Snap grid start to the Monday of that week. JS getDay(): Sun=0, Mon=1, ..., Sat=6.
+  const dow = start.getDay();
+  const offsetToMonday = dow === 0 ? -6 : 1 - dow; // Sun → -6, Mon → 0, Tue → -1, ...
+  const gridStart = new Date(start.getTime() + offsetToMonday * 86400000);
+
+  const cells = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(gridStart.getTime() + i * 86400000);
+    const iso = d.toISOString().slice(0, 10);
+    const dayNum = d.getDate();
+    const month = d.toLocaleString('en-US', { month: 'short' });
+    const isToday = iso === todayISOStr;
+    const isPast = iso < todayISOStr;
+    const dow = d.getDay();
+    const isWeekend = dow === 0 || dow === 6;
+    const isMonthStart = dayNum === 1 || i === 0;
+
+    const dayEvents = (eventsByDate[iso] || [])
+      .sort((a, b) => (a.impact === 'high' ? -1 : 1) - (b.impact === 'high' ? -1 : 1));
+
+    const eventsHTML = dayEvents.slice(0, 4).map(e => {
+      const cls = `calendar-event ${e.type}${e.impact === 'high' ? ' high' : ''}`;
+      const label = e.title;
+      const titleAttr = e.sub ? `${escapeHTML(e.title)} — ${escapeHTML(e.sub)}` : escapeHTML(e.title);
+      return `<div class="${cls}" title="${titleAttr}">${escapeHTML(label)}</div>`;
+    }).join('');
+    const overflow = dayEvents.length > 4 ? `<div class="calendar-event" style="border-left-color:var(--text-3);color:var(--text-3);">+${dayEvents.length - 4} more</div>` : '';
+
+    const classes = ['calendar-day'];
+    if (isPast) classes.push('past');
+    if (isToday) classes.push('today');
+    if (isWeekend) classes.push('weekend');
+
+    const numLabel = isMonthStart
+      ? `<span class="calendar-day-num month-start">${month} ${dayNum}</span>`
+      : `<span class="calendar-day-num">${dayNum}</span>`;
+    const todayPill = isToday ? '<span class="today-pill">today</span>' : '';
+
+    cells.push(`<div class="${classes.join(' ')}">
+      <div>${numLabel}${todayPill}</div>
+      ${eventsHTML}${overflow}
+    </div>`);
+  }
+  grid.innerHTML = cells.join('');
 }
 
 // Sprint 5: fetch earnings + FOMC calendars, merge into DATA.events, re-render.
@@ -2523,6 +2835,15 @@ function renderEntityView() {
   document.getElementById('epBack').addEventListener('click', closeEntity);
   drawEntityCharts(data);
   bindStockNarrativeTabs();
+  // Regime detail view migrated panels: 12-indicator board + latest events.
+  // Both depend on data already populated by bootstrapCalendar / hardcoded
+  // DATA.macroIndicators (board source upgrade tracked in audit).
+  if (data.kind === 'indicator' && data.ticker === 'Regime') {
+    if (typeof renderMacroIndicators === 'function' && document.getElementById('macroIndicators')) {
+      renderMacroIndicators();
+    }
+    renderRegimeLatestEvents();
+  }
 }
 
 function renderStockPage(d) {
@@ -2686,10 +3007,57 @@ function renderIndicatorPage(d) {
         `).join('')}
       </div>
     </div>
+    ${regimeExtraSections(d)}
     ${sectorDriversSection(d)}
     ${indicatorReleaseSection(d)}
     ${indicatorHistorySection(d)}
   `;
+}
+
+// Sections only shown when opening the Regime indicator: the 12-indicator
+// macro board (migrated from the dropped Macro tab) and a "latest releases
+// & events" mini-list pulled from DATA.calendarEvents.
+function regimeExtraSections(d) {
+  if (d.kind !== 'indicator' || d.ticker !== 'Regime') return '';
+  return `
+    <div class="ep-section">
+      <div class="ep-section-title">Macro indicator board</div>
+      <div class="macro-indicators-grid" id="macroIndicators"></div>
+    </div>
+    <div class="ep-section">
+      <div class="ep-section-title">Latest releases &amp; upcoming events</div>
+      <div id="regimeLatestEvents" class="event-calendar"></div>
+    </div>
+  `;
+}
+
+// Renders into #regimeLatestEvents (inside the regime detail view). Pulls
+// from DATA.calendarEvents, which is populated by bootstrapCalendar(). Shows
+// 4 most-recent past + 4 closest upcoming, sorted chronologically.
+function renderRegimeLatestEvents() {
+  const host = document.getElementById('regimeLatestEvents');
+  if (!host) return;
+  const events = DATA.calendarEvents || [];
+  if (events.length === 0) {
+    host.innerHTML = '<div style="color:var(--text-3);font-size:0.75rem;padding:8px 4px;">No event data — calendar bootstrap returned empty.</div>';
+    return;
+  }
+  const todayISOStr = new Date().toISOString().slice(0, 10);
+  const past = events.filter(e => e.date < todayISOStr).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
+  const upcoming = events.filter(e => e.date >= todayISOStr).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 4);
+  const merged = [...past.reverse(), ...upcoming];
+  host.innerHTML = merged.map(e => {
+    const cls = e.type === 'fomc' ? 'fomc' : e.type === 'earn' ? 'earn' : 'macro';
+    const upcomingPill = e.date >= todayISOStr ? '<span style="color:var(--blue);font-size:0.6rem;margin-left:6px;">upcoming</span>' : '';
+    return `<div class="event-card">
+      <div class="event-date">${escapeHTML(e.date)}</div>
+      <div class="event-body">
+        <div class="event-title">${escapeHTML(e.title)}${upcomingPill}</div>
+        ${e.sub ? `<div class="event-sub" style="color:var(--text-3);font-size:0.7rem;">${escapeHTML(e.sub)}</div>` : ''}
+      </div>
+      <div class="event-tag ${cls}">${e.type}</div>
+    </div>`;
+  }).join('');
 }
 
 /* ---------- section helpers (composed into *Page renderers above) ---------- */
@@ -4075,12 +4443,8 @@ function init() {
   renderDrawdown();
   renderPMNav();
   renderPMTable();
-  // Macro tab
-  renderMacroHistory();
-  renderMacroIndicators();
-  renderScenarios();
-  bootstrapEventCalendar();
-  renderReleaseSummaries();
+  // Calendar tab (replaces former Macro tab)
+  bootstrapCalendar();
   // News
   renderNewsStream();
   renderTopDrivers();
@@ -4099,6 +4463,10 @@ function init() {
   bootstrapRegimeSignals();
   // Sprint 7 — Layer 4 KPI strip + weight chart from real NAV + positions.
   bootstrapLayer4();
+  // PM tab table + NAV curve from real positions / NAV.
+  bootstrapPMTab();
+  // News stream + top movers from BETA_12_News_digest + MOVER_EXPLANATIONS_daily.
+  bootstrapNewsTab();
   // Sprint 14.1 — Run pipeline button.
   initRunPipelineButton();
 }

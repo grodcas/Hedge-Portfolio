@@ -52,7 +52,23 @@ async function fetchPriceAtOffset(ticker, offset) {
   return { date: row.date, close: row.close };
 }
 
+async function alreadySeeded() {
+  const res = await fetch(`${INGEST_BASE}/query/trades?limit=1000`);
+  if (!res.ok) {
+    log(`WARN: could not check existing SEED trades (${res.status}); proceeding anyway`);
+    return false;
+  }
+  const rows = await res.json();
+  return Array.isArray(rows) && rows.some(r => r.notes === "SEED");
+}
+
 async function main() {
+  if (await alreadySeeded()) {
+    log("SEED trades already exist in TRADE_01_Ledger. Aborting to avoid duplicates.");
+    log("To re-seed, first run: DELETE FROM TRADE_01_Ledger WHERE notes = 'SEED';");
+    process.exit(1);
+  }
+
   log(`Seeding ${TICKERS.length} synthetic BUY trades (~${BARS_BACK} bars ago, ~$${DOLLARS_PER_POSITION}/position)`);
 
   const trades = [];

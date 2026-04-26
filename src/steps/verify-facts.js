@@ -36,15 +36,19 @@ export async function verifyFacts(config, logger) {
 
     const pressSummaries = JSON.parse(fs.readFileSync(pressPath, "utf8"));
     let totalScore = 0;
+    let totalCandidates = 0;
+    let skippedNoRawContent = 0;
 
     for (const [ticker, articles] of Object.entries(pressSummaries)) {
       for (const article of articles) {
         if (!article.summary) continue;
+        totalCandidates++;
 
         // Check if we have raw content (same content summarizer used)
         if (!article.rawContent) {
           logger.log("VERIFY", `${ticker}: No raw content available (run press summary first)`, "warn");
           stepResult.errors++;
+          skippedNoRawContent++;
           continue;
         }
 
@@ -95,6 +99,23 @@ export async function verifyFacts(config, logger) {
     stepResult.averageScore = stepResult.totalChecked > 0
       ? Math.round(totalScore / stepResult.totalChecked)
       : 0;
+
+    // Loud warning if rawContent is missing for a large share of articles —
+    // this means the upstream press summarizer didn't populate it and the
+    // verification step is essentially silently no-op'ing.
+    if (totalCandidates > 0) {
+      const skipRatio = skippedNoRawContent / totalCandidates;
+      if (skipRatio >= 0.5) {
+        stepResult.hasWarnings = true;
+        logger.log(
+          "VERIFY",
+          `${skippedNoRawContent}/${totalCandidates} articles (${Math.round(skipRatio * 100)}%) skipped due to missing rawContent — press summarizer likely failed to populate it`,
+          "fail"
+        );
+      } else if (skippedNoRawContent > 0) {
+        logger.log("VERIFY", `${skippedNoRawContent}/${totalCandidates} articles skipped (missing rawContent)`, "warn");
+      }
+    }
 
   } catch (err) {
     logger.log("VERIFY", `Error: ${err.message}`, "fail");

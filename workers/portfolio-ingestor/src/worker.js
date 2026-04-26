@@ -1202,6 +1202,24 @@ export default {
           return Response.json(rows.results || [], { headers: corsHeaders });
         }
 
+        // Macro release calendar (CPI/NFP/PMI etc.) — populated by
+        // economic-calendar-fetcher worker into MACRO_STATE_calendar. Returns
+        // events in [from, to]. Defaults to (today-30, today+45).
+        if (path === "/query/calendar") {
+          const today = new Date().toISOString().slice(0, 10);
+          const from = url.searchParams.get("from")
+            || new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+          const to = url.searchParams.get("to") || today;
+          const rows = await db.prepare(
+            `SELECT event_date, event_time, country, event_code, event_label,
+                    impact, consensus, prior, unit
+               FROM MACRO_STATE_calendar
+              WHERE country = 'US' AND event_date BETWEEN ? AND ?
+              ORDER BY event_date, event_time`
+          ).bind(from, to).all();
+          return Response.json(rows.results || [], { headers: corsHeaders });
+        }
+
         if (path === "/query/movers") {
           let date = url.searchParams.get("date") || new Date().toISOString().slice(0, 10);
           // Fall back to latest available date if requested date has no data
