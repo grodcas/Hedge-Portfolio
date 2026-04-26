@@ -251,7 +251,10 @@ Kept intentionally for now (scaffolding, mockups, fallbacks). Safe to delete bef
 | `workers/nav-builder/` | Wired (`wrangler.jsonc` + `src/worker.js`) but uncalled | No pipeline step, dashboard route, or service binding invokes it |
 | `workers/position-builder/` | Same — wired but uncalled | — |
 | `workers/probability-curve-builder/` | Same — wired but uncalled | — |
-| `sentiment/AAII.mhtml` | Fallback only | Live axios scrape is primary; MHTML reader runs only on failure |
+| `ALPHA_04_Trends` table | Orphan-write | Decommissioned trend chain leftover. `portfolio-ingestor` `/ingest/trends` still writes it; nothing reads. Harmless until next migration sweep. |
+| Validation tab right column (anomalies, monthly check) | Hardcoded mockup | No detector / monthly cadence worker exists yet. Renders `DATA.anomalies` / `DATA.monthlyCheck` from `app.js` lines 230-258 directly. Wire when those workers are built. |
+| Validation tab feed-status panel | Hardcoded mockup | Could be wired to the existing `PIPELINE_VALIDATION` table via a small server-side endpoint. Not done yet. |
+| `DATA.releases` (`app.js:~1190`) | Hardcoded mockup | Still consumed by `indicatorReleaseSection()` for the regime entity view. Wire to a real "latest macro releases" source when one exists. |
 
 ---
 

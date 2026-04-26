@@ -178,28 +178,9 @@ const DATA = {
     { ticker: 'NFLX',  sector: 'Communication', qty:  45,  cost: 612.30, price: 628.90, weight: 2.0, unrlzPnl:  2.7, dayPnl:  0.41, daysHeld:  51 }
   ],
 
-  macroIndicators: [
-    { label: '10Y Yield',    val: '4.18%',  chg: '−3bps',   trend: 'flat',  spark: [4.25,4.22,4.20,4.18,4.19,4.18,4.17,4.18,4.18,4.18] },
-    { label: '2Y Yield',     val: '4.52%',  chg: '+2bps',   trend: 'up',    spark: [4.45,4.48,4.50,4.51,4.50,4.52,4.52,4.53,4.52,4.52] },
-    { label: 'Curve (2s10s)',val: '−34bps', chg: '−5bps',   trend: 'down',  spark: [-20,-24,-28,-30,-32,-32,-33,-34,-34,-34] },
-    { label: 'Core CPI YoY', val: '3.2%',   chg: '−0.1',    trend: 'flat',  spark: [3.5,3.4,3.4,3.3,3.3,3.2,3.2,3.3,3.2,3.2] },
-    { label: 'GDP Nowcast',  val: '+1.4%',  chg: '−0.3',    trend: 'down',  spark: [2.2,2.0,1.9,1.7,1.6,1.5,1.4,1.4,1.4,1.4] },
-    { label: 'Fed Path',     val: '1 cut',  chg: 'Jul±',    trend: 'flat',  spark: [2,2,2,1,1,1,1,1,1,1] },
-    { label: 'HY Spread',    val: '318bps', chg: '+8bps',   trend: 'flat',  spark: [305,308,310,315,314,312,316,318,318,318] },
-    { label: 'DXY',          val: '103.8',  chg: '+0.4%',   trend: 'up',    spark: [102,102.5,103,103.2,103.4,103.5,103.6,103.7,103.8,103.8] },
-    { label: 'Brent Oil',    val: '$82.40', chg: '−1.2%',   trend: 'down',  spark: [87,86,85,84.5,84,83.5,83,82.8,82.5,82.4] },
-    { label: 'Gold',         val: '$2,385', chg: '+0.8%',   trend: 'up',    spark: [2320,2340,2350,2355,2365,2370,2375,2380,2383,2385] },
-    { label: 'VIX',          val: '16.4',   chg: '+1.2',    trend: 'up',    spark: [14,14.5,14.8,15.2,15.5,15.8,16,16.2,16.3,16.4] },
-    { label: 'AAII Bull %',  val: '38%',    chg: '−4',      trend: 'down',  spark: [44,43,42,42,41,40,39,38,38,38] }
-  ],
-
-  scenarios: [
-    { name: 'Base (current regime holds)', p: 0.55, navImpact: '+2.1%',  layer: '—',           mover: 'UNH, KO +' },
-    { name: 'Hard landing (growth −2%)',    p: 0.18, navImpact: '−5.4%',  layer: 'Regime flip', mover: 'Cyclicals −' },
-    { name: 'Reflation (CPI rebounds)',     p: 0.14, navImpact: '−3.2%',  layer: 'Layer 1',     mover: 'Duration −' },
-    { name: 'Soft landing (Fed cuts)',      p: 0.10, navImpact: '+4.8%',  layer: 'Layer 1',     mover: 'Growth rally' },
-    { name: 'Tail: credit event',           p: 0.03, navImpact: '−12.5%', layer: 'All',         mover: 'HY blowup' }
-  ],
+  // Empty stub. Filled by bootstrapMacroIndicators() from /api/indicator-history.
+  // Empty initial render = "data not yet loaded" rather than fake authoritative numbers.
+  macroIndicators: [],
 
   news: [
     { title: 'UnitedHealth beats Q1 EPS, raises guidance on MCR improvement',      src: 'Reuters',    date: '08:12', tickers: ['UNH'],        sent: 'pos', score:  0.82, mat: 8 },
@@ -925,6 +906,86 @@ async function bootstrapNewsTab() {
   }
 }
 
+// Regime detail 12-indicator board: hydrate DATA.macroIndicators from
+// /api/indicator-history (MACRO_STATE_indicators, written daily by the
+// macro-state-fetcher worker). Codes that the worker doesn't cover yet
+// (curve is derived from DGS10-DGS2; GDP/HY/oil/etc. simply omitted)
+// fall through and the board only shows what's actually fresh.
+async function bootstrapMacroIndicators() {
+  try {
+    const rows = await fetchJSON('/api/indicator-history').catch(() => []);
+    if (!Array.isArray(rows) || rows.length === 0) return;
+    const byCode = {};
+    for (const r of rows) byCode[r.indicator_code] = r;
+
+    const pct = (v) => `${v.toFixed(2)}%`;
+    const bps = (v) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(0)}bps`;
+    const idx = (v) => v.toFixed(1);
+    const idxDelta = (d) => `${d > 0 ? '+' : ''}${d.toFixed(2)}`;
+    const k = (v) => `${v.toFixed(0)}k`;
+    const kDelta = (d) => `${d > 0 ? '+' : ''}${d.toFixed(0)}k`;
+    const trendOf = (delta, prior, threshold = 0.005) => {
+      if (delta === 0 || prior == null) return 'flat';
+      const rel = prior !== 0 ? Math.abs(delta / prior) : Math.abs(delta);
+      if (rel < threshold) return 'flat';
+      return delta > 0 ? 'up' : 'down';
+    };
+
+    const fmt = (label, code, valFmt, deltaFmt, threshold) => {
+      const r = byCode[code];
+      if (!r) return null;
+      const val = Number(r.value);
+      const prior = r.prior != null ? Number(r.prior) : null;
+      const delta = prior != null ? val - prior : 0;
+      return {
+        label,
+        val: valFmt(val),
+        chg: prior != null ? deltaFmt(delta) : '—',
+        trend: trendOf(delta, prior, threshold),
+        spark: [],
+      };
+    };
+
+    const board = [];
+    const pushIf = (e) => e && board.push(e);
+
+    pushIf(fmt('10Y Yield',    'DGS10',    pct, bps));
+    pushIf(fmt('2Y Yield',     'DGS2',     pct, bps));
+    // Derived: curve spread (2s10s) in bps.
+    if (byCode.DGS10 && byCode.DGS2) {
+      const curve = (Number(byCode.DGS10.value) - Number(byCode.DGS2.value)) * 100;
+      const hasPrior = byCode.DGS10.prior != null && byCode.DGS2.prior != null;
+      const priorCurve = hasPrior
+        ? (Number(byCode.DGS10.prior) - Number(byCode.DGS2.prior)) * 100
+        : null;
+      const delta = priorCurve != null ? curve - priorCurve : 0;
+      board.push({
+        label: 'Curve (2s10s)',
+        val: `${curve >= 0 ? '+' : ''}${curve.toFixed(0)}bps`,
+        chg: priorCurve != null ? `${delta > 0 ? '+' : ''}${delta.toFixed(0)}bps` : '—',
+        trend: Math.abs(delta) < 1 ? 'flat' : delta > 0 ? 'up' : 'down',
+        spark: [],
+      });
+    }
+    pushIf(fmt('Core CPI',     'CPI_CORE', idx, idxDelta, 0.001));
+    pushIf(fmt('CPI Headline', 'CPI_HEADLINE', idx, idxDelta, 0.001));
+    pushIf(fmt('Fed Funds',    'FEDFUNDS', pct, bps));
+    pushIf(fmt('NFP',          'NFP',      k,   kDelta));
+    pushIf(fmt('Unemployment', 'UNEMP',    pct, bps));
+
+    if (board.length > 0) {
+      DATA.macroIndicators = board;
+      // Only re-render if the regime detail view (where the board lives) is
+      // currently mounted. Otherwise the next openEntity() will pick it up.
+      if (document.getElementById('macroIndicators')) {
+        renderMacroIndicators();
+      }
+    }
+  } catch (err) {
+    console.warn('[macroIndicators] bootstrap failed:', err);
+  }
+}
+
 // Calendar tab: rolling 6-week grid (~14 days back, ~28 days forward).
 // Sources: /api/earnings-calendar (Finnhub via portfolio-ingestor),
 // /api/fomc-calendar (hardcoded schedule), /api/calendar (MACRO_STATE_calendar
@@ -1060,68 +1121,6 @@ function renderCalendar() {
   grid.innerHTML = cells.join('');
 }
 
-// Sprint 5: fetch earnings + FOMC calendars, merge into DATA.events, re-render.
-async function bootstrapEventCalendar() {
-  const today = new Date();
-  const isoToday = today.toISOString().slice(0, 10);
-  const daysBetween = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000);
-  const whenLabel = (d) => {
-    const n = daysBetween(isoToday, d);
-    if (n === 0) return 'today';
-    if (n > 0) return `in ${n}d`;
-    return `${Math.abs(n)}d ago`;
-  };
-  try {
-    const [earnRes, fomcRes] = await Promise.all([
-      fetchJSON('/api/earnings-calendar').catch(() => null),
-      fetchJSON('/api/fomc-calendar').catch(() => null),
-    ]);
-    const events = [];
-    // earnings shape: {TICKER: {nextEarnings, type, lastFiling}}
-    if (earnRes && typeof earnRes === 'object') {
-      for (const [ticker, info] of Object.entries(earnRes)) {
-        if (ticker === 'source') continue;
-        const date = info?.nextEarnings;
-        if (!date) continue;
-        events.push({
-          date,
-          when: whenLabel(date),
-          type: 'earn',
-          title: `${ticker} ${info.type || 'Q'} Earnings`,
-          sub: info.lastFiling ? `Est. from last filing ${info.lastFiling}` : '',
-          upcoming: new Date(date) >= today,
-        });
-      }
-    }
-    // fomc shape: {upcoming: [{date, type}], ...}
-    (fomcRes?.upcoming || []).forEach(f => {
-      if (!f?.date) return;
-      events.push({
-        date: f.date,
-        when: whenLabel(f.date),
-        type: 'fomc',
-        title: `FOMC ${f.type || 'Meeting'}`,
-        sub: '',
-        upcoming: new Date(f.date) >= today,
-      });
-    });
-    if (events.length > 0) {
-      // Drop events >30 days stale (backend 90d-after-filing estimator often
-      // produces dates in the past). Upcoming first, then recent past.
-      const staleMs = 30 * 86400000;
-      const filtered = events.filter(e => (today - new Date(e.date)) <= staleMs);
-      filtered.sort((a, b) => {
-        if (a.upcoming !== b.upcoming) return a.upcoming ? -1 : 1;
-        return new Date(a.date) - new Date(b.date);
-      });
-      DATA.events = filtered;
-    }
-  } catch (err) {
-    console.warn('[events] bootstrap failed:', err);
-  }
-  renderEventCalendar();
-}
-
 // Entrypoint: loads API data and replaces Layer 2 + Layer 3 stubs in place,
 // then re-renders those widgets. Graceful fallback to stubs on any fetch fail.
 async function bootstrapPortfolioTab() {
@@ -1167,21 +1166,8 @@ DATA.navCurve = (() => {
   return arr;
 })();
 
-/* Event calendar — past 30d + next 30d */
-DATA.events = [
-  { date: '2026-05-02', when: 'in 14d',  type: 'fomc', title: 'FOMC Rate Decision & Press Conference', sub: 'Consensus: hold · market pricing 1 cut by July. High risk window for regime re-test.', upcoming: true },
-  { date: '2026-04-28', when: 'in 10d',  type: 'earn', title: 'LLY Q1 Earnings (pre-market)',          sub: 'EPS est $2.45 · revenue $11.2B · Mounjaro volumes the key tell.', upcoming: true },
-  { date: '2026-04-25', when: 'in 7d',   type: 'cpi',  title: 'GDP Advance Q1 Estimate',                sub: 'Atlanta Fed nowcast +1.4%. Below 1% → recession scare; above 2% → reflation re-open.', upcoming: true },
-  { date: '2026-04-22', when: 'in 4d',   type: 'earn', title: 'Tesla Q1 Earnings (after-close)',         sub: 'No book exposure. Delivery miss already priced; margins the watch.', upcoming: true },
-  { date: '2026-04-17', when: 'today',   type: 'earn', title: 'UNH Q1 Earnings (pre-market)',            sub: 'BEAT: EPS $6.91 vs $6.76 est · MCR 83.2% vs 83.9% est · guidance raised.', upcoming: false },
-  { date: '2026-04-15', when: '3d ago',  type: 'cpi',  title: 'March CPI Release',                       sub: 'Core CPI 3.2% YoY (in-line) · shelter still sticky · Fed-path unchanged.', upcoming: false },
-  { date: '2026-04-10', when: '8d ago',  type: 'fomc', title: 'FOMC Minutes (March meeting)',             sub: '"Patient" stance confirmed · 2 members saw cuts in Q2, 5 in Q3.', upcoming: false },
-  { date: '2026-04-05', when: '13d ago', type: 'nfp',  title: 'March Non-Farm Payrolls',                  sub: '+218k vs +190k est · U3 at 3.9% · wage growth cooling to 3.8% YoY.', upcoming: false },
-  { date: '2026-04-02', when: '16d ago', type: 'earn', title: 'JPM Q1 Earnings',                          sub: 'BEAT: EPS $4.44 vs $4.12 est · NII guidance raised · deposit outflows stabilized.', upcoming: false },
-  { date: '2026-03-28', when: '21d ago', type: 'geo',  title: 'Iran–Gulf tensions flare',                 sub: 'Brent spiked +4% intraday · faded by session close · no pipeline disruption.', upcoming: false }
-];
-
-/* Release summaries — FOMC / CPI / NFP / GDP */
+/* Release summaries — FOMC / CPI / NFP / GDP. Still consumed by the regime
+   entity view's `indicatorReleaseSection` until that's wired to a real source. */
 DATA.releases = [
   {
     id: 'fomc-mar',
@@ -4145,36 +4131,6 @@ function renderPMTable() {
   `;
 }
 
-function renderMacroHistory() {
-  const svg = document.getElementById('macroHistorySvg');
-  if (!svg) return;
-  const W = 400, H = 160, pad = 16;
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  const labels = ['Early-c','Mid-c','Late-c','Recession','Reflation'];
-  const colors = { 'Early-c': 'var(--green)', 'Mid-c': 'var(--blue)', 'Late-c': 'var(--yellow)', 'Recession': 'var(--red)', 'Reflation': 'var(--orange)' };
-  const history = [
-    {m: 0,  r: 'Mid-c'}, {m: 3, r: 'Mid-c'}, {m: 6, r: 'Mid-c'},
-    {m: 9,  r: 'Mid-c'}, {m: 12, r: 'Mid-c'}, {m: 14, r: 'Late-c'},
-    {m: 18, r: 'Late-c'}, {m: 22, r: 'Late-c'}, {m: 24, r: 'Late-c'}
-  ];
-  const rowH = (H - 2*pad) / labels.length;
-  let html = '';
-  labels.forEach((lab, i) => {
-    const y = pad + i*rowH + rowH/2;
-    html += `<text x="${pad-4}" y="${y+3}" text-anchor="end" font-size="8" fill="var(--text-3)">${lab}</text>`;
-    html += `<line x1="${pad}" y1="${y}" x2="${W-pad}" y2="${y}" stroke="var(--bg-3)" stroke-dasharray="1,3"/>`;
-  });
-  for (let i = 0; i < history.length - 1; i++) {
-    const cur = history[i], nxt = history[i+1];
-    const row = labels.indexOf(cur.r);
-    const y = pad + row * rowH + rowH/2;
-    const x1 = pad + (cur.m/24) * (W - 2*pad);
-    const x2 = pad + (nxt.m/24) * (W - 2*pad);
-    html += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${colors[cur.r]}" stroke-width="4" stroke-linecap="round"/>`;
-  }
-  svg.innerHTML = html;
-}
-
 function renderMacroIndicators() {
   const host = document.getElementById('macroIndicators');
   host.innerHTML = DATA.macroIndicators.map(m => {
@@ -4189,50 +4145,6 @@ function renderMacroIndicators() {
       ${sparkSvg}
     </div>`;
   }).join('');
-}
-
-function renderScenarios() {
-  const host = document.getElementById('scenariosTable');
-  host.innerHTML = DATA.scenarios.map(s => {
-    const col = s.navImpact.includes('−') ? 'var(--red)' : 'var(--green)';
-    return `<tr>
-      <td>${s.name}</td>
-      <td>${(s.p * 100).toFixed(0)}%</td>
-      <td style="color:${col};font-weight:600;">${s.navImpact}</td>
-      <td>${s.layer}</td>
-      <td style="text-align:left;font-family:-apple-system,sans-serif;">${s.mover}</td>
-    </tr>`;
-  }).join('');
-}
-
-function renderEventCalendar() {
-  const host = document.getElementById('eventCalendar');
-  host.innerHTML = DATA.events.map(e => {
-    return `<div class="event-card ${e.upcoming ? 'upcoming' : 'past'}">
-      <div class="event-date">${e.date}<span class="when">${e.when}</span></div>
-      <div class="event-content">
-        <div class="event-title">${e.title}</div>
-        <div class="event-sub">${e.sub}</div>
-      </div>
-      <span class="event-tag ${e.type}">${e.type}</span>
-    </div>`;
-  }).join('');
-}
-
-function renderReleaseSummaries() {
-  const host = document.getElementById('releaseSummaries');
-  host.innerHTML = DATA.releases.map(r => `
-    <div class="release-card">
-      <div class="release-card-head">
-        <h4>${r.type}</h4>
-        <span class="meta">${r.date} · ${r.daysAgo === 0 ? 'today' : r.daysAgo + 'd ago'}</span>
-      </div>
-      <div class="release-lede">${r.lede}</div>
-      <ul class="release-bullets">
-        ${r.bullets.map(b => `<li>${b}</li>`).join('')}
-      </ul>
-    </div>
-  `).join('');
 }
 
 function renderNewsStream() {
@@ -4467,6 +4379,8 @@ function init() {
   bootstrapPMTab();
   // News stream + top movers from BETA_12_News_digest + MOVER_EXPLANATIONS_daily.
   bootstrapNewsTab();
+  // 12-indicator board (regime detail view) from MACRO_STATE_indicators.
+  bootstrapMacroIndicators();
   // Sprint 14.1 — Run pipeline button.
   initRunPipelineButton();
 }
