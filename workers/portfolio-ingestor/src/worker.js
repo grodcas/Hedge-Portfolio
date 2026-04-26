@@ -1822,8 +1822,9 @@ export default {
              revenue_annual, revenue_annual_prev, gross_profit, gross_profit_prev,
              cfo, cfo_prev, roa, roa_prev, current_ratio, current_ratio_prev,
              gross_margin_annual, gross_margin_annual_prev, asset_turnover, asset_turnover_prev,
+             fiscal_period_ending, last_10q_filing_date,
              raw_json, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             pe_ratio = excluded.pe_ratio, forward_pe = excluded.forward_pe, eps = excluded.eps,
             revenue_ttm = excluded.revenue_ttm, profit_margin = excluded.profit_margin,
@@ -1843,6 +1844,8 @@ export default {
             current_ratio = excluded.current_ratio, current_ratio_prev = excluded.current_ratio_prev,
             gross_margin_annual = excluded.gross_margin_annual, gross_margin_annual_prev = excluded.gross_margin_annual_prev,
             asset_turnover = excluded.asset_turnover, asset_turnover_prev = excluded.asset_turnover_prev,
+            fiscal_period_ending = COALESCE(excluded.fiscal_period_ending, fiscal_period_ending),
+            last_10q_filing_date = COALESCE(excluded.last_10q_filing_date, last_10q_filing_date),
             raw_json = excluded.raw_json, created_at = excluded.created_at
         `).bind(
           id, f.ticker, f.date, f.pe_ratio, f.forward_pe, f.eps, f.revenue_ttm,
@@ -1860,6 +1863,7 @@ export default {
           f.current_ratio ?? null, f.current_ratio_prev ?? null,
           f.gross_margin_annual ?? null, f.gross_margin_annual_prev ?? null,
           f.asset_turnover ?? null, f.asset_turnover_prev ?? null,
+          f.fiscal_period_ending ?? null, f.last_10q_filing_date ?? null,
           f.raw_json || null, now
         ).run();
         inserted++;

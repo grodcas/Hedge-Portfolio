@@ -5,20 +5,25 @@
 // egress pool is already exhausted by other users.
 //
 // Fetches four AV endpoints per ticker:
-//   1. OVERVIEW         — live snapshot (PE, DMA, market cap, etc.)
-//   2. INCOME_STATEMENT — annualReports[0] + [1] for revenue, net income, gross profit
-//   3. BALANCE_SHEET    — annualReports[0] + [1] for total assets, debt, current ratio, shares
-//   4. CASH_FLOW        — annualReports[0] + [1] for operating cashflow
+//   1. OVERVIEW         — live snapshot (PE, DMA, market cap, etc.). Daily refresh.
+//   2. INCOME_STATEMENT — quarterlyReports[0] + [4] (YoY same-quarter compare)
+//   3. BALANCE_SHEET    — quarterlyReports[0] + [4]
+//   4. CASH_FLOW        — quarterlyReports[0] + [4]
 //
-// The three statement endpoints supply Piotroski F-Score feedstock. Each
-// endpoint returns 5 years in one call, so we parse [0]=current FY and
-// [1]=prior FY to compute YoY deltas downstream in stock-factor-builder.
+// Statement endpoints (2-4) supply Piotroski F-Score feedstock. They are
+// EVENT-DRIVEN, not daily: a ticker is only refreshed when SEC has filed a
+// new 10-Q whose periodOfReport > our last-stored fiscal_period_ending,
+// AND at least AV_INDEX_LAG_DAYS have passed since the filing (to give AV
+// time to index it). Each fetch verifies AV's quarterlyReports[0]
+// fiscalDateEnding matches the SEC period before claiming success — if
+// AV hasn't caught up, we defer to the next nightly run.
 //
-// Rate limiting: four passes of 5-at-a-time batches with 62s between
-// batches (AV free-tier burst ceiling is 5/min). 25 tickers × 4 passes
-// → 20 batches × 62s ≈ 21 min run time. AV free tier also caps requests
-// per day; if that limit is hit, split IS/BS/CF off into a quarterly
-// cadence (they only change at earnings).
+// Steady-state load: 25 OVERVIEW calls/day + ~4 statement calls × ~25
+// 10-Qs/year = ~50 statement calls/year. Comfortably inside any free tier.
+//
+// One-time backfill: on first run, all 25 tickers will be flagged for
+// statement refresh. Free tier 25/day caps progress; converges in 4-5
+// nightly runs as the daily budget refreshes.
 
 import { INGEST_BASE } from "../lib/config.js";
 
@@ -27,6 +32,29 @@ const TICKERS = [
   "JPM", "GS", "BAC", "XOM", "CVX", "UNH", "LLY", "JNJ",
   "PG", "KO", "HD", "CAT", "BA", "INTC", "AMD", "NFLX", "MS",
 ];
+
+// Same CIK map as edgar/fetch.js. Used to query SEC submissions API for
+// the most recent 10-Q filing per ticker.
+const TICKER_CIK = {
+  AAPL: "0000320193",  MSFT: "0000789019", GOOGL: "0001652044",
+  AMZN: "0001018724",  NVDA: "0001045810", META:  "0001326801",
+  TSLA: "0001318605",  "BRK.B": "0001067983",
+  JPM:  "0000019617",  GS:   "0000886982", BAC:   "0000070858",
+  XOM:  "0000034088",  CVX:  "0000093410", UNH:   "0000731766",
+  LLY:  "0000059478",  JNJ:  "0000200406", PG:    "0000080424",
+  KO:   "0000021344",  HD:   "0000354950", CAT:   "0000018230",
+  BA:   "0000012927",  INTC: "0000050863", AMD:   "0000002488",
+  NFLX: "0001065280",  MS:   "0000895421",
+};
+
+// AV indexing lag: empirically 1-7 days post-SEC-filing. Wait this many days
+// after SEC filingDate before the first AV attempt; retry daily until AV's
+// quarterlyReports[0] fiscalDateEnding matches SEC's periodOfReport.
+const AV_INDEX_LAG_DAYS = 2;
+// If a 10-Q is this old and AV still hasn't indexed it, log a warning.
+const AV_INDEX_LAG_WARN_DAYS = 14;
+
+const SEC_USER_AGENT = "HedgePortfolio/1.0 contact@hedge-portfolio.local";
 
 function parseNum(val) {
   if (val == null || val === "None" || val === "-" || val === "") return null;
@@ -77,22 +105,34 @@ async function fetchOverview(ticker, apiKey) {
   };
 }
 
+// Pull the quarterlyReports array from an AV statement response and return
+// (cur=[0], yoy=[4]) — same quarter prior year. Same-quarter YoY kills
+// seasonality wobble in working-capital signals (Piotroski 5, 6, 9).
+function pickQuarterly(reports, ticker, label) {
+  if (!Array.isArray(reports)) {
+    throw new Error(`AV ${label} ${ticker}: no quarterlyReports array`);
+  }
+  if (reports.length < 5) {
+    throw new Error(`AV ${label} ${ticker}: only ${reports.length} quarters (need ≥5 for YoY)`);
+  }
+  return { cur: reports[0], yoy: reports[4] };
+}
+
 async function fetchIncomeStatement(ticker, apiKey) {
   const url = `https://www.alphavantage.co/query?function=INCOME_STATEMENT&symbol=${avSymbol(ticker)}&apikey=${apiKey}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`AV INCOME_STATEMENT ${res.status} for ${ticker}`);
   const data = await res.json();
   checkRateLimit(data, ticker, "INCOME_STATEMENT");
-  const reports = data.annualReports || [];
-  if (reports.length < 2) throw new Error(`AV IS insufficient history for ${ticker}`);
-  const cur = reports[0], prev = reports[1];
+  const { cur, yoy } = pickQuarterly(data.quarterlyReports, ticker, "IS");
   return {
-    revenue_annual: parseNum(cur.totalRevenue),
-    revenue_annual_prev: parseNum(prev.totalRevenue),
+    fiscal_period_ending: cur.fiscalDateEnding,
+    revenue_annual: parseNum(cur.totalRevenue),         // legacy column name; now quarterly
+    revenue_annual_prev: parseNum(yoy.totalRevenue),
     gross_profit: parseNum(cur.grossProfit),
-    gross_profit_prev: parseNum(prev.grossProfit),
+    gross_profit_prev: parseNum(yoy.grossProfit),
     net_income: parseNum(cur.netIncome),
-    net_income_prev: parseNum(prev.netIncome),
+    net_income_prev: parseNum(yoy.netIncome),
   };
 }
 
@@ -102,20 +142,19 @@ async function fetchBalanceSheet(ticker, apiKey) {
   if (!res.ok) throw new Error(`AV BALANCE_SHEET ${res.status} for ${ticker}`);
   const data = await res.json();
   checkRateLimit(data, ticker, "BALANCE_SHEET");
-  const reports = data.annualReports || [];
-  if (reports.length < 2) throw new Error(`AV BS insufficient history for ${ticker}`);
-  const cur = reports[0], prev = reports[1];
+  const { cur, yoy } = pickQuarterly(data.quarterlyReports, ticker, "BS");
   return {
+    fiscal_period_ending: cur.fiscalDateEnding,
     total_assets: parseNum(cur.totalAssets),
-    total_assets_prev: parseNum(prev.totalAssets),
+    total_assets_prev: parseNum(yoy.totalAssets),
     total_debt: parseNum(cur.longTermDebt),
-    total_debt_prev: parseNum(prev.longTermDebt),
+    total_debt_prev: parseNum(yoy.longTermDebt),
     current_assets: parseNum(cur.totalCurrentAssets),
-    current_assets_prev: parseNum(prev.totalCurrentAssets),
+    current_assets_prev: parseNum(yoy.totalCurrentAssets),
     current_liabilities: parseNum(cur.totalCurrentLiabilities),
-    current_liabilities_prev: parseNum(prev.totalCurrentLiabilities),
+    current_liabilities_prev: parseNum(yoy.totalCurrentLiabilities),
     shares_outstanding: parseNum(cur.commonStockSharesOutstanding),
-    shares_outstanding_prev: parseNum(prev.commonStockSharesOutstanding),
+    shares_outstanding_prev: parseNum(yoy.commonStockSharesOutstanding),
   };
 }
 
@@ -125,13 +164,116 @@ async function fetchCashFlow(ticker, apiKey) {
   if (!res.ok) throw new Error(`AV CASH_FLOW ${res.status} for ${ticker}`);
   const data = await res.json();
   checkRateLimit(data, ticker, "CASH_FLOW");
-  const reports = data.annualReports || [];
-  if (reports.length < 2) throw new Error(`AV CF insufficient history for ${ticker}`);
-  const cur = reports[0], prev = reports[1];
+  const { cur, yoy } = pickQuarterly(data.quarterlyReports, ticker, "CF");
   return {
+    fiscal_period_ending: cur.fiscalDateEnding,
     cfo: parseNum(cur.operatingCashflow),
-    cfo_prev: parseNum(prev.operatingCashflow),
+    cfo_prev: parseNum(yoy.operatingCashflow),
   };
+}
+
+// Query SEC EDGAR submissions API for the latest 10-Q filing per CIK. Free,
+// no key, ~10 req/sec rate limit. Returns {filingDate, periodOfReport} or null.
+async function fetchSecLatest10Q(cik) {
+  const padded = String(cik).replace(/^0+/, "").padStart(10, "0");
+  const url = `https://data.sec.gov/submissions/CIK${padded}.json`;
+  const res = await fetch(url, { headers: { "User-Agent": SEC_USER_AGENT } });
+  if (!res.ok) return null;
+  const data = await res.json();
+  const recent = data?.filings?.recent;
+  if (!recent || !Array.isArray(recent.form)) return null;
+  const forms = recent.form;
+  const filingDates = recent.filingDate || [];
+  const reportDates = recent.reportDate || [];
+  for (let i = 0; i < forms.length; i++) {
+    if (forms[i] === "10-Q") {
+      return {
+        filingDate: filingDates[i],
+        periodOfReport: reportDates[i],
+      };
+    }
+  }
+  return null;
+}
+
+// Decide which tickers need their statement endpoints refreshed today.
+// A ticker is selected when SEC has a 10-Q whose periodOfReport > our most
+// recent stored fiscal_period_ending, AND at least AV_INDEX_LAG_DAYS have
+// elapsed since the SEC filingDate. Returns:
+//   { tickers: string[], secByTicker: { [ticker]: {filingDate, periodOfReport} } }
+async function selectStatementTickers(today, logger) {
+  // 1. Load each ticker's latest fiscal_period_ending from D1.
+  const ourPeriodByTicker = {};
+  try {
+    const res = await fetch(`${INGEST_BASE}/query/fundamentals`);
+    if (res.ok) {
+      const data = await res.json();
+      const rows = Array.isArray(data) ? data : (data?.results || []);
+      for (const r of rows) {
+        const t = r.ticker;
+        const fp = r.fiscal_period_ending;
+        if (!t || !fp) continue;
+        if (!ourPeriodByTicker[t] || fp > ourPeriodByTicker[t]) {
+          ourPeriodByTicker[t] = fp;
+        }
+      }
+    } else {
+      logger.log("FUNDAMENTALS", `query/fundamentals returned HTTP ${res.status}; treating all tickers as needing fetch`, "warn");
+    }
+  } catch (err) {
+    logger.log("FUNDAMENTALS", `query/fundamentals failed (${err.message}); treating all tickers as needing fetch`, "warn");
+  }
+
+  // 2. For each ticker, ask SEC about its latest 10-Q and decide.
+  const todayMs = new Date(today).getTime();
+  const tickers = [];
+  const secByTicker = {};
+
+  for (const t of TICKERS) {
+    const cik = TICKER_CIK[t];
+    if (!cik) {
+      logger.log("FUNDAMENTALS", `${t}: no CIK mapping; cannot SEC-check`, "warn");
+      continue;
+    }
+    let info;
+    try {
+      info = await fetchSecLatest10Q(cik);
+    } catch (err) {
+      logger.log("FUNDAMENTALS", `${t}: SEC fetch failed (${err.message})`, "warn");
+      continue;
+    }
+    if (!info) {
+      logger.log("FUNDAMENTALS", `${t}: no recent 10-Q in SEC submissions`, "warn");
+      continue;
+    }
+
+    const ours = ourPeriodByTicker[t] || null;
+    if (ours && ours >= info.periodOfReport) {
+      // We already have this quarter; nothing to do.
+      continue;
+    }
+
+    const daysSinceFiling = Math.floor((todayMs - new Date(info.filingDate).getTime()) / 86400000);
+    if (daysSinceFiling < AV_INDEX_LAG_DAYS) {
+      logger.log(
+        "FUNDAMENTALS",
+        `${t}: 10-Q filed ${info.filingDate} (${daysSinceFiling}d ago); waiting ≥${AV_INDEX_LAG_DAYS}d for AV to index`
+      );
+      continue;
+    }
+    if (daysSinceFiling > AV_INDEX_LAG_WARN_DAYS) {
+      logger.log(
+        "FUNDAMENTALS",
+        `${t}: 10-Q filed ${info.filingDate} (${daysSinceFiling}d ago) but AV still hasn't indexed; will retry but please investigate`,
+        "warn"
+      );
+    }
+
+    tickers.push(t);
+    secByTicker[t] = info;
+  }
+
+  return { tickers, secByTicker };
 }
 
 // Runs one endpoint across all remaining tickers, 5 at a time, 62s between batches.
@@ -192,65 +334,141 @@ export async function fetchFundamentals(config, logger, results, opts = {}) {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  // Per-pass completeness markers. For a partial run (pass=IS/BS/CF only),
-  // we still want to load whatever OVERVIEW row already exists so the ingest
-  // payload stays well-formed; but we skip tickers that already have the
-  // CURRENT-pass fields populated.
-  const passCompletenessField = {
-    OVERVIEW: "pe_ratio",
-    IS: "revenue_annual",
-    BS: "total_assets",
-    CF: "cfo",
-    ALL: "roa",
-  };
-  const markerField = passCompletenessField[pass];
-
-  // Idempotency: skip tickers already complete for THIS pass today.
-  let tickersToFetch = [...TICKERS];
+  // OVERVIEW is the only daily-cadence pass: PE/DMA/market cap change with
+  // price. IS/BS/CF are event-driven via SEC 10-Q filings (selectStatementTickers).
+  //
+  // tickersForOverview: tickers whose OVERVIEW hasn't refreshed today yet.
+  // statementTickers:   tickers SEC says have a new 10-Q AV should index by now.
+  // secByTicker:        per-ticker {filingDate, periodOfReport} for verification.
+  let tickersForOverview = [...TICKERS];
+  let statementTickers = [];
+  let secByTicker = {};
   let existingRows = [];
+
   try {
     const res = await fetch(`${INGEST_BASE}/query/fundamentals?date=${today}`);
     if (res.ok) {
       const existing = await res.json();
       existingRows = Array.isArray(existing) ? existing : (existing?.results || []);
-      const complete = new Set(existingRows.filter(r => r[markerField] != null).map(r => r.ticker));
-      tickersToFetch = TICKERS.filter(t => !complete.has(t));
-      if (tickersToFetch.length === 0) {
-        logger.log("FUNDAMENTALS", `pass=${pass}: all ${TICKERS.length} already complete today — skipping`, "ok");
-        return { data: [], fetched: 0, skipped: TICKERS.length };
-      }
-      if (tickersToFetch.length < TICKERS.length) {
-        logger.log("FUNDAMENTALS", `pass=${pass}: ${tickersToFetch.length}/${TICKERS.length} missing`);
-      }
+      const overviewDoneToday = new Set(
+        existingRows.filter(r => r.pe_ratio != null).map(r => r.ticker)
+      );
+      tickersForOverview = TICKERS.filter(t => !overviewDoneToday.has(t));
     }
   } catch (err) {
     logger.log("FUNDAMENTALS", `Idempotency check failed, proceeding: ${err.message}`, "warn");
   }
 
-  // Seed accum with existing rows (keeps previously-fetched fields for passes
-  // that don't re-fetch them — so the upsert payload doesn't clobber them).
-  const accum = {};
-  for (const r of existingRows) {
-    if (!tickersToFetch.includes(r.ticker)) continue;
-    accum[r.ticker] = { ...r };
+  if (pass === "ALL" || pass === "IS" || pass === "BS" || pass === "CF") {
+    const sel = await selectStatementTickers(today, logger);
+    statementTickers = sel.tickers;
+    secByTicker = sel.secByTicker;
+    if (statementTickers.length === 0) {
+      logger.log("FUNDAMENTALS", "no statement refresh needed today (no new 10-Qs past AV index lag)", "ok");
+    } else {
+      logger.log(
+        "FUNDAMENTALS",
+        `${statementTickers.length} tickers need statement refresh: ${statementTickers.join(", ")}`
+      );
+    }
   }
+
+  // Early exit if there's literally nothing to do.
+  const nothingToFetch =
+    (pass === "OVERVIEW" && tickersForOverview.length === 0) ||
+    ((pass === "IS" || pass === "BS" || pass === "CF") && statementTickers.length === 0) ||
+    (pass === "ALL" && tickersForOverview.length === 0 && statementTickers.length === 0);
+  if (nothingToFetch) {
+    logger.log("FUNDAMENTALS", `pass=${pass}: nothing to fetch — exiting`, "ok");
+    return { data: [], fetched: 0, skipped: TICKERS.length };
+  }
+
+  // Seed accum with the latest existing row per ticker so partial passes
+  // don't clobber previously-fetched fields on upsert.
+  const accum = {};
+  const allTickersInPlay = new Set([...tickersForOverview, ...statementTickers]);
+  // Latest row per ticker (existingRows is today only; need across-days for statement fields)
+  let latestByTicker = {};
+  try {
+    const res = await fetch(`${INGEST_BASE}/query/fundamentals`);
+    if (res.ok) {
+      const data = await res.json();
+      const rows = Array.isArray(data) ? data : (data?.results || []);
+      for (const r of rows) {
+        if (!latestByTicker[r.ticker] || (r.date || "") > (latestByTicker[r.ticker].date || "")) {
+          latestByTicker[r.ticker] = r;
+        }
+      }
+    }
+  } catch { /* fallback to today-only */ }
+  for (const t of allTickersInPlay) {
+    accum[t] = { ...(latestByTicker[t] || {}) };
+  }
+
   const errors = [];
 
-  const passes = pass === "ALL"
-    ? [["OVERVIEW", fetchOverview], ["INCOME_STATEMENT", fetchIncomeStatement],
-       ["BALANCE_SHEET", fetchBalanceSheet], ["CASH_FLOW", fetchCashFlow]]
+  // Each pass uses its own ticker list. Statement passes can be empty if no
+  // 10-Q has dropped recently.
+  const passSpecs = pass === "ALL"
+    ? [
+        ["OVERVIEW",         fetchOverview,          tickersForOverview],
+        ["INCOME_STATEMENT", fetchIncomeStatement,   statementTickers],
+        ["BALANCE_SHEET",    fetchBalanceSheet,      statementTickers],
+        ["CASH_FLOW",        fetchCashFlow,          statementTickers],
+      ]
     : {
-        OVERVIEW: [["OVERVIEW",         fetchOverview]],
-        IS:       [["INCOME_STATEMENT", fetchIncomeStatement]],
-        BS:       [["BALANCE_SHEET",    fetchBalanceSheet]],
-        CF:       [["CASH_FLOW",        fetchCashFlow]],
+        OVERVIEW: [["OVERVIEW",         fetchOverview,        tickersForOverview]],
+        IS:       [["INCOME_STATEMENT", fetchIncomeStatement, statementTickers]],
+        BS:       [["BALANCE_SHEET",    fetchBalanceSheet,    statementTickers]],
+        CF:       [["CASH_FLOW",        fetchCashFlow,        statementTickers]],
       }[pass];
 
-  for (let i = 0; i < passes.length; i++) {
-    const [label, fn] = passes[i];
-    await runPass(label, fn, apiKey, tickersToFetch, accum, errors, logger);
-    if (i < passes.length - 1) await sleep(62000);
+  let executedAny = false;
+  for (let i = 0; i < passSpecs.length; i++) {
+    const [label, fn, list] = passSpecs[i];
+    if (!list || list.length === 0) continue;
+    await runPass(label, fn, apiKey, list, accum, errors, logger);
+    executedAny = true;
+    if (i < passSpecs.length - 1 && passSpecs.slice(i + 1).some(p => p[2]?.length > 0)) {
+      await sleep(62000);
+    }
   }
+  if (!executedAny) {
+    logger.log("FUNDAMENTALS", `nothing fetched (all pass lists empty)`, "ok");
+  }
+
+  // Verify AV's quarterlyReports[0].fiscalDateEnding actually matches the SEC
+  // 10-Q's periodOfReport for each statement-refresh ticker. If AV is still
+  // serving the old quarter, drop it from the ingest payload — we'll retry
+  // tomorrow when AV catches up. Without this, we'd silently overwrite our
+  // existing-but-correct data with stale AV data.
+  for (const t of statementTickers) {
+    const row = accum[t];
+    const sec = secByTicker[t];
+    if (!row || !sec) continue;
+    const avPeriod = row.fiscal_period_ending;
+    if (!avPeriod) {
+      // None of IS/BS/CF actually returned successfully for this ticker.
+      logger.log("FUNDAMENTALS", `${t}: statement fetch produced no fiscal_period_ending; will retry tomorrow`, "warn");
+      // Don't ingest this ticker as-is — preserve the existing-DB row by skipping it.
+      delete accum[t];
+      continue;
+    }
+    if (avPeriod < sec.periodOfReport) {
+      logger.log(
+        "FUNDAMENTALS",
+        `${t}: AV indexed period ${avPeriod} < SEC ${sec.periodOfReport} (filed ${sec.filingDate}) — deferring`
+      );
+      delete accum[t];
+      continue;
+    }
+    // AV caught up: tag with the SEC filing date so subsequent runs skip this ticker.
+    row.last_10q_filing_date = sec.filingDate;
+  }
+
+  // Build the union of tickers we'll emit: those touched by OVERVIEW today
+  // OR by a successful statement refresh.
+  const tickersToFetch = [...allTickersInPlay].filter(t => accum[t]);
 
   // Build merged rows. A ticker is only emitted if OVERVIEW succeeded
   // (OVERVIEW is the only strict requirement; statement fields land as NULL
@@ -267,6 +485,9 @@ export async function fetchFundamentals(config, logger, results, opts = {}) {
     fetched.push({
       ticker,
       date: today,
+      // Smart-fetch tracking: which 10-Q's data this row carries.
+      fiscal_period_ending: row.fiscal_period_ending ?? null,
+      last_10q_filing_date: row.last_10q_filing_date ?? null,
       // OVERVIEW fields
       pe_ratio: row.pe_ratio ?? null,
       forward_pe: row.forward_pe ?? null,
