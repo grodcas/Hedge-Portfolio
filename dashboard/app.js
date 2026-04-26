@@ -434,10 +434,19 @@ async function bootstrapStyleTilts() {
       }
     }
 
+    // Tilt-scale rationale per factor (each transform ends up roughly in
+    // [-1, +1] before clip(), where +1 = strong tilt):
+    //   Piotroski F   0–9 → (f/9 - 0.5)*2  → ±1
+    //   Low vol       avgVol around 0.020 → (0.020 - v)/0.010 → ±1 across ±10bp daily-vol
+    //   eps_rev_4w    ±0.05 typical (Δ bullish-rec ratio) → multiply by 20 so ±0.05 → ±1
+    //   rel_pe_sigma  ±2σ typical → divide by 2; flip sign so cheap = positive
+    //   mom_12_1      ±1.0 already (return decimal) → use as-is
+    // The previous Growth tilt used eps_rev_4w raw, leaving the bar permanently
+    // flat (live values ±0.02 → tilt 2/100 of the bar width).
     const tilts = [
       { name: 'Quality',  raw: weightedAvg(f => f.piotroski_f != null ? (f.piotroski_f / 9 - 0.5) * 2 : null) },
       { name: 'Low vol',  raw: lowVolRaw },
-      { name: 'Growth',   raw: weightedAvg(f => f.eps_rev_4w) },
+      { name: 'Growth',   raw: weightedAvg(f => f.eps_rev_4w != null ? f.eps_rev_4w * 20 : null) },
       { name: 'Value',    raw: weightedAvg(f => f.rel_pe_sigma != null ? -f.rel_pe_sigma / 2 : null) },
       { name: 'Momentum', raw: weightedAvg(f => f.mom_12_1) },
     ];
@@ -3766,9 +3775,15 @@ function renderStockGroups() {
     return (n >= 0 ? '+' : '') + n.toFixed(digits) + '%';
   };
   // Color helper: green if "good" (direction depends on metric), red if "bad".
+  // Exact-zero is treated as flat/neutral, not bad — stock-factor-builder
+  // writes 0 as a sentinel for "no signal" on eps_rev_4w / rev_breadth_4w
+  // (no analyst recs data) and rel_pe_sigma (fairly priced vs peers).
+  // Without this, ~10 of 25 stocks rendered the EPS-rev column in red.
   const classify = (v, good) => {
     if (v == null || Number.isNaN(v)) return 'stk-flat';
-    return good(Number(v)) ? 'stk-pos' : 'stk-neg';
+    const n = Number(v);
+    if (n === 0) return 'stk-flat';
+    return good(n) ? 'stk-pos' : 'stk-neg';
   };
   // Sector-header summary: mean Piotroski F across constituents where available
   const sectorSummary = (stocks) => {
@@ -3968,7 +3983,7 @@ function renderDecisionTrail() {
 
 function renderWaterfall() {
   const svg = document.getElementById('waterfallSvg');
-  const W = 300, H = 240, pad = 24;
+  const W = 300, H = 260, pad = 24;
   if (!Array.isArray(DATA.attribution) || DATA.attribution.length === 0) {
     svg.innerHTML = `
       <text x="${W/2}" y="${H/2 - 6}" text-anchor="middle" font-size="12" fill="var(--text-2)" font-weight="600">Awaits data</text>
@@ -3978,7 +3993,7 @@ function renderWaterfall() {
   const barW = (W - 2*pad) / (DATA.attribution.length + 1);
   let running = 0;
   const maxAbs = Math.max(...DATA.attribution.map(a => Math.abs(a.value))) + 50;
-  const yScale = v => H - pad - (v / (2 * maxAbs)) * (H - 2*pad);
+  const yScale = v => H - pad - 18 - (v / (2 * maxAbs)) * (H - 2*pad - 18);
 
   let svgHtml = `<line x1="${pad}" y1="${yScale(0)}" x2="${W-pad}" y2="${yScale(0)}" stroke="var(--border)" stroke-dasharray="2,2"/>`;
   DATA.attribution.forEach((a, i) => {
@@ -3990,8 +4005,8 @@ function renderWaterfall() {
     const barY = Math.min(y0, y1);
     svgHtml += `
       <rect x="${x-barW*0.35}" y="${barY}" width="${barW*0.7}" height="${barH}" fill="${a.color}" fill-opacity="0.7" stroke="${a.color}" stroke-width="1"/>
-      <text x="${x}" y="${H-8}" text-anchor="middle" font-size="8" fill="var(--text-2)">${a.label}</text>
-      <text x="${x}" y="${y1 - 3}" text-anchor="middle" font-size="9" font-family="ui-monospace" fill="${a.color}" font-weight="600">${a.value > 0 ? '+' : ''}${a.value}</text>
+      <text x="${x}" y="${H-26}" text-anchor="middle" font-size="8" fill="var(--text-2)">${a.label}</text>
+      <text x="${x}" y="${y1 - 3}" text-anchor="middle" font-size="9" font-family="ui-monospace" fill="${a.color}" font-weight="600">${a.value > 0 ? '+' : ''}${a.value}bp</text>
     `;
   });
   const xTotal = pad + barW/2 + DATA.attribution.length * barW;
@@ -3999,8 +4014,9 @@ function renderWaterfall() {
     <line x1="${xTotal-barW*0.35}" y1="${yScale(0)}" x2="${xTotal+barW*0.35}" y2="${yScale(0)}" stroke="var(--blue)" stroke-width="2"/>
     <line x1="${xTotal-barW*0.35}" y1="${yScale(running)}" x2="${xTotal+barW*0.35}" y2="${yScale(running)}" stroke="var(--blue)" stroke-width="2"/>
     <rect x="${xTotal-barW*0.35}" y="${Math.min(yScale(0), yScale(running))}" width="${barW*0.7}" height="${Math.abs(yScale(running)-yScale(0))}" fill="var(--blue)" fill-opacity="0.25" stroke="var(--blue)" stroke-width="1"/>
-    <text x="${xTotal}" y="${H-8}" text-anchor="middle" font-size="8" fill="var(--text-2)">Total</text>
-    <text x="${xTotal}" y="${yScale(running)-3}" text-anchor="middle" font-size="10" font-family="ui-monospace" fill="var(--blue)" font-weight="700">+${running}</text>
+    <text x="${xTotal}" y="${H-26}" text-anchor="middle" font-size="8" fill="var(--text-2)">Total</text>
+    <text x="${xTotal}" y="${yScale(running)-3}" text-anchor="middle" font-size="10" font-family="ui-monospace" fill="var(--blue)" font-weight="700">${running > 0 ? '+' : ''}${running}bp</text>
+    <text x="${W/2}" y="${H-8}" text-anchor="middle" font-size="8" fill="var(--text-3)" font-style="italic">Proxy split (40/30/20/10) until per-position attribution lands</text>
   `;
   svg.innerHTML = svgHtml;
 }
