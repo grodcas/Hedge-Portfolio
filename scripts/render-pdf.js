@@ -1,12 +1,14 @@
 // scripts/render-pdf.js
 //
-// Renders docs/SYSTEM_REFERENCE.md to docs/SYSTEM_REFERENCE.pdf.
+// Renders a Markdown file with Mermaid blocks to PDF.
+// Defaults to docs/SYSTEM_REFERENCE.md → docs/SYSTEM_REFERENCE.pdf.
+// Pass a different .md path as the first arg to render any other doc:
+//   node scripts/render-pdf.js docs/V2_PIPELINE_DRAFT.md
+//
 // Strategy: build a self-contained HTML page that loads Marked + Mermaid
 // from CDN, render the markdown to HTML in-page, run Mermaid to convert
 // the ```mermaid blocks into SVG, then have Puppeteer print to PDF with
 // custom A4 margins and no header/footer.
-//
-// Usage: node scripts/render-pdf.js
 
 import puppeteer from "puppeteer";
 import fs from "fs";
@@ -14,8 +16,11 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const MD_FILE  = path.join(__dirname, "..", "docs", "SYSTEM_REFERENCE.md");
-const PDF_FILE = path.join(__dirname, "..", "docs", "SYSTEM_REFERENCE.pdf");
+const inputArg = process.argv[2];
+const MD_FILE  = inputArg
+  ? path.resolve(process.cwd(), inputArg)
+  : path.join(__dirname, "..", "docs", "SYSTEM_REFERENCE.md");
+const PDF_FILE = MD_FILE.replace(/\.md$/, ".pdf");
 
 console.log(`Reading ${MD_FILE}`);
 let md = fs.readFileSync(MD_FILE, "utf8");
