@@ -298,26 +298,14 @@ async function getVIXTermStructure() {
 
 
 
+// DEPRECATED 2026-05-04: superseded by getVIXTermStructure (free yfinance path).
+// Last write: never — this function was parsed-but-not-pushed (called locally during
+// development only). The VIXY/VIXM gamma proxy duplicates what getVIXTermStructure
+// already computes via ^VIX / ^VIX3M. File kept for history; do not call.
+// Rationale: see docs/active/sprint-output/PARAMETER_DECISIONS.md §0 DEPRECATE row
+// and docs/active/v2_BALANCED_MOCKUP.md §5 (pipeline-sprint actions).
 async function getGammaRegime_ETF() {
-  const today = new Date().toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-
-  const params = { apiKey: POLYGON_KEY };
-
-  const [vixyRes, vixmRes] = await Promise.all([
-    axios.get(`https://api.polygon.io/v2/aggs/ticker/VIXY/range/1/day/${yesterday}/${today}`, { params }),
-    axios.get(`https://api.polygon.io/v2/aggs/ticker/VIXM/range/1/day/${yesterday}/${today}`, { params })
-  ]);
-
-  const vixy = vixyRes.data.results?.[0]?.c;  // short vol
-  const vixm = vixmRes.data.results?.[0]?.c;  // mid vol
-
-  const regime =
-    vixy && vixm
-      ? (vixm > vixy ? "POSITIVE" : "NEGATIVE")
-      : "UNKNOWN";
-
-  return { vixy, vixm, regime };
+  throw new Error("getGammaRegime_ETF is DEPRECATED — use getVIXTermStructure (yfinance) instead.");
 }
 
 
