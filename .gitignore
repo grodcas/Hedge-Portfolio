@@ -26,7 +26,12 @@ nul
 # Logs (keep structure, ignore content)
 logs/*.json
 logs/*.log
+logs/dashboard-verify/
 !logs/.gitkeep
+
+# macOS metadata
+.DS_Store
+**/.DS_Store
 
 # Runtime artifacts
 data/
