@@ -8,9 +8,10 @@
     "enabled": true,
     "logs": { "enabled": true, "head_sampling_rate": 1, "persist": true, "invocation_logs": true }
   },
-  "triggers": {
-    "crons": ["30 14 * * *"]
-  },
+  // DEPRECATED 2026-05-04 — see worker.js header. Cron disabled.
+  // "triggers": {
+  //   "crons": ["30 14 * * *"]
+  // },
   "d1_databases": [
     {
       "binding": "DB",

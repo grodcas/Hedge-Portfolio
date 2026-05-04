@@ -1,21 +1,22 @@
 /**
- * ISM-FETCHER — best-effort monthly writer for ISM Manufacturing + Services PMI.
+ * DEPRECATED 2026-05-04: ISM World walls all PMI report URLs behind Google
+ * reCAPTCHA. Server-side scrapes return a captcha-form HTML stub instead of
+ * the report — no JS-execution-free path to the PMI value.
  *
- * ISM publishes the Mfg PMI on the first business day of each month at 10:00 ET
- * and the Services PMI on the third business day. There is no free official API.
- * We scrape the public press release page and pull the headline PMI value.
+ * Paths surveyed before drop:
+ *   - https://www.ismworld.org/supply-management-news-and-reports/reports/
+ *     ism-report-on-business/pmi/  (legacy URL, originally tried) — 404.
+ *   - https://www.ismworld.org/supply-management-news-and-reports/reports/
+ *     ism-pmi-reports                                              — 200 but
+ *     served captcha-form stub (verified 2026-05-04 during the
+ *     pipeline-leftovers sprint).
+ *   - https://www.ismworld.org/news-and-publications/reports/      — 404.
  *
- * **Fragile by design.** The sprint discipline is: try the scrape, log + skip
- * gracefully on any structural change. A missed month is preferable to a
- * fabricated value. If this worker fails consistently for >2 cycles, it gets
- * deprecated per the §F protocol and the corresponding mockup tile is dropped.
+ * FRED dropped the ISM PMI series in 2017 after ISM revoked syndication, so
+ * there's no FRED fallback either. Both ISM_MFG and ISM_SVC are dropped per
+ * soft-delete protocol (worker body kept for history).
  *
- * Indicator codes:
- *   ISM_MFG  — Manufacturing PMI (sub-50 = contraction)
- *   ISM_SVC  — Services PMI
- *
- * Cron: daily 14:30 UTC. The build function is idempotent — if the current
- * month's value is already in the DB, it returns early without scraping.
+ * Cron disabled in wrangler.jsonc. /build returns a deprecation notice.
  */
 
 const REPORT_PAGES = [
@@ -32,21 +33,23 @@ const REPORT_PAGES = [
 ];
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, _env) {
     const url = new URL(req.url);
-    try {
-      if (url.pathname === "/build")  return Response.json(await build(env));
-      if (url.pathname === "/status") return Response.json(await status(env));
-      return new Response("Not found", { status: 404 });
-    } catch (err) {
-      return Response.json({ ok: false, error: err.message }, { status: 500 });
+    if (url.pathname === "/build" || url.pathname === "/status") {
+      return Response.json({
+        ok: false,
+        deprecated: true,
+        reason: "ISM PMI pages are reCAPTCHA-walled and FRED dropped the series — see worker.js header",
+      });
     }
+    return new Response("Not found", { status: 404 });
   },
-  async scheduled(_event, env, ctx) {
-    ctx.waitUntil(build(env).catch((e) => console.error(`[ism-fetcher] cron: ${e.message}`)));
-  },
+  // No scheduled handler — cron is disabled in wrangler.jsonc.
 };
 
+// ----- legacy implementation kept below for history (no longer reachable) -----
+
+// eslint-disable-next-line no-unused-vars
 async function build(env) {
   const out = { ok: true, attempts: [] };
 
