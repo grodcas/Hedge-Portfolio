@@ -1823,8 +1823,9 @@ export default {
              cfo, cfo_prev, roa, roa_prev, current_ratio, current_ratio_prev,
              gross_margin_annual, gross_margin_annual_prev, asset_turnover, asset_turnover_prev,
              fiscal_period_ending, last_10q_filing_date,
+             peg_ratio, ev_ebitda, ev_sales, pb_ratio, ps_ratio, roe_ttm, roa_ttm,
              raw_json, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             pe_ratio = excluded.pe_ratio, forward_pe = excluded.forward_pe, eps = excluded.eps,
             revenue_ttm = excluded.revenue_ttm, profit_margin = excluded.profit_margin,
@@ -1846,6 +1847,13 @@ export default {
             asset_turnover = excluded.asset_turnover, asset_turnover_prev = excluded.asset_turnover_prev,
             fiscal_period_ending = COALESCE(excluded.fiscal_period_ending, fiscal_period_ending),
             last_10q_filing_date = COALESCE(excluded.last_10q_filing_date, last_10q_filing_date),
+            peg_ratio = COALESCE(excluded.peg_ratio, peg_ratio),
+            ev_ebitda = COALESCE(excluded.ev_ebitda, ev_ebitda),
+            ev_sales  = COALESCE(excluded.ev_sales,  ev_sales),
+            pb_ratio  = COALESCE(excluded.pb_ratio,  pb_ratio),
+            ps_ratio  = COALESCE(excluded.ps_ratio,  ps_ratio),
+            roe_ttm   = COALESCE(excluded.roe_ttm,   roe_ttm),
+            roa_ttm   = COALESCE(excluded.roa_ttm,   roa_ttm),
             raw_json = excluded.raw_json, created_at = excluded.created_at
         `).bind(
           id, f.ticker, f.date, f.pe_ratio, f.forward_pe, f.eps, f.revenue_ttm,
@@ -1864,7 +1872,72 @@ export default {
           f.gross_margin_annual ?? null, f.gross_margin_annual_prev ?? null,
           f.asset_turnover ?? null, f.asset_turnover_prev ?? null,
           f.fiscal_period_ending ?? null, f.last_10q_filing_date ?? null,
+          f.peg_ratio ?? null, f.ev_ebitda ?? null, f.ev_sales ?? null,
+          f.pb_ratio ?? null, f.ps_ratio ?? null, f.roe_ttm ?? null, f.roa_ttm ?? null,
           f.raw_json || null, now
+        ).run();
+        inserted++;
+      }
+      return Response.json({ ok: true, inserted }, { headers: corsHeaders });
+    }
+
+    // -------- FUND_01_Quarterly (full 20-quarter history per ticker) --------
+    if (which === "fundamentals-quarterly") {
+      const items = Array.isArray(body) ? body : [body];
+      let inserted = 0;
+      for (const q of items) {
+        if (!q.ticker || !q.fiscal_period_ending) continue;
+        const id = await shortHash(`${q.ticker}|${q.fiscal_period_ending}`);
+        await db.prepare(`
+          INSERT INTO FUND_01_Quarterly
+            (id, ticker, fiscal_period_ending,
+             total_revenue, gross_profit, operating_income, net_income,
+             rd_expense, sga_expense, interest_expense, ebit, ebitda,
+             total_assets, total_liabilities, total_equity,
+             current_assets, current_liabilities, inventory, receivables,
+             cash_and_equivalents, short_term_debt, long_term_debt, shares_outstanding,
+             cfo, capex, cfi, cff, dividends_paid, buyback,
+             created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            total_revenue = COALESCE(excluded.total_revenue, total_revenue),
+            gross_profit = COALESCE(excluded.gross_profit, gross_profit),
+            operating_income = COALESCE(excluded.operating_income, operating_income),
+            net_income = COALESCE(excluded.net_income, net_income),
+            rd_expense = COALESCE(excluded.rd_expense, rd_expense),
+            sga_expense = COALESCE(excluded.sga_expense, sga_expense),
+            interest_expense = COALESCE(excluded.interest_expense, interest_expense),
+            ebit = COALESCE(excluded.ebit, ebit),
+            ebitda = COALESCE(excluded.ebitda, ebitda),
+            total_assets = COALESCE(excluded.total_assets, total_assets),
+            total_liabilities = COALESCE(excluded.total_liabilities, total_liabilities),
+            total_equity = COALESCE(excluded.total_equity, total_equity),
+            current_assets = COALESCE(excluded.current_assets, current_assets),
+            current_liabilities = COALESCE(excluded.current_liabilities, current_liabilities),
+            inventory = COALESCE(excluded.inventory, inventory),
+            receivables = COALESCE(excluded.receivables, receivables),
+            cash_and_equivalents = COALESCE(excluded.cash_and_equivalents, cash_and_equivalents),
+            short_term_debt = COALESCE(excluded.short_term_debt, short_term_debt),
+            long_term_debt = COALESCE(excluded.long_term_debt, long_term_debt),
+            shares_outstanding = COALESCE(excluded.shares_outstanding, shares_outstanding),
+            cfo = COALESCE(excluded.cfo, cfo),
+            capex = COALESCE(excluded.capex, capex),
+            cfi = COALESCE(excluded.cfi, cfi),
+            cff = COALESCE(excluded.cff, cff),
+            dividends_paid = COALESCE(excluded.dividends_paid, dividends_paid),
+            buyback = COALESCE(excluded.buyback, buyback)
+        `).bind(
+          id, q.ticker, q.fiscal_period_ending,
+          q.total_revenue ?? null, q.gross_profit ?? null, q.operating_income ?? null, q.net_income ?? null,
+          q.rd_expense ?? null, q.sga_expense ?? null, q.interest_expense ?? null,
+          q.ebit ?? null, q.ebitda ?? null,
+          q.total_assets ?? null, q.total_liabilities ?? null, q.total_equity ?? null,
+          q.current_assets ?? null, q.current_liabilities ?? null,
+          q.inventory ?? null, q.receivables ?? null, q.cash_and_equivalents ?? null,
+          q.short_term_debt ?? null, q.long_term_debt ?? null, q.shares_outstanding ?? null,
+          q.cfo ?? null, q.capex ?? null, q.cfi ?? null, q.cff ?? null,
+          q.dividends_paid ?? null, q.buyback ?? null,
+          now
         ).run();
         inserted++;
       }
