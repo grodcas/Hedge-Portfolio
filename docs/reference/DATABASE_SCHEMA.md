@@ -370,4 +370,112 @@ This ensures:
 
 ---
 
-*Last updated: 2026-02-25*
+## Migrations 0035–0041 (SPRINT_pipeline_implementation, 2026-05-04)
+
+These migrations apply the parameter swap from `docs/active/sprint-output/PARAMETER_DECISIONS.md §0`. All forward-only — no destructive ops, no DROP COLUMN.
+
+### 0035 · FUND_01_Fundamentals — typed multiples
+
+Added columns (all `REAL`, populated by `fetch-fundamentals.js` from AV OVERVIEW):
+
+- `peg_ratio` — PEG (PEGRatio in raw_json)
+- `ev_ebitda` — EV / EBITDA
+- `ev_sales` — EV / Revenue
+- `pb_ratio` — Price / Book
+- `ps_ratio` — Price / Sales TTM
+- `roe_ttm` — Return on Equity TTM
+- `roa_ttm` — Return on Assets TTM
+
+### 0036 · FUND_01_Quarterly (new table) — full quarterly history
+
+```
+ticker × fiscal_period_ending → 26 financial fields merged across IS / BS / CF
+```
+
+Replaces the old "[cur, YoY] only" persistence in `FUND_01_Fundamentals`. Supplies the 8q / 20q sparklines on the Book table and Name slide-out's Fundamentals card.
+
+Written by `fetch-fundamentals.js` → POST `/ingest/fundamentals-quarterly`.
+
+### 0037 · BETA_10_Daily_macro — structured regime / confidence / tripwires
+
+Added columns:
+
+- `regime TEXT` — 5-bucket label (bullish / cautious_bullish / neutral / cautious_bearish / bearish)
+- `confidence REAL` — 0..1
+- `tripwires_json TEXT` — JSON array `[{name, threshold, current_value, status}]`
+
+Producer: `macro-intelligence-builder` (Wave 2000) starts populating on next run.
+
+### 0038 · TICKER_TREND_long + SECTOR_TREND_long — tripwires_json
+
+Per-thesis structured tripwire flags. Same shape as the macro version. Producers: `ticker-trend-long` (Wave 3000), `sector-trend-long` (Wave 1700).
+
+### 0039 · PEER_SET_config (new table)
+
+```
+ticker PRIMARY KEY · peers_json TEXT · source TEXT · updated_at
+```
+
+One-time bootstrap import from `config/peers-mapping.json` produced by `scripts/bootstrap-peers.js`.
+
+### 0040 · SENTIMENT_STATE_indicators (new table)
+
+Typed mirror of the local pipeline's `BETA_04_Sentiment` JSON blob — same shape as `MACRO_STATE_indicators`. Codes: `PUTCALL_EQUITY`, `PUTCALL_INDEX`, `PUTCALL_TOTAL`, `AAII_BULLISH`, `AAII_BEARISH`, `AAII_BULL_BEAR`, `COT_ES_AM_NET`, `COT_ES_LF_NET`, `COT_NQ_AM_NET`, `COT_NQ_LF_NET`.
+
+Written by `sentiment-state-fetcher` (own cron 00:25 UTC).
+
+### 0041 · FOMC_PROJECTIONS (new table)
+
+```
+meeting_date × indicator × year × stat → value
+```
+
+Indicators: `GDP`, `UNEMPLOYMENT`, `PCE`, `CORE_PCE`, `FED_FUNDS` (dot plot).
+Years: `'2026'`, `'2027'`, `'2028'`, `'Longer run'`.
+Stats: `median`, `central_tendency_low`, `central_tendency_high`, `range_low`, `range_high`.
+
+Written by `fomc-statement-fetcher` (extended in this sprint to also pull SEP HTML at projection meetings — March / June / Sept / Dec).
+
+---
+
+## MACRO_STATE_indicators — indicator codes (post-SPRINT_pipeline_implementation)
+
+`macro-state-fetcher` writes the following daily/weekly/monthly to this single table. **Codes are descriptive, not raw FRED IDs.** Source field disambiguates (FRED / BLS / CBOE / YAHOO / NAAIM / ISM).
+
+| Source | Code | Series ID | Cadence | Unit |
+|---|---|---|---|---|
+| FRED | FEDFUNDS | DFF | daily | % |
+| FRED | FED_TARGET_UPPER | DFEDTARU | daily | % |
+| FRED | FED_TARGET_LOWER | DFEDTARL | daily | % |
+| FRED | DGS2 | DGS2 | daily | % |
+| FRED | DGS10 | DGS10 | daily | % |
+| FRED | REAL_5Y | DFII5 | daily | % |
+| FRED | BREAKEVEN_5Y | T5YIE | daily | % |
+| FRED | BREAKEVEN_5Y5Y_FWD | T5YIFR | daily | % |
+| FRED | OAS_IG | BAMLC0A0CM | daily | % |
+| FRED | OAS_HY | BAMLH0A0HYM2 | daily | % |
+| FRED | FED_TOTAL_ASSETS | WALCL | weekly | $M |
+| FRED | BANK_RESERVES | WRESBAL | weekly | $M |
+| FRED | DXY_BROAD | DTWEXBGS | daily | index |
+| FRED | WTI | DCOILWTICO | daily | $/bbl |
+| FRED | GOLD | GOLDAMGBD228NLBM | daily | $/oz |
+| FRED | VIX | VIXCLS | daily | index |
+| FRED | INITIAL_CLAIMS | ICSA | weekly | claims |
+| FRED | UMICH_SENT | UMCSENT | monthly | index |
+| FRED | INFL_EXP_1Y | MICH | monthly | % |
+| BLS | CPI_HEADLINE | CUUR0000SA0 | monthly | index |
+| BLS | CPI_CORE | CUUR0000SA0L1E | monthly | index |
+| BLS | PPI_FINAL_DEMAND | WPSFD4 | monthly | index |
+| BLS | NFP | CES0000000001 | monthly | k |
+| BLS | UNEMP | LNS14000000 | monthly | % |
+| CBOE | SKEW | (CSV) | daily | index |
+| YAHOO | EURUSD | EURUSD=X | daily | rate |
+| YAHOO | COPPER | HG=F | daily | $/lb |
+| YAHOO | VVIX | ^VVIX | daily | index |
+| NAAIM | NAAIM | (CSV/page) | weekly | index |
+| ISM | ISM_MFG | (page scrape) | monthly | index |
+| ISM | ISM_SVC | (page scrape) | monthly | index |
+
+---
+
+*Last updated: 2026-05-04 (SPRINT_pipeline_implementation sub-sprint G)*
