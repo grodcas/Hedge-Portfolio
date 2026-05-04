@@ -7,9 +7,17 @@
  * narrator's regime worker and the dashboard's regime detail board now
  * have a recurring source of truth.
  *
- * Indicator codes match what readers expect:
- *   FRED daily : FEDFUNDS, FED_TARGET_UPPER, FED_TARGET_LOWER, DGS2, DGS10
- *   BLS monthly: CPI_HEADLINE, CPI_CORE, NFP, UNEMP
+ * Indicator codes (read by the dashboard's cross-asset Map + macro slide-out):
+ *
+ *   Rates / curve         : FEDFUNDS, FED_TARGET_UPPER, FED_TARGET_LOWER,
+ *                           DGS2, DGS10, REAL_5Y, BREAKEVEN_5Y, BREAKEVEN_5Y5Y_FWD
+ *   Credit                : OAS_IG, OAS_HY
+ *   Fed balance sheet     : FED_TOTAL_ASSETS, BANK_RESERVES
+ *   FX / commodities      : DXY_BROAD, WTI, GOLD
+ *   Vol                   : VIX
+ *   Labor (weekly)        : INITIAL_CLAIMS
+ *   Survey (monthly)      : UMICH_SENT, INFL_EXP_1Y
+ *   BLS prints (monthly)  : CPI_HEADLINE, CPI_CORE, PPI_FINAL_DEMAND, NFP, UNEMP
  *
  * Endpoints:
  *   GET /build  — force a pull. Returns {ok, fred, bls, inserted, window}.
@@ -21,21 +29,46 @@
 
 const WINDOW_DAYS = 56;
 
-// FRED daily series — fetch ~80 most recent observations per code.
+// FRED daily / weekly / monthly series.
+// Tuple: [series_id, indicator_code, indicator_name, unit].
+// Codes are descriptive (not raw FRED IDs) so dashboard reads stay legible.
 const FRED_SERIES = [
-  ["DFF",      "FEDFUNDS",          "Effective Federal Funds Rate",       "%"],
-  ["DFEDTARU", "FED_TARGET_UPPER",  "Fed Funds Target Range Upper",       "%"],
-  ["DFEDTARL", "FED_TARGET_LOWER",  "Fed Funds Target Range Lower",       "%"],
-  ["DGS2",     "DGS2",              "2-Year Treasury Yield",              "%"],
-  ["DGS10",    "DGS10",             "10-Year Treasury Yield",             "%"],
+  // -------- Rates / curve --------
+  ["DFF",                 "FEDFUNDS",            "Effective Federal Funds Rate",            "%"],
+  ["DFEDTARU",            "FED_TARGET_UPPER",    "Fed Funds Target Range Upper",            "%"],
+  ["DFEDTARL",            "FED_TARGET_LOWER",    "Fed Funds Target Range Lower",            "%"],
+  ["DGS2",                "DGS2",                "2-Year Treasury Yield",                   "%"],
+  ["DGS10",               "DGS10",               "10-Year Treasury Yield",                  "%"],
+  ["DFII5",               "REAL_5Y",             "5-Year Real (TIPS) Yield",                "%"],
+  ["T5YIE",               "BREAKEVEN_5Y",        "5-Year Breakeven Inflation Rate",         "%"],
+  ["T5YIFR",              "BREAKEVEN_5Y5Y_FWD",  "5Y5Y Forward Expected Inflation",         "%"],
+  // -------- Credit --------
+  ["BAMLC0A0CM",          "OAS_IG",              "ICE BofA US IG Corporate OAS",            "%"],
+  ["BAMLH0A0HYM2",        "OAS_HY",              "ICE BofA US HY Corporate OAS",            "%"],
+  // -------- Fed balance sheet (weekly H.4.1) --------
+  ["WALCL",               "FED_TOTAL_ASSETS",    "Federal Reserve Total Assets",            "$M"],
+  ["WRESBAL",             "BANK_RESERVES",       "Reserve Balances at the Fed",             "$M"],
+  // -------- FX / commodities --------
+  ["DTWEXBGS",            "DXY_BROAD",           "Trade-Weighted USD Broad Index",          "index"],
+  ["DCOILWTICO",          "WTI",                 "WTI Crude Spot",                          "$/bbl"],
+  // Gold moved to yfinance-cross-asset-fetcher (GC=F): FRED retired its
+  // GOLDAMGBD228NLBM / GOLDPMGBD228NLBM London-fix series.
+  // -------- Vol --------
+  ["VIXCLS",              "VIX",                 "CBOE Volatility Index (close)",           "index"],
+  // -------- Labor (weekly) --------
+  ["ICSA",                "INITIAL_CLAIMS",      "Initial Unemployment Claims",             "claims"],
+  // -------- Survey (monthly) --------
+  ["UMCSENT",             "UMICH_SENT",          "UMich Consumer Sentiment Index",          "index"],
+  ["MICH",                "INFL_EXP_1Y",         "UMich 1-Year Inflation Expectations",     "%"],
 ];
 
 // BLS monthly series — current+prior year, filter by window.
 const BLS_SERIES = [
-  ["CUUR0000SA0",    "CPI_HEADLINE", "CPI All Items (NSA)",      "index"],
-  ["CUUR0000SA0L1E", "CPI_CORE",     "Core CPI (NSA)",           "index"],
-  ["CES0000000001",  "NFP",          "Nonfarm Payrolls (total, k)", "k"],
-  ["LNS14000000",    "UNEMP",        "Unemployment Rate",        "%"],
+  ["CUUR0000SA0",    "CPI_HEADLINE",     "CPI All Items (NSA)",         "index"],
+  ["CUUR0000SA0L1E", "CPI_CORE",         "Core CPI (NSA)",              "index"],
+  ["WPSFD4",         "PPI_FINAL_DEMAND", "PPI Final Demand",            "index"],
+  ["CES0000000001",  "NFP",              "Nonfarm Payrolls (total, k)", "k"],
+  ["LNS14000000",    "UNEMP",            "Unemployment Rate",           "%"],
 ];
 
 export default {
@@ -67,8 +100,16 @@ async function build(env) {
   const rows = [];
 
   // ---------- FRED ----------
+  // FRED 500s on individual series are common (one bad series shouldn't kill
+  // the whole nightly run); catch + log + continue.
   for (const [seriesId, code, name, unit] of FRED_SERIES) {
-    const obs = await fetchFRED(fredKey, seriesId);
+    let obs;
+    try {
+      obs = await fetchFRED(fredKey, seriesId);
+    } catch (err) {
+      console.error(`[macro-state] FRED ${seriesId} (${code}): ${err.message}`);
+      continue;
+    }
     for (let i = 0; i < obs.length; i++) {
       const o = obs[i];
       if (o.value === "." || o.value === null) continue;
@@ -95,9 +136,25 @@ async function build(env) {
     }
   }
 
+  // ---------- CBOE Skew ----------
+  // CBOE's CDN (cdn.cboe.com) returns 403 on Cloudflare Workers egress IPs
+  // regardless of User-Agent / Referer headers. Verified 2026-05-04 against
+  // the public CSV at /api/global/us_indices/daily_skew_values.csv.
+  // The local pipeline `macro/scraper.js :: getSkew` works (residential IP)
+  // and will be wired through to MACRO_STATE_indicators in a future sprint
+  // (likely via a new POST /ingest/skew endpoint or the same path as
+  // sentiment-state-fetcher). For now SKEW stays PARSED-BUT-LOST.
+
   // ---------- BLS ----------
+  // Same pattern — log + continue on per-series failures.
   for (const [seriesId, code, name, unit] of BLS_SERIES) {
-    const series = await fetchBLS(blsKey, seriesId);
+    let series;
+    try {
+      series = await fetchBLS(blsKey, seriesId);
+    } catch (err) {
+      console.error(`[macro-state] BLS ${seriesId} (${code}): ${err.message}`);
+      continue;
+    }
     for (let i = 0; i < series.length; i++) {
       const row = series[i];
       const month = parseInt(String(row.period || "").replace("M", ""), 10);
@@ -183,6 +240,25 @@ async function fetchFRED(apiKey, seriesId) {
   if (!res.ok) throw new Error(`FRED ${seriesId} → HTTP ${res.status}`);
   const data = await res.json();
   return Array.isArray(data?.observations) ? data.observations : [];
+}
+
+async function fetchCboeSkew() {
+  const url = "https://cdn.cboe.com/api/global/us_indices/daily_skew_values.csv";
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`CBOE SKEW → HTTP ${res.status}`);
+  const csv = await res.text();
+  const lines = csv.trim().split(/\r?\n/);
+  const out = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(",");
+    if (cols.length < 2) continue;
+    const date = cols[0].trim();
+    const value = parseFloat(cols[1]);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    out.push({ date, value });
+  }
+  // CBOE CSV is chronological (oldest-first); leave as-is so prior pairing is right.
+  return out;
 }
 
 async function fetchBLS(apiKey, seriesId) {
