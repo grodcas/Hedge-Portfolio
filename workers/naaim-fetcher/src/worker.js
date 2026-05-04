@@ -1,44 +1,42 @@
 /**
- * NAAIM-FETCHER — weekly writer for the NAAIM Exposure Index.
+ * DEPRECATED 2026-05-04: no free numeric source for the NAAIM Exposure Index.
  *
- * NAAIM publishes the Exposure Index every Wednesday after market close. The
- * canonical free path is the CSV at naaim.org/wp-content/uploads/. The URL has
- * historically migrated between subpaths (file is reuploaded when the schema
- * changes), so the parser tries the canonical path first and falls back to the
- * exposure-index HTML page if the CSV moves.
+ * Sources surveyed before drop:
+ *   - https://www.naaim.org/wp-content/uploads/CSV-of-NAAIM-Exposure-Index.csv
+ *     (canonical CSV) — the URL moves between subpaths every few months, so
+ *     it can't be relied on as a stable cron target.
+ *   - https://www.naaim.org/programs/naaim-exposure-index/ (HTML page) —
+ *     value is rendered by JS; the raw HTML carries no number.
+ *   - https://www.naaim.org/feed/ (RSS) — only carries "NAAIM Speaks"
+ *     newsletter post titles; no exposure index numbers (verified
+ *     2026-05-04 during the pipeline-leftovers sprint).
  *
- * Indicator code: NAAIM (single value: average exposure 0–200 scale).
- *
- * Endpoints:
- *   GET /build  — force a pull. Returns {ok, latest, prior, source_used}.
- *   GET /status — most recent NAAIM row in the DB.
- *
- * Cron: Thursday 14:00 UTC (≈10:00 AM ET, the morning after Wednesday close).
- *
- * If the source layout breaks, this worker logs and returns gracefully without
- * touching the DB. Per the sprint discipline ("if scrape is fragile, log + skip"),
- * a single missed week is preferable to a fabricated value.
+ * Cron disabled in wrangler.jsonc. /build now returns a deprecation notice
+ * without touching D1. Worker body kept for history; if a free numeric
+ * source resurfaces, restore the cron + remove this header.
  */
 
 const CSV_URL = "https://www.naaim.org/wp-content/uploads/CSV-of-NAAIM-Exposure-Index.csv";
 const PAGE_URL = "https://www.naaim.org/programs/naaim-exposure-index/";
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, _env) {
     const url = new URL(req.url);
-    try {
-      if (url.pathname === "/build")  return Response.json(await build(env));
-      if (url.pathname === "/status") return Response.json(await status(env));
-      return new Response("Not found", { status: 404 });
-    } catch (err) {
-      return Response.json({ ok: false, error: err.message }, { status: 500 });
+    if (url.pathname === "/build" || url.pathname === "/status") {
+      return Response.json({
+        ok: false,
+        deprecated: true,
+        reason: "NAAIM Exposure Index has no free numeric source — see worker.js header",
+      });
     }
+    return new Response("Not found", { status: 404 });
   },
-  async scheduled(_event, env, ctx) {
-    ctx.waitUntil(build(env).catch((e) => console.error(`[naaim-fetcher] cron: ${e.message}`)));
-  },
+  // No scheduled handler — cron is disabled in wrangler.jsonc.
 };
 
+// ----- legacy implementation kept below for history (no longer reachable) -----
+
+// eslint-disable-next-line no-unused-vars
 async function build(env) {
   // Try CSV first — most stable, machine-readable.
   let rows = [];
