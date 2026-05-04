@@ -120,13 +120,24 @@ async function build(env) {
 // One row per (meeting × indicator × year × stat) into FOMC_PROJECTIONS.
 // Returns a brief summary so /build can echo what was extracted.
 async function fetchAndWriteProjections(env, meetingDate) {
-  const dateCompact = meetingDate.replace(/-/g, ""); // YYYYMMDD
-  const url = `https://www.federalreserve.gov/monetarypolicy/fomcprojtabl${dateCompact}.htm`;
-
-  const res = await fetch(url, { headers: { "User-Agent": BROWSER_UA } });
-  if (res.status === 404) return { ok: true, skip: "no SEP page (likely a non-projection meeting)" };
-  if (!res.ok) throw new Error(`SEP page → HTTP ${res.status}`);
-  const html = await res.text();
+  // The Fed names SEP files by the rate-decision day (the second meeting day).
+  // RSS pubDate of the press release matches that day. But callers occasionally
+  // pass the press-conference / announcement day (off by ±1), so we try the
+  // primary date first, then ±1 as a fallback before giving up.
+  const tryDates = [meetingDate, addDays(meetingDate, -1), addDays(meetingDate, 1)];
+  let res, url, html;
+  for (const d of tryDates) {
+    url = `https://www.federalreserve.gov/monetarypolicy/fomcprojtabl${d.replace(/-/g, "")}.htm`;
+    res = await fetch(url, { headers: { "User-Agent": BROWSER_UA } });
+    if (res.ok) {
+      html = await res.text();
+      // Fed serves a 200-with-404-body for missing meetings; detect via the
+      // "Page not found" h2 the templated 404 emits.
+      if (!/<h2>\s*Page not found\s*<\/h2>/i.test(html)) break;
+      html = null;
+    }
+  }
+  if (!html) return { ok: true, skip: `no SEP page within ±1 day of ${meetingDate}` };
 
   const projections = parseSEP(html);
   if (projections.length === 0) {
@@ -152,93 +163,113 @@ async function fetchAndWriteProjections(env, meetingDate) {
   return { ok: true, url, rows: projections.length, inserted };
 }
 
-// SEP HTML structure (stable since 2014):
-//   First table is "Economic projections … percent change"
-//   Rows per indicator (Change in real GDP, Unemployment rate, PCE inflation,
-//                       Core PCE inflation), each with sub-rows for years
-//                       (current, +1, +2, +3, Longer run) and stats
-//                       (Median, Central tendency, Range).
-//   A separate table covers "Appropriate target federal funds rate at year-end"
-//   — that's the dot plot's median / range.
+// SEP HTML structure (stable since 2017, when the Fed added classed cells):
 //
-// Parser strategy: pull every <table> with a recognisable indicator label,
-// then walk rows. Permissive — if a row doesn't match the expected shape, skip.
+//   ONE table at the top (class="pubtables") is the consolidated summary:
+//     header row 1: <th>Variable</th> + <th colspan=4>Median</th> + ditto
+//                   <th colspan=4>Central Tendency</th> + <th colspan=4>Range</th>
+//     header row 2: 12 year sub-cells: 2026, 2027, 2028, "Longer run" repeated
+//                   3× — once per stat-group.
+//     body rows alternate: indicator row + a "December projection" sub-row
+//                          (class includes "in1") which we skip.
+//     indicators (top→bottom): Change in real GDP, Unemployment rate, PCE
+//                              inflation, Core PCE inflation, then a memo
+//                              divider, then Federal funds rate (= dot plot).
+//     Median cells are a single number; CT and Range cells are "L–H" en-dash
+//     spans (occasionally a single number when the range collapses).
+//
+// We emit one row per (indicator × year × stat). Range / central_tendency
+// split into _low and _high (so the dashboard can render bands without
+// re-parsing strings).
 function parseSEP(html) {
-  const out = [];
-  const tableRe = /<table[^>]*>([\s\S]*?)<\/table>/gi;
+  // The page also embeds per-indicator detail tables further down, all using
+  // the same "pubtables" class — we only want the first, which carries the
+  // summary used by the dashboard.
+  const tableMatch = /<table[^>]*class="[^"]*pubtables[^"]*"[^>]*>([\s\S]*?)<\/table>/i.exec(html);
+  if (!tableMatch) return [];
+  const tbl = tableMatch[1];
 
   const indicatorMap = [
-    [/change in real gdp/i,            "GDP",            "%"],
-    [/unemployment rate/i,             "UNEMPLOYMENT",   "%"],
-    [/pce inflation/i,                 "PCE",            "%"],
-    [/core pce inflation/i,            "CORE_PCE",       "%"],
-    [/appropriate.*federal funds rate/i, "FED_FUNDS",    "%"],
+    [/change in real gdp/i, "GDP"],
+    [/unemployment rate/i,  "UNEMPLOYMENT"],
+    [/^pce inflation/i,     "PCE"],          // anchored — must not steal "Core PCE inflation"
+    [/core pce inflation/i, "CORE_PCE"],
+    [/federal funds rate/i, "FED_FUNDS"],
   ];
 
-  let m;
-  while ((m = tableRe.exec(html)) !== null) {
-    const tbl = m[1];
+  // Year labels live in the second <tr> of <thead>.
+  const headMatch = /<thead\b[^>]*>([\s\S]*?)<\/thead>/i.exec(tbl);
+  if (!headMatch) return [];
+  const headerRows = [...headMatch[1].matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
+  if (headerRows.length < 2) return [];
+  const yearCells = [...headerRows[1][1].matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/gi)]
+    .map((c) => cleanText(c[1]));
+  // Stat groups partition the 12 columns evenly: 0..N-1 = median,
+  // N..2N-1 = central_tendency, 2N..3N-1 = range.
+  const yearsPerGroup = yearCells.length / 3;
+  if (!Number.isInteger(yearsPerGroup) || yearsPerGroup === 0) return [];
 
-    // Identify the indicator from a leading <caption> or first heading text.
-    let indicator = null, unit = "%";
-    for (const [re, code, u] of indicatorMap) {
-      if (re.test(tbl.slice(0, 1000))) { indicator = code; unit = u; break; }
+  const out = [];
+  const bodyMatch = /<tbody\b[^>]*>([\s\S]*?)<\/tbody>/i.exec(tbl);
+  const bodySrc = bodyMatch ? bodyMatch[1] : tbl;
+  const bodyRows = [...bodySrc.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
+
+  for (const r of bodyRows) {
+    const rowSrc = r[1];
+
+    // First <th> in the body row is the row stub. Skip "December projection"
+    // sub-rows (class includes "in1") and the colspanned "Memo:" divider.
+    const stubMatch = /<th\b([^>]*)>([\s\S]*?)<\/th>/i.exec(rowSrc);
+    if (!stubMatch) continue;
+    const stubAttrs = stubMatch[1];
+    if (/\bin1\b/.test(stubAttrs)) continue;
+    if (/\bcolspan="\d+"/i.test(stubAttrs)) continue;
+
+    const label = cleanText(stubMatch[2]);
+    let indicator = null;
+    for (const [re, code] of indicatorMap) {
+      if (re.test(label)) { indicator = code; break; }
     }
     if (!indicator) continue;
 
-    // Header row carries year labels (e.g., 2026, 2027, 2028, Longer run).
-    const headerMatch = /<thead[\s\S]*?<\/thead>/i.exec(tbl);
-    const headerSrc = headerMatch ? headerMatch[0] : tbl.slice(0, 1500);
-    const yearLabels = [];
-    const yearReHdr = /<th[^>]*>([\s\S]*?)<\/th>/gi;
-    let h;
-    while ((h = yearReHdr.exec(headerSrc)) !== null) {
-      const txt = cleanText(h[1]);
-      if (/^20\d{2}$/.test(txt) || /longer run/i.test(txt)) yearLabels.push(txt);
-    }
-    if (yearLabels.length === 0) continue;
+    const cells = [...rowSrc.matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)]
+      .map((c) => cleanText(c[1]));
 
-    // Body rows: row label is the stat (Median / Central tendency / Range).
-    const rowRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
-    let r;
-    while ((r = rowRe.exec(tbl)) !== null) {
-      const rowSrc = r[1];
-      const cellRe = /<t[hd][^>]*>([\s\S]*?)<\/t[hd]>/gi;
-      const cells = [];
-      let c;
-      while ((c = cellRe.exec(rowSrc)) !== null) cells.push(cleanText(c[1]));
-      if (cells.length < 2) continue;
+    for (let i = 0; i < yearCells.length; i++) {
+      const cell = cells[i];
+      if (!cell) continue; // emptystub / collapsed cell (e.g., Core PCE Longer run)
+      const year = yearCells[i];
+      const groupIdx = Math.floor(i / yearsPerGroup);
+      const baseStat = groupIdx === 0 ? "median" : groupIdx === 1 ? "central_tendency" : "range";
 
-      const label = cells[0].toLowerCase();
-      let stat = null;
-      if (/median/.test(label)) stat = "median";
-      else if (/central tendency/.test(label)) stat = "central_tendency";
-      else if (/range/.test(label)) stat = "range";
-      if (!stat) continue;
-
-      // Cells [1..yearLabels.length] correspond to year columns.
-      // For "Median" rows, value is a single number per year.
-      // For "Central tendency" / "Range", value is "low–high" or "low–high".
-      for (let i = 0; i < yearLabels.length; i++) {
-        const cell = cells[i + 1];
-        if (!cell) continue;
-        if (stat === "median") {
-          const v = parseFloat(cell);
-          if (Number.isFinite(v)) out.push({ indicator, year: yearLabels[i], stat, value: v, unit });
+      if (baseStat === "median") {
+        const v = parseFloat(cell);
+        if (Number.isFinite(v)) out.push({ indicator, year, stat: baseStat, value: v, unit: "%" });
+      } else {
+        const rng = cell.match(/([0-9.]+)\s*(?:[–—\-]|to)\s*([0-9.]+)/);
+        if (rng) {
+          const lo = parseFloat(rng[1]);
+          const hi = parseFloat(rng[2]);
+          if (Number.isFinite(lo)) out.push({ indicator, year, stat: `${baseStat}_low`,  value: lo, unit: "%" });
+          if (Number.isFinite(hi)) out.push({ indicator, year, stat: `${baseStat}_high`, value: hi, unit: "%" });
         } else {
-          // Range / central tendency = "L–H" or "L to H"
-          const rng = cell.match(/([0-9.]+)\s*(?:[–—\-]|to)\s*([0-9.]+)/);
-          if (rng) {
-            const lo = parseFloat(rng[1]);
-            const hi = parseFloat(rng[2]);
-            if (Number.isFinite(lo)) out.push({ indicator, year: yearLabels[i], stat: `${stat}_low`, value: lo, unit });
-            if (Number.isFinite(hi)) out.push({ indicator, year: yearLabels[i], stat: `${stat}_high`, value: hi, unit });
+          // Collapsed single value (e.g., PCE 2028 = "2.0" in CT and Range).
+          const v = parseFloat(cell);
+          if (Number.isFinite(v)) {
+            out.push({ indicator, year, stat: `${baseStat}_low`,  value: v, unit: "%" });
+            out.push({ indicator, year, stat: `${baseStat}_high`, value: v, unit: "%" });
           }
         }
       }
     }
   }
   return out;
+}
+
+function addDays(isoDate, n) {
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
 }
 
 async function status(env) {
