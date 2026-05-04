@@ -101,6 +101,15 @@ async function fetchOverview(ticker, apiKey) {
     analyst_target: parseNum(data.AnalystTargetPrice),
     dividend_yield: parseNum(data.DividendYield),
     beta: parseNum(data.Beta),
+    // Typed multiples promoted from raw_json (migration 0035) so the dashboard
+    // can sort / z-score on them without parsing the blob at query time.
+    peg_ratio: parseNum(data.PEGRatio),
+    ev_ebitda: parseNum(data.EVToEBITDA),
+    ev_sales:  parseNum(data.EVToRevenue),
+    pb_ratio:  parseNum(data.PriceToBookRatio),
+    ps_ratio:  parseNum(data.PriceToSalesRatioTTM),
+    roe_ttm:   parseNum(data.ReturnOnEquityTTM),
+    roa_ttm:   parseNum(data.ReturnOnAssetsTTM),
     raw_overview: data,
   };
 }
@@ -133,6 +142,9 @@ async function fetchIncomeStatement(ticker, apiKey) {
     gross_profit_prev: parseNum(yoy.grossProfit),
     net_income: parseNum(cur.netIncome),
     net_income_prev: parseNum(yoy.netIncome),
+    // Full quarterly history — enables 8q / 20q sparklines once persisted
+    // into FUND_01_Quarterly. Newest-first; full array (typically 20 quarters).
+    _is_quarters: extractQuartersIS(data.quarterlyReports),
   };
 }
 
@@ -155,6 +167,7 @@ async function fetchBalanceSheet(ticker, apiKey) {
     current_liabilities_prev: parseNum(yoy.totalCurrentLiabilities),
     shares_outstanding: parseNum(cur.commonStockSharesOutstanding),
     shares_outstanding_prev: parseNum(yoy.commonStockSharesOutstanding),
+    _bs_quarters: extractQuartersBS(data.quarterlyReports),
   };
 }
 
@@ -169,7 +182,58 @@ async function fetchCashFlow(ticker, apiKey) {
     fiscal_period_ending: cur.fiscalDateEnding,
     cfo: parseNum(cur.operatingCashflow),
     cfo_prev: parseNum(yoy.operatingCashflow),
+    _cf_quarters: extractQuartersCF(data.quarterlyReports),
   };
+}
+
+// Extract the full 20 quarters of statement-by-statement values for downstream
+// FUND_01_Quarterly persistence. Each helper returns an array of objects keyed
+// by fiscalDateEnding; merge across IS / BS / CF happens in the main loop.
+function extractQuartersIS(quarterlyReports) {
+  if (!Array.isArray(quarterlyReports)) return [];
+  return quarterlyReports.map(q => ({
+    fiscal_period_ending: q.fiscalDateEnding,
+    total_revenue:    parseNum(q.totalRevenue),
+    gross_profit:     parseNum(q.grossProfit),
+    operating_income: parseNum(q.operatingIncome),
+    net_income:       parseNum(q.netIncome),
+    rd_expense:       parseNum(q.researchAndDevelopment),
+    sga_expense:      parseNum(q.sellingGeneralAndAdministrative),
+    interest_expense: parseNum(q.interestExpense),
+    ebit:             parseNum(q.ebit),
+    ebitda:           parseNum(q.ebitda),
+  })).filter(q => q.fiscal_period_ending);
+}
+
+function extractQuartersBS(quarterlyReports) {
+  if (!Array.isArray(quarterlyReports)) return [];
+  return quarterlyReports.map(q => ({
+    fiscal_period_ending:  q.fiscalDateEnding,
+    total_assets:          parseNum(q.totalAssets),
+    total_liabilities:     parseNum(q.totalLiabilities),
+    total_equity:          parseNum(q.totalShareholderEquity),
+    current_assets:        parseNum(q.totalCurrentAssets),
+    current_liabilities:   parseNum(q.totalCurrentLiabilities),
+    inventory:             parseNum(q.inventory),
+    receivables:           parseNum(q.currentNetReceivables),
+    cash_and_equivalents:  parseNum(q.cashAndCashEquivalentsAtCarrying),
+    short_term_debt:       parseNum(q.shortTermDebt),
+    long_term_debt:        parseNum(q.longTermDebt),
+    shares_outstanding:    parseNum(q.commonStockSharesOutstanding),
+  })).filter(q => q.fiscal_period_ending);
+}
+
+function extractQuartersCF(quarterlyReports) {
+  if (!Array.isArray(quarterlyReports)) return [];
+  return quarterlyReports.map(q => ({
+    fiscal_period_ending: q.fiscalDateEnding,
+    cfo:                  parseNum(q.operatingCashflow),
+    capex:                parseNum(q.capitalExpenditures),
+    cfi:                  parseNum(q.cashflowFromInvestment),
+    cff:                  parseNum(q.cashflowFromFinancing),
+    dividends_paid:       parseNum(q.dividendPayout),
+    buyback:              parseNum(q.paymentsForRepurchaseOfCommonStock),
+  })).filter(q => q.fiscal_period_ending);
 }
 
 // Query SEC EDGAR submissions API for the latest 10-Q filing per CIK. Free,
@@ -504,6 +568,14 @@ export async function fetchFundamentals(config, logger, results, opts = {}) {
       dividend_yield: row.dividend_yield ?? null,
       beta: row.beta ?? null,
       sector: row.sector ?? null,
+      // Typed multiples (migration 0035)
+      peg_ratio: row.peg_ratio ?? null,
+      ev_ebitda: row.ev_ebitda ?? null,
+      ev_sales:  row.ev_sales  ?? null,
+      pb_ratio:  row.pb_ratio  ?? null,
+      ps_ratio:  row.ps_ratio  ?? null,
+      roe_ttm:   row.roe_ttm   ?? null,
+      roa_ttm:   row.roa_ttm   ?? null,
       // Piotroski feedstock (raw + derived)
       total_assets: row.total_assets ?? null,
       total_assets_prev: row.total_assets_prev ?? null,
@@ -556,6 +628,54 @@ export async function fetchFundamentals(config, logger, results, opts = {}) {
     } catch (err) {
       logger.log("FUNDAMENTALS", `Ingest POST failed: ${err.message}`, "fail");
       throw err;
+    }
+  }
+
+  // ---------- Per-quarter rows → FUND_01_Quarterly ----------
+  // Merge IS / BS / CF quarter arrays into one row per (ticker × fiscal_period_ending).
+  // Only emit rows for the tickers whose statement endpoints succeeded this run; on
+  // OVERVIEW-only days (or daily runs where IS/BS/CF were skipped per the smart-fetch
+  // gate), there are no `_quarters` arrays and nothing to write — no-op is correct.
+  const quarterlyRows = [];
+  for (const ticker of Object.keys(accum)) {
+    const row = accum[ticker];
+    const isQ = row?._is_quarters || [];
+    const bsQ = row?._bs_quarters || [];
+    const cfQ = row?._cf_quarters || [];
+    if (isQ.length === 0 && bsQ.length === 0 && cfQ.length === 0) continue;
+
+    const byPeriod = new Map();
+    const merge = (q) => {
+      if (!q.fiscal_period_ending) return;
+      const existing = byPeriod.get(q.fiscal_period_ending) || {};
+      byPeriod.set(q.fiscal_period_ending, { ...existing, ...q });
+    };
+    isQ.forEach(merge);
+    bsQ.forEach(merge);
+    cfQ.forEach(merge);
+
+    for (const [period, q] of byPeriod) {
+      quarterlyRows.push({ ticker, fiscal_period_ending: period, ...q });
+    }
+  }
+
+  if (quarterlyRows.length > 0) {
+    try {
+      const res = await fetch(`${INGEST_BASE}/ingest/fundamentals-quarterly`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(quarterlyRows),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        logger.log("FUNDAMENTALS", `Ingested ${data.inserted || quarterlyRows.length} quarterly rows`, "ok");
+      } else {
+        logger.log("FUNDAMENTALS", `Quarterly ingestor returned HTTP ${res.status} — skipping (table may not exist yet; run migration 0036)`, "warn");
+      }
+    } catch (err) {
+      // Non-fatal: the daily fundamentals already shipped, the quarterly history
+      // is purely additive and can be retried tomorrow.
+      logger.log("FUNDAMENTALS", `Quarterly ingest POST failed: ${err.message}`, "warn");
     }
   }
 
