@@ -71,21 +71,21 @@ LIMIT 1;
 
 | # | Indicator code | Source URL (FRED) | Value written | Value from source | Match? | Notes |
 |---|---|---|---|---|---|---|
-| 1 | REAL_5Y | https://fred.stlouisfed.org/series/DFII5 | | | | |
-| 2 | BREAKEVEN_5Y | https://fred.stlouisfed.org/series/T5YIE | | | | |
-| 3 | BREAKEVEN_5Y5Y_FWD | https://fred.stlouisfed.org/series/T5YIFR | | | | |
-| 4 | OAS_IG | https://fred.stlouisfed.org/series/BAMLC0A0CM | | | | |
-| 5 | OAS_HY | https://fred.stlouisfed.org/series/BAMLH0A0HYM2 | | | | |
-| 6 | FED_TOTAL_ASSETS | https://fred.stlouisfed.org/series/WALCL | | | | Weekly H.4.1; report `$M` |
-| 7 | BANK_RESERVES | https://fred.stlouisfed.org/series/WRESBAL | | | | Weekly H.4.1; report `$M` |
-| 8 | DXY_BROAD | https://fred.stlouisfed.org/series/DTWEXBGS | | | | Index |
-| 9 | WTI | https://fred.stlouisfed.org/series/DCOILWTICO | | | | $/bbl |
-| 10 | GOLD | https://fred.stlouisfed.org/series/GOLDAMGBD228NLBM | | | | London AM fix, $/oz |
-| 11 | INITIAL_CLAIMS | https://fred.stlouisfed.org/series/ICSA | | | | Weekly; raw count (×k for display) |
-| 12 | VIX | https://fred.stlouisfed.org/series/VIXCLS | | | | |
+| 1 | REAL_5Y | https://fred.stlouisfed.org/series/DFII5 | 1.35 | | | |
+| 2 | BREAKEVEN_5Y | https://fred.stlouisfed.org/series/T5YIE | 2.69 | | | |
+| 3 | BREAKEVEN_5Y5Y_FWD | https://fred.stlouisfed.org/series/T5YIFR | 2.27 | | | |
+| 4 | OAS_IG | https://fred.stlouisfed.org/series/BAMLC0A0CM | 0.81 | | | |
+| 5 | OAS_HY | https://fred.stlouisfed.org/series/BAMLH0A0HYM2 | 2.83 | | | |
+| 6 | FED_TOTAL_ASSETS | https://fred.stlouisfed.org/series/WALCL | 6699950 | | | Weekly H.4.1; report `$M` |
+| 7 | BANK_RESERVES | https://fred.stlouisfed.org/series/WRESBAL | 2918599 | | | Weekly H.4.1; report `$M` |
+| 8 | DXY_BROAD | https://fred.stlouisfed.org/series/DTWEXBGS | 118.7294 | | | Index |
+| 9 | WTI | https://fred.stlouisfed.org/series/DCOILWTICO | 99.89 | | | $/bbl |
+| 10 | GOLD | https://fred.stlouisfed.org/series/GOLDAMGBD228NLBM | 4573.2001953125 | | | London AM fix, $/oz |
+| 11 | INITIAL_CLAIMS | https://fred.stlouisfed.org/series/ICSA | 189000 | | | Weekly; raw count (×k for display) |
+| 12 | VIX | https://fred.stlouisfed.org/series/VIXCLS | 16.99 | | | |
 | 13 | UMICH_SENT | https://fred.stlouisfed.org/series/UMCSENT | | | | Monthly |
 | 14 | INFL_EXP_1Y | https://fred.stlouisfed.org/series/MICH | | | | Monthly |
-| 15 | PPI_FINAL_DEMAND | https://fred.stlouisfed.org/series/PPIFIS | | | | Cross-check vs BLS WPSFD4 |
+| 15 | PPI_FINAL_DEMAND | https://fred.stlouisfed.org/series/PPIFIS | 154.006 | | | Cross-check vs BLS WPSFD4 |
 
 ## EXTEND · macro-state-fetcher (CBOE SKEW)
 
@@ -99,9 +99,9 @@ After cron tick (00:20 UTC), three rows in `MACRO_STATE_indicators` with `source
 
 | # | Code | Source | Written | From source | Match? | Notes |
 |---|---|---|---|---|---|---|
-| 17 | EURUSD | https://finance.yahoo.com/quote/EURUSD=X | | | | |
-| 18 | COPPER | https://finance.yahoo.com/quote/HG=F | | | | Front-month futures |
-| 19 | VVIX | https://finance.yahoo.com/quote/^VVIX | | | | |
+| 17 | EURUSD | https://finance.yahoo.com/quote/EURUSD=X | 1.1716461181640625 | | | |
+| 18 | COPPER | https://finance.yahoo.com/quote/HG=F | 5.9070000648498535 | | | Front-month futures |
+| 19 | VVIX | https://finance.yahoo.com/quote/^VVIX | 96.12000274658203 | | | |
 
 ## NEW · naaim-fetcher (worker)
 
@@ -109,7 +109,7 @@ Cron Thursday 14:00 UTC. The CSV path historically migrates between subpaths —
 
 | # | Code | Source | Written | From source | Match? | Notes |
 |---|---|---|---|---|---|---|
-| 20 | NAAIM | https://www.naaim.org/programs/naaim-exposure-index/ | | | | Weekly; `Mean` value |
+| 20 | NAAIM | https://www.naaim.org/programs/naaim-exposure-index/ | DEPRECATED 2026-05-04 | | | Weekly; `Mean` value |
 
 ## NEW · ism-fetcher (worker, BEST-EFFORT)
 
@@ -117,8 +117,8 @@ Cron daily 14:30 UTC. Idempotent — skips if current month already in DB. **Fra
 
 | # | Code | Source | Written | From source | Match? | Notes |
 |---|---|---|---|---|---|---|
-| 21 | ISM_MFG | https://www.ismworld.org/supply-management-news-and-reports/reports/ism-report-on-business/pmi/ | | | | Released first business day, ~10:00 ET |
-| 22 | ISM_SVC | https://www.ismworld.org/supply-management-news-and-reports/reports/ism-report-on-business/services/ | | | | Released third business day, ~10:00 ET |
+| 21 | ISM_MFG | https://www.ismworld.org/supply-management-news-and-reports/reports/ism-report-on-business/pmi/ | DEPRECATED 2026-05-04 | | | Released first business day, ~10:00 ET |
+| 22 | ISM_SVC | https://www.ismworld.org/supply-management-news-and-reports/reports/ism-report-on-business/services/ | DEPRECATED 2026-05-04 | | | Released third business day, ~10:00 ET |
 
 ## NEW · sentiment-state-fetcher (worker)
 
@@ -133,16 +133,16 @@ ORDER BY indicator_code;
 
 | # | Code | Source | Written | From BETA_04_Sentiment blob | Match? | Notes |
 |---|---|---|---|---|---|---|
-| 23 | PUTCALL_EQUITY | local pipeline → BETA_04 | | | | |
-| 24 | PUTCALL_INDEX | local pipeline → BETA_04 | | | | |
-| 25 | PUTCALL_TOTAL | local pipeline → BETA_04 | | | | |
-| 26 | AAII_BULLISH | local pipeline → BETA_04 | | | | |
-| 27 | AAII_BEARISH | local pipeline → BETA_04 | | | | |
-| 28 | AAII_BULL_BEAR | local pipeline → BETA_04 | | | | computed = bull − bear |
-| 29 | COT_ES_AM_NET | local pipeline → BETA_04 | | | | |
-| 30 | COT_ES_LF_NET | local pipeline → BETA_04 | | | | |
-| 31 | COT_NQ_AM_NET | local pipeline → BETA_04 | | | | |
-| 32 | COT_NQ_LF_NET | local pipeline → BETA_04 | | | | |
+| 23 | PUTCALL_EQUITY | local pipeline → BETA_04 | 0.46 | | | |
+| 24 | PUTCALL_INDEX | local pipeline → BETA_04 | 0.98 | | | |
+| 25 | PUTCALL_TOTAL | local pipeline → BETA_04 | 0.76 | | | |
+| 26 | AAII_BULLISH | local pipeline → BETA_04 | 32.6 | | | |
+| 27 | AAII_BEARISH | local pipeline → BETA_04 | 43.6 | | | |
+| 28 | AAII_BULL_BEAR | local pipeline → BETA_04 | -11 | | | computed = bull − bear |
+| 29 | COT_ES_AM_NET | local pipeline → BETA_04 | -18569 | | | |
+| 30 | COT_ES_LF_NET | local pipeline → BETA_04 | -4195 | | | |
+| 31 | COT_NQ_AM_NET | local pipeline → BETA_04 | -111440 | | | |
+| 32 | COT_NQ_LF_NET | local pipeline → BETA_04 | -41884 | | | |
 
 ## EXTEND · fomc-statement-fetcher (dot plot + SEP)
 
@@ -192,7 +192,7 @@ ORDER BY ticker;
 
 | # | Check | Expectation | Written | Match? | Notes |
 |---|---|---|---|---|---|
-| 40 | FUND_01_Quarterly · NVDA quarter count | ≥ 5 (after first run; 20 after AV indexes) | | | First run will be partial — only tickers whose IS/BS/CF endpoints fired |
+| 40 | FUND_01_Quarterly · NVDA quarter count | ≥ 5 (after first run; 20 after AV indexes) | 0 | | First run will be partial — only tickers whose IS/BS/CF endpoints fired |
 | 41 | FUND_01_Fundamentals.peg_ratio · NVDA | matches AV OVERVIEW.PEGRatio | | | |
 | 42 | FUND_01_Fundamentals.ev_ebitda · NVDA | matches AV OVERVIEW.EVToEBITDA | | | |
 | 43 | FUND_01_Fundamentals.pb_ratio · NVDA | matches AV OVERVIEW.PriceToBookRatio | | | |
