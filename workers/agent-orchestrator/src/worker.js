@@ -82,6 +82,12 @@ const AGENTS = [
     sector,
     shouldFire: (db) => shouldFireSectorHedges(db, sector),
   })),
+  ...SECTORS_BUILD_PHASE.map(sector => ({
+    name:     `sector-read:${sector}`,
+    binding:  "SECTOR_READ",
+    sector,
+    shouldFire: (db) => shouldFireSectorRead(db, sector),
+  })),
 ];
 
 export default {
@@ -419,6 +425,26 @@ async function shouldFireSectorHedges(db, sector) {
     return { fire: true, reason: "sector thesis newer than hedges" };
   }
   return { fire: false, reason: `hedges fresh: sector thesis stable for ${sector}` };
+}
+
+// S6 Sector Read epsilon (per sector): re-fire whenever any of {thesis,
+// implementation, hedges}_updated_at is newer than read_updated_at. The
+// sector lede stitches the upstream three. Runs LAST in the per-sector
+// chain.
+async function shouldFireSectorRead(db, sector) {
+  const r = await db.prepare(
+    `SELECT thesis_updated_at, implementation_updated_at, hedges_updated_at, read_updated_at
+       FROM SECTOR_TREND_long WHERE sector = ?`,
+  ).bind(sector).first();
+  if (!r) return { fire: false, reason: `no SECTOR_TREND_long row for ${sector}` };
+  if (!r.thesis_updated_at)         return { fire: false, reason: `no sector thesis yet` };
+  if (!r.implementation_updated_at) return { fire: false, reason: `no implementation yet (S4 must fire first)` };
+  if (!r.hedges_updated_at)         return { fire: false, reason: `no hedges yet (S5 must fire first)` };
+  if (!r.read_updated_at)           return { fire: true, reason: `first run for ${sector}` };
+  if (r.thesis_updated_at         > r.read_updated_at) return { fire: true, reason: "sector thesis newer than read" };
+  if (r.implementation_updated_at > r.read_updated_at) return { fire: true, reason: "implementation newer than read" };
+  if (r.hedges_updated_at         > r.read_updated_at) return { fire: true, reason: "hedges newer than read" };
+  return { fire: false, reason: `read fresh: thesis/impl/hedges all stable for ${sector}` };
 }
 
 // ---------------------------------------------------------------------------

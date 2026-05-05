@@ -23,7 +23,8 @@
     { "binding": "MACRO_FOMC_SUMMARY","service": "macro-fomc-summary-agent" },
     { "binding": "SECTOR_THESIS",         "service": "macro-sector-thesis-agent" },
     { "binding": "SECTOR_IMPLEMENTATION", "service": "macro-sector-implementation-agent" },
-    { "binding": "SECTOR_HEDGES",         "service": "macro-sector-hedges-agent" }
+    { "binding": "SECTOR_HEDGES",         "service": "macro-sector-hedges-agent" },
+    { "binding": "SECTOR_READ",           "service": "macro-sector-read-agent" }
   ],
   "triggers": {
     "crons": ["0 14-22 * * 1-5"]
