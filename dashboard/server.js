@@ -1054,9 +1054,9 @@ app.post("/api/run-validation", async (req, res) => {
 });
 
 // ============ START SERVER ============
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`\n========================================`);
-  console.log(`  Dashboard running at http://localhost:${PORT}`);
+  console.log(`  Dashboard running at http://0.0.0.0:${PORT}`);
   console.log(`  Data source: D1 DATABASE ONLY`);
   console.log(`  Worker API: ${WORKER_API}`);
   console.log(`========================================\n`);
