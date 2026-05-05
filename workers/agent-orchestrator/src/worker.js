@@ -76,6 +76,12 @@ const AGENTS = [
     sector,
     shouldFire: (db) => shouldFireSectorImplementation(db, sector),
   })),
+  ...SECTORS_BUILD_PHASE.map(sector => ({
+    name:     `sector-hedges:${sector}`,
+    binding:  "SECTOR_HEDGES",
+    sector,
+    shouldFire: (db) => shouldFireSectorHedges(db, sector),
+  })),
 ];
 
 export default {
@@ -397,6 +403,22 @@ async function shouldFireSectorImplementation(db, sector) {
   // which feeds back here). Tightening deferred.
 
   return { fire: false, reason: `implementation fresh: sector thesis stable for ${sector}` };
+}
+
+// S5 Sector Hedges epsilon (per sector): re-fire whenever the sector thesis
+// is rewritten (drivers / tripwires changed → hedge logic changes).
+async function shouldFireSectorHedges(db, sector) {
+  const sectorRow = await db.prepare(
+    `SELECT thesis_updated_at, hedges_updated_at
+       FROM SECTOR_TREND_long WHERE sector = ?`,
+  ).bind(sector).first();
+  if (!sectorRow) return { fire: false, reason: `no SECTOR_TREND_long row for ${sector}` };
+  if (!sectorRow.thesis_updated_at) return { fire: false, reason: `no sector thesis yet for ${sector}` };
+  if (!sectorRow.hedges_updated_at) return { fire: true, reason: `first run for ${sector}` };
+  if (sectorRow.thesis_updated_at > sectorRow.hedges_updated_at) {
+    return { fire: true, reason: "sector thesis newer than hedges" };
+  }
+  return { fire: false, reason: `hedges fresh: sector thesis stable for ${sector}` };
 }
 
 // ---------------------------------------------------------------------------
