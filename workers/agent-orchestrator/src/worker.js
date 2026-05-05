@@ -182,6 +182,12 @@ const AGENTS = [
     ticker,
     shouldFire: (db) => shouldFireTickerRead(db, ticker),
   })),
+  ...TICKERS_BUILD_PHASE.map(ticker => ({
+    name:     `ticker-earnings-summary:${ticker}`,
+    binding:  "TICKER_EARNINGS_SUMMARY",
+    ticker,
+    shouldFire: (db) => shouldFireTickerEarningsSummary(db, ticker),
+  })),
 ];
 
 export default {
@@ -1042,6 +1048,33 @@ async function shouldFireTickerRead(db, ticker) {
     if (ts && ts > r.read_updated_at) return { fire: true, reason: `${name} newer than read` };
   }
   return { fire: false, reason: `read fresh: all upstream stable for ${ticker}` };
+}
+
+// Ticker Earnings Summary epsilon: cached until the next earnings event
+// is parsed. Fire iff FUND_02_Earnings has a period newer than what's
+// stashed inside the existing earnings_summary_json (or no summary exists).
+// Independent of the per-refresh agents per [TICKER_PIPELINE.md §11].
+async function shouldFireTickerEarningsSummary(db, ticker) {
+  const trendRow = await db.prepare(
+    `SELECT earnings_summary_json, earnings_summary_updated_at
+       FROM TICKER_TREND_long WHERE ticker = ?`,
+  ).bind(ticker).first();
+  if (!trendRow) return { fire: false, reason: `no TICKER_TREND_long row for ${ticker}` };
+
+  const latestEarn = await db.prepare(
+    `SELECT period FROM FUND_02_Earnings WHERE ticker = ?
+      ORDER BY report_date DESC LIMIT 1`,
+  ).bind(ticker).first();
+  if (!latestEarn) return { fire: false, reason: `no FUND_02_Earnings rows for ${ticker}` };
+
+  if (!trendRow.earnings_summary_json) {
+    return { fire: true, reason: `first run (no prior earnings_summary; latest period ${latestEarn.period})` };
+  }
+  const stored = safeJsonGate(trendRow.earnings_summary_json)?.earnings_period_at_write ?? null;
+  if (stored !== latestEarn.period) {
+    return { fire: true, reason: `new earnings period ${latestEarn.period} (was ${stored})` };
+  }
+  return { fire: false, reason: `cached for period ${stored}` };
 }
 
 // Mirror of the canonical sector map. Duplicated to keep the orchestrator
