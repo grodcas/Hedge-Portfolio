@@ -47,6 +47,11 @@ const AGENTS = [
     shouldFire: shouldFireMacroThesis,
   },
   {
+    name:    "macro-notes",
+    binding: "MACRO_NOTES",
+    shouldFire: shouldFireMacroNotes,
+  },
+  {
     name:    "macro-positioning",
     binding: "MACRO_POSITIONING",
     shouldFire: shouldFireMacroPositioning,
@@ -211,6 +216,40 @@ async function shouldFireMacroNewsDrift(db) {
     return { fire: true, reason: `new macro topic '${fresh.topic_canonical}' on ${fresh.date_last_seen}` };
   }
   return { fire: false, reason: "no new macro topics since last drift" };
+}
+
+// M3 epsilon: re-fire if no prior notes, the macro thesis was rewritten
+// (driver/tripwire targets changed), drift verdict flipped, or new
+// TOPIC_FEED rows scoped to macro:% have arrived since the last write.
+async function shouldFireMacroNotes(db) {
+  const row = await db.prepare(
+    `SELECT thesis_updated_at, news_drift_updated_at, notes_updated_at
+       FROM BETA_10_Daily_macro
+      ORDER BY creation_date DESC LIMIT 1`,
+  ).first();
+  if (!row) return { fire: false, reason: "no BETA_10_Daily_macro row yet" };
+  if (!row.thesis_updated_at) return { fire: false, reason: "no thesis_json yet (M2 must fire first)" };
+  if (!row.notes_updated_at) return { fire: true, reason: "first run (no prior notes)" };
+
+  if (row.thesis_updated_at > row.notes_updated_at) {
+    return { fire: true, reason: "thesis newer than notes" };
+  }
+  if (row.news_drift_updated_at && row.news_drift_updated_at > row.notes_updated_at) {
+    return { fire: true, reason: "news_drift newer than notes" };
+  }
+
+  const since = row.notes_updated_at.slice(0, 10);
+  const fresh = await db.prepare(
+    `SELECT topic_canonical, date_last_seen
+       FROM TOPIC_FEED
+      WHERE scope LIKE 'macro:%'
+        AND date_last_seen > ?
+      ORDER BY date_last_seen DESC LIMIT 1`,
+  ).bind(since).first();
+  if (fresh) {
+    return { fire: true, reason: `new macro topic '${fresh.topic_canonical}' on ${fresh.date_last_seen}` };
+  }
+  return { fire: false, reason: "no new macro topics or upstream rewrites since last notes" };
 }
 
 async function shouldFireMacroThesis(db) {

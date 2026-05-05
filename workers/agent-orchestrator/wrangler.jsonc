@@ -18,6 +18,7 @@
   "services": [
     { "binding": "MACRO_NEWS_DRIFT",  "service": "macro-news-drift-agent" },
     { "binding": "MACRO_THESIS",      "service": "macro-thesis-agent" },
+    { "binding": "MACRO_NOTES",       "service": "macro-notes-agent" },
     { "binding": "MACRO_POSITIONING", "service": "macro-positioning-agent" },
     { "binding": "MACRO_SIGNPOSTS",   "service": "macro-signposts-agent" },
     { "binding": "MACRO_READ",        "service": "macro-read-agent" },
