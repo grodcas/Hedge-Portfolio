@@ -36,6 +36,11 @@ const AGENTS = [
     binding: "MACRO_THESIS",
     shouldFire: shouldFireMacroThesis,
   },
+  {
+    name:    "macro-positioning",
+    binding: "MACRO_POSITIONING",
+    shouldFire: shouldFireMacroPositioning,
+  },
 ];
 
 export default {
@@ -163,6 +168,50 @@ async function shouldFireMacroThesis(db) {
   // M1 tripwire flag — wired in MS-3e once macro News drift exists.
 
   return { fire: false, reason: "regime intact, no |z|>1.5 fresh prints since last write" };
+}
+
+// M4 Positioning epsilon: re-fire if thesis was rewritten, regime flipped,
+// or a panel indicator >|1.5σ| has landed since last positioning write.
+async function shouldFireMacroPositioning(db) {
+  const row = await db.prepare(
+    `SELECT regime, thesis_updated_at, positioning_updated_at, positioning_json
+       FROM BETA_10_Daily_macro
+      ORDER BY creation_date DESC LIMIT 1`,
+  ).first();
+  if (!row) return { fire: false, reason: "no BETA_10_Daily_macro row yet" };
+  if (!row.thesis_updated_at) return { fire: false, reason: "no thesis_json yet (M2 must fire first)" };
+  if (!row.positioning_updated_at) return { fire: true, reason: "first run (no prior positioning)" };
+
+  if (row.thesis_updated_at > row.positioning_updated_at) {
+    return { fire: true, reason: `thesis newer than positioning (${row.thesis_updated_at} > ${row.positioning_updated_at})` };
+  }
+
+  let priorRegime = null;
+  try { priorRegime = JSON.parse(row.positioning_json || "{}")?.regime_at_write ?? null; } catch {}
+  if (row.regime && priorRegime !== null && row.regime !== priorRegime) {
+    return { fire: true, reason: `regime: ${priorRegime} → ${row.regime}` };
+  }
+  if (row.regime && priorRegime === null) {
+    return { fire: true, reason: `regime now classified: ${row.regime}` };
+  }
+
+  const since = row.positioning_updated_at.slice(0, 10);
+  const hot = await db.prepare(
+    `SELECT indicator_code, z_vs_24m, release_date
+       FROM MACRO_STATE_indicators
+      WHERE release_date >= ?
+        AND z_vs_24m IS NOT NULL
+        AND ABS(z_vs_24m) > 1.5
+      ORDER BY release_date DESC LIMIT 1`,
+  ).bind(since).first();
+  if (hot) {
+    return {
+      fire: true,
+      reason: `${hot.indicator_code} z=${Number(hot.z_vs_24m).toFixed(2)} on ${hot.release_date}`,
+    };
+  }
+
+  return { fire: false, reason: "thesis stable, regime intact, no |z|>1.5 fresh prints" };
 }
 
 // ---------------------------------------------------------------------------
