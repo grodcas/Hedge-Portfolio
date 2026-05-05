@@ -30,13 +30,13 @@
  * Cron: hourly Mon–Fri 14:00–22:00 UTC (US market hours).
  */
 
-// Build-phase smoke set per CREDIT_BUDGET memory: do NOT fan out to all 8
-// sectors during MS-3. Full fan-out is reserved for MS-4b.
-const SECTORS_BUILD_PHASE = ["Technology", "Energy"];
-
-// Ticker build-phase set: NVDA only during MS-3f/g. Per the sprint chain
-// "JSON rows for at least 1 test ticker (NVDA)". MS-4b fans out to all 24.
-const TICKERS_BUILD_PHASE = ["NVDA"];
+// Build-phase set: 3 sectors / 3 tickers covering Tech / Healthcare / Energy.
+// Per the rescoped MS-4b (2026-05-05): we ship the dashboard against this
+// slice instead of full 24-ticker / 8-sector fan-out. Other sectors / tickers
+// are intentionally absent — their slide-outs surface clean 404s until a
+// post-validation fan-out MS.
+const SECTORS_BUILD_PHASE = ["Technology", "Healthcare", "Energy"];
+const TICKERS_BUILD_PHASE = ["NVDA", "UNH", "XOM"];
 
 const AGENTS = [
   // M1 must run BEFORE M2 — the thesis consumes the news_drift verdict.

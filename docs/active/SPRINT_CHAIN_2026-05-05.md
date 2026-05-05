@@ -211,19 +211,35 @@ Pick NVDA · UNH · XOM (covers Tech / Healthcare / Energy). For each ticker:
 
 **Done when**: 3 slide-outs render fully + INIT_NOTES.md exists (can be empty if all clean).
 
-### MS-4b · Initialization full (24 tickers + sectors + macro)
+### MS-4b · Initialization scoped (3 tickers + 3 sectors + macro)
+
+**Scope reduced 2026-05-05** — full 24-ticker / 8-sector fan-out deferred to a
+post-validation MS so we ship the dashboard against the same NVDA / UNH / XOM
++ Technology / Healthcare / Energy slice we used in MS-4a. Macro is unscoped
+(it's a single set of 7 agents — no fan-out anyway).
 
 Prereq: MS-4a clean.
 
-1. Fire orchestrator for all 24 tickers in batches of 6 (rate-limit OpenAI: ~5 minutes per batch).
-2. Fire all 6 sector orchestrator runs.
-3. Fire all 7 macro orchestrator runs.
-4. Spot-check 5 random ticker slide-outs.
-5. Walkthrough the dashboard top-to-bottom: Today → Map → Macro slide-out → Sector slide-out → Name slide-out → Tape.
+1. Fire orchestrator for the 3 build tickers (NVDA, UNH, XOM). One batch is fine
+   at this volume; 11 agents × 3 tickers = ~33 LLM calls.
+2. Fire the 3 build sectors (Technology, Healthcare, Energy) — 4 sector agents
+   each = 12 LLM calls. Other 5 sectors stay empty (slide-out renders 404).
+3. Fire all 7 macro orchestrator runs (M1–M7).
+4. Open all 3 ticker slide-outs in browser; verify all 11 cards render.
+5. Open all 3 sector slide-outs; verify all 4 cards render.
+6. Walkthrough top-to-bottom: Today → Map → Macro slide-out → Sector slide-out
+   (each of the 3) → Name slide-out (each of the 3) → Tape.
 
-**Done when**: dashboard fully populated. No `[object Object]`, no `—` where data should be, no console errors.
+**Tickers / sectors outside the build set are *intentionally* empty**: their
+slide-outs surface clean 404 messages from the agent endpoints. That's the
+expected state until a follow-up fan-out MS.
 
-→ **`/clear` after MS-4b** — dashboard is LIVE. Validation + cleanup follows.
+**Done when**: 3 tickers + 3 sectors + macro fully populated. No
+`[object Object]`, no `—` where data should be, no console errors. Empty
+slide-outs for the other 21 tickers / 5 sectors show their 404 message.
+
+→ **`/clear` after MS-4b** — dashboard is LIVE for the build set.
+Validation + cleanup follows.
 
 ---
 
