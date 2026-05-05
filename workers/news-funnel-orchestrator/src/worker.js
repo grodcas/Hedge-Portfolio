@@ -20,6 +20,19 @@ export default {
 
     console.log(`[NEWS FUNNEL] Starting for ${today}`);
 
+    // ---------- WEEKEND SKIP ----------
+    // US equities don't trade Sat/Sun and news velocity drops sharply.
+    // Bypassable with ?force=1 for backfill / testing.
+    const url2 = new URL(req.url);
+    const force = url2.searchParams.get("force") === "1";
+    const dow = new Date(`${today}T12:00:00Z`).getUTCDay(); // 0=Sun, 6=Sat
+    if (!force && (dow === 0 || dow === 6)) {
+      console.log(`[NEWS FUNNEL] ${today} is a weekend (dow=${dow}) — skipping`);
+      return Response.json({
+        ok: true, date: today, skipped: true, reason: "weekend",
+      });
+    }
+
     // ---------- IDEMPOTENCY: skip if BETA_12 already has today's digest ----------
     // News funnel makes ~33 gpt-5-mini calls + ~40 Gemini calls per run.
     // That's the most expensive single stage. Retries would burn ~$0.10 each.
@@ -84,6 +97,29 @@ export default {
     }
 
     console.log(`[NEWS FUNNEL] Stage 2 done: ${filtered.stats.total_ticker_headlines} ticker + ${filtered.stats.total_macro_headlines} macro`);
+
+    // =========================================================
+    // STAGE 2.5: GLOBAL RERANK — cap to 14 ticker + 6 macro = 20 total
+    // =========================================================
+    // Per-ticker filter has no idea that NVDA always makes news while UNH
+    // rarely does. Without a global pass, every ticker contributes its
+    // best 1–4 headlines and we end up summarizing ~100 items, most of
+    // which are noise. The rerank scores rarity × magnitude so a real
+    // UNH story beats a trash NVDA story.
+    console.log("[NEWS FUNNEL] Stage 2.5: Global rerank to 14 ticker + 6 macro...");
+    let reranked;
+    try {
+      reranked = await globalRerank(filtered, env.OPENAI_API_KEY, today);
+    } catch (err) {
+      console.error("[NEWS FUNNEL] Stage 2.5 FAILED:", err.message, "— falling back to magnitude top-N");
+      reranked = magnitudeTopN(filtered, 14, 6);
+    }
+    const beforeT = filtered.ticker_news?.reduce((s, t) => s + (t.headlines?.length || 0), 0) || 0;
+    const beforeM = filtered.macro_news?.length || 0;
+    const afterT  = reranked.ticker_news?.reduce((s, t) => s + (t.headlines?.length || 0), 0) || 0;
+    const afterM  = reranked.macro_news?.length || 0;
+    console.log(`[NEWS FUNNEL] Stage 2.5 done: ticker ${beforeT}→${afterT}, macro ${beforeM}→${afterM}`);
+    filtered = reranked;
 
     // =========================================================
     // STAGE 3: GEMINI SUMMARIES
@@ -258,4 +294,160 @@ async function shortHash(input) {
 
 function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
+}
+
+// =========================================================
+// Stage 2.5 — global rerank
+// =========================================================
+
+const TICKER_MAX = 14;
+const MACRO_MAX  = 6;
+
+// Tickers that almost always have news (high baseline volume) — the bar
+// for inclusion should be higher. Quiet names (UNH, KO, XOM, CAT, BA, …)
+// the bar is lower so a real story isn't drowned out.
+const ALWAYS_LOUD = new Set(["NVDA","TSLA","AAPL","MSFT","GOOGL","AMZN","META","NFLX","AMD","INTC"]);
+
+async function globalRerank(filtered, apiKey, today) {
+  // Build flat candidate pool with stable IDs.
+  const tickerPool = [];
+  for (const t of filtered.ticker_news || []) {
+    for (const h of t.headlines || []) {
+      tickerPool.push({
+        id: `t:${t.ticker}:${(h.title || "").slice(0, 40)}`,
+        ticker: t.ticker,
+        title: h.title,
+        magnitude: h.magnitude || 0,
+        sentiment: h.sentiment || "neutral",
+        loud: ALWAYS_LOUD.has(t.ticker),
+      });
+    }
+  }
+  const macroPool = (filtered.macro_news || []).map(m => ({
+    id: `m:${m.category}:${(m.title || "").slice(0, 40)}`,
+    category: m.category,
+    title: m.title,
+    magnitude: m.magnitude || 0,
+    sentiment: m.sentiment || "neutral",
+  }));
+
+  // If pool is already small, no rerank needed.
+  if (tickerPool.length <= TICKER_MAX && macroPool.length <= MACRO_MAX) {
+    return filtered;
+  }
+
+  if (!apiKey) {
+    console.log("[NEWS FUNNEL] Stage 2.5 no API key — magnitude fallback");
+    return magnitudeTopN(filtered, TICKER_MAX, MACRO_MAX);
+  }
+
+  const tickerLines = tickerPool.map(c =>
+    `${c.id} | ${c.ticker}${c.loud ? " (LOUD)" : ""} | mag=${c.magnitude.toFixed(2)} | ${c.sentiment} | ${c.title}`
+  ).join("\n");
+  const macroLines = macroPool.map(c =>
+    `${c.id} | ${c.category} | mag=${c.magnitude.toFixed(2)} | ${c.sentiment} | ${c.title}`
+  ).join("\n");
+
+  const userMsg =
+`TODAY: ${today}
+
+TICKER CANDIDATES (${tickerPool.length}):
+${tickerLines}
+
+MACRO CANDIDATES (${macroPool.length}):
+${macroLines}
+
+TASK: Pick exactly the top ${TICKER_MAX} ticker IDs and top ${MACRO_MAX} macro IDs that an equity hedge fund analyst would actually read today.
+
+BALANCE RULES (very important):
+- Magnitude is the primary signal. Items below 0.3 in magnitude should rarely make the cut.
+- "(LOUD)" tickers (NVDA, TSLA, AAPL, MSFT, GOOGL, AMZN, META, NFLX, AMD, INTC) need a HIGHER bar — only include them when magnitude is genuinely material (>= 0.5 ideally).
+- Quiet tickers (UNH, JNJ, KO, XOM, CVX, PG, HD, CAT, BA, GS, MS, BAC, JPM, LLY, BRK.B) get priority when they have a real story (a 0.4 here can beat a 0.4 LOUD).
+- It is OK if some tickers contribute zero — that is normal on most days.
+- Do NOT pad to fill the quota. If only 8 ticker stories truly matter today, return 8.
+- Do NOT pick more than 2 stories from the same ticker.
+- Macro: prefer diversity across categories.
+
+OUTPUT (strict JSON, no markdown). Copy the ID strings VERBATIM from the candidate list — do not modify, paraphrase, or shorten:
+{
+  "ticker_ids": ["t:NVDA:...", ...],   // up to ${TICKER_MAX}
+  "macro_ids":  ["m:central_banks:...", ...]  // up to ${MACRO_MAX}
+}`;
+
+  const res = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "gpt-5-mini",
+      input: [
+        { role: "system", content: "You are an equity hedge fund news editor. Output JSON only." },
+        { role: "user", content: userMsg },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`rerank ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  }
+  const data = await res.json();
+  const text = (data.output || []).flatMap(o =>
+    o.type === "message" ? (o.content || []).filter(c => c.type === "output_text").map(c => c.text) : []
+  ).join("").trim();
+  const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  let parsed;
+  try { parsed = JSON.parse(cleaned); }
+  catch {
+    const m = cleaned.match(/\{[\s\S]*\}/);
+    parsed = m ? JSON.parse(m[0]) : null;
+  }
+  if (!parsed) throw new Error("rerank returned no JSON");
+
+  const keepTicker = new Set((parsed.ticker_ids || []).slice(0, TICKER_MAX));
+  const keepMacro  = new Set((parsed.macro_ids  || []).slice(0, MACRO_MAX));
+
+  // Rebuild filtered shape preserving original fields (relevance, etc).
+  const newTicker = (filtered.ticker_news || []).map(t => ({
+    ...t,
+    headlines: (t.headlines || []).filter(h =>
+      keepTicker.has(`t:${t.ticker}:${(h.title || "").slice(0, 40)}`)
+    ),
+  })).filter(t => t.headlines.length > 0);
+
+  const newMacro = (filtered.macro_news || []).filter(m =>
+    keepMacro.has(`m:${m.category}:${(m.title || "").slice(0, 40)}`)
+  );
+  newMacro.forEach((it, i) => { it.rank = i + 1; });
+
+  return {
+    ...filtered,
+    ticker_news: newTicker,
+    macro_news: newMacro,
+    stats: {
+      ...filtered.stats,
+      total_ticker_headlines: newTicker.reduce((s, t) => s + t.headlines.length, 0),
+      total_macro_headlines: newMacro.length,
+      reranked: true,
+    },
+  };
+}
+
+// Magnitude-only fallback if the LLM rerank call fails.
+function magnitudeTopN(filtered, tCap, mCap) {
+  const allTicker = [];
+  for (const t of filtered.ticker_news || []) {
+    for (const h of t.headlines || []) allTicker.push({ t: t.ticker, h });
+  }
+  allTicker.sort((a, b) => Math.abs(b.h.magnitude || 0) - Math.abs(a.h.magnitude || 0));
+  const keptTickerSet = new Set(allTicker.slice(0, tCap).map(x => `${x.t}|${x.h.title}`));
+
+  const newTicker = (filtered.ticker_news || []).map(t => ({
+    ...t,
+    headlines: (t.headlines || []).filter(h => keptTickerSet.has(`${t.ticker}|${h.title}`)),
+  })).filter(t => t.headlines.length > 0);
+
+  const newMacro = [...(filtered.macro_news || [])]
+    .sort((a, b) => Math.abs(b.magnitude || 0) - Math.abs(a.magnitude || 0))
+    .slice(0, mCap);
+  newMacro.forEach((it, i) => { it.rank = i + 1; });
+
+  return { ...filtered, ticker_news: newTicker, macro_news: newMacro };
 }
