@@ -35,6 +35,12 @@
 const SECTORS_BUILD_PHASE = ["Technology", "Energy"];
 
 const AGENTS = [
+  // M1 must run BEFORE M2 — the thesis consumes the news_drift verdict.
+  {
+    name:    "macro-news-drift",
+    binding: "MACRO_NEWS_DRIFT",
+    shouldFire: shouldFireMacroNewsDrift,
+  },
   {
     name:    "macro-thesis",
     binding: "MACRO_THESIS",
@@ -175,6 +181,38 @@ async function orchestrate(env, { force, onlyAgent }) {
 // Per-agent gates
 // ---------------------------------------------------------------------------
 
+// M1 epsilon: re-fire if no prior drift, the macro thesis was rewritten
+// (driver/tripwire targets changed), or any TOPIC_FEED row scoped to macro:%
+// has a date_last_seen newer than the last drift write. Otherwise skip — the
+// LLM has nothing new to chew on.
+async function shouldFireMacroNewsDrift(db) {
+  const row = await db.prepare(
+    `SELECT thesis_updated_at, news_drift_updated_at
+       FROM BETA_10_Daily_macro
+      ORDER BY creation_date DESC LIMIT 1`,
+  ).first();
+  if (!row) return { fire: false, reason: "no BETA_10_Daily_macro row yet" };
+  if (!row.thesis_updated_at) return { fire: false, reason: "no thesis_json yet (M2 must fire first)" };
+  if (!row.news_drift_updated_at) return { fire: true, reason: "first run (no prior news_drift)" };
+
+  if (row.thesis_updated_at > row.news_drift_updated_at) {
+    return { fire: true, reason: `thesis newer than news_drift (drivers/tripwires changed)` };
+  }
+
+  const since = row.news_drift_updated_at.slice(0, 10);
+  const fresh = await db.prepare(
+    `SELECT topic_canonical, date_last_seen
+       FROM TOPIC_FEED
+      WHERE scope LIKE 'macro:%'
+        AND date_last_seen > ?
+      ORDER BY date_last_seen DESC LIMIT 1`,
+  ).bind(since).first();
+  if (fresh) {
+    return { fire: true, reason: `new macro topic '${fresh.topic_canonical}' on ${fresh.date_last_seen}` };
+  }
+  return { fire: false, reason: "no new macro topics since last drift" };
+}
+
 async function shouldFireMacroThesis(db) {
   const row = await db.prepare(
     `SELECT regime, thesis_updated_at, thesis_json
@@ -217,9 +255,20 @@ async function shouldFireMacroThesis(db) {
     };
   }
 
-  // M1 tripwire flag — wired in MS-3e once macro News drift exists.
+  // M1 News drift verdict change since last thesis write (MS-3e).
+  let driftAtLastWrite = null;
+  try { driftAtLastWrite = JSON.parse(row.thesis_json || "{}")?.drift_verdict_at_write ?? null; } catch {}
+  const drift = await db.prepare(
+    `SELECT news_drift_json FROM BETA_10_Daily_macro
+      ORDER BY creation_date DESC LIMIT 1`,
+  ).first();
+  let currentDriftVerdict = null;
+  try { currentDriftVerdict = JSON.parse(drift?.news_drift_json || "{}")?.verdict ?? null; } catch {}
+  if (currentDriftVerdict && currentDriftVerdict !== driftAtLastWrite) {
+    return { fire: true, reason: `news drift: ${driftAtLastWrite || "(none)"} → ${currentDriftVerdict}` };
+  }
 
-  return { fire: false, reason: "regime intact, no |z|>1.5 fresh prints since last write" };
+  return { fire: false, reason: "regime intact, drift unchanged, no |z|>1.5 fresh prints" };
 }
 
 // M4 Positioning epsilon: re-fire if thesis was rewritten, regime flipped,

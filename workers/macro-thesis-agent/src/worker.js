@@ -14,8 +14,9 @@
  *                                 economic release: CPI / NFP / ISM / housing,
  *                                 etc., each with current value + delta_1m +
  *                                 z_vs_24m from MS-1b)
- *   - News-drift verdict         HARDCODED "regime intact" for MS-2b — wired
- *                                live in MS-3e once M1 (macro News drift) ships
+ *   - News-drift verdict         BETA_10_Daily_macro.news_drift_json.verdict
+ *                                (M1 — added in MS-3e). Defaults to "intact" if
+ *                                M1 hasn't fired yet.
  *   - Previous thesis            BETA_10_Daily_macro.thesis_json from latest row
  *
  * Output (validated):
@@ -87,7 +88,9 @@ async function build(db, apiKey, force) {
   // ---------- Load latest macro row ----------
   const macroRow = await db.prepare(
     `SELECT id, summary, regime, confidence, tripwires_json,
-            thesis_json, thesis_updated_at, creation_date
+            thesis_json, thesis_updated_at,
+            news_drift_json, news_drift_updated_at,
+            creation_date
        FROM BETA_10_Daily_macro
       ORDER BY creation_date DESC
       LIMIT 1`,
@@ -115,8 +118,16 @@ async function build(db, apiKey, force) {
   const crossAsset = indicators.filter(r => CROSS_ASSET_CODES.has(r.indicator_code));
   const panel      = indicators.filter(r => !CROSS_ASSET_CODES.has(r.indicator_code));
 
-  // ---------- News drift verdict (hardcoded for MS-2b) ----------
-  const driftVerdict = "regime intact";
+  // ---------- News drift verdict (M1, MS-3e). Defaults to "intact" until
+  //            M1 has run for the first time. ----------
+  let driftVerdict = "intact";
+  let driftStructured = null;
+  if (macroRow.news_drift_json) {
+    try {
+      driftStructured = JSON.parse(macroRow.news_drift_json);
+      if (driftStructured?.verdict) driftVerdict = driftStructured.verdict;
+    } catch {}
+  }
 
   // ---------- Previous thesis ----------
   let prevThesis = null;
@@ -132,6 +143,8 @@ async function build(db, apiKey, force) {
     regime:     macroRow.regime,
     confidence: macroRow.confidence,
     drift:      driftVerdict,
+    drift_signs: driftStructured?.driver_drift ?? null,
+    tripwires_fired: driftStructured?.tripwires_fired ?? null,
     cross_asset: crossAsset.map(r => [r.indicator_code, r.value, r.delta_1m, r.z_vs_24m]),
     panel:       panel.map(r => [r.indicator_code, r.value, r.delta_1m, r.z_vs_24m]),
   }));
@@ -152,6 +165,7 @@ async function build(db, apiKey, force) {
     crossAsset,
     panel,
     driftVerdict,
+    driftStructured,
     prevThesis,
   });
 
@@ -171,6 +185,7 @@ async function build(db, apiKey, force) {
     last_updated: now,
     input_fingerprint: fingerprint,
     regime_at_write: macroRow.regime ?? null,
+    drift_verdict_at_write: driftVerdict,
   };
 
   await db.prepare(
@@ -191,7 +206,7 @@ async function build(db, apiKey, force) {
   };
 }
 
-function buildPrompt({ regime, confidence, crossAsset, panel, driftVerdict, prevThesis }) {
+function buildPrompt({ regime, confidence, crossAsset, panel, driftVerdict, driftStructured, prevThesis }) {
   const confPct = Number.isFinite(confidence) ? `${(confidence * 100).toFixed(0)}%` : "?";
   const crossBlock = crossAsset.length
     ? crossAsset.map(fmtIndicatorLine).join("\n")
@@ -219,8 +234,10 @@ ${crossBlock}
 MACRO INDICATOR PANEL (latest release per series — value | 1m delta | Z vs 24m trend)
 ${panelBlock}
 
-MACRO NEWS DRIFT VERDICT
-  ${driftVerdict}
+MACRO NEWS DRIFT
+  Verdict: ${driftVerdict}
+  Driver drift signs: ${driftStructured?.driver_drift ? JSON.stringify(driftStructured.driver_drift) : "(none yet)"}
+  Tripwires fired:    ${driftStructured?.tripwires_fired ? JSON.stringify(driftStructured.tripwires_fired) : "[]"}
 
 PREVIOUS THESIS (do NOT rewrite if inputs barely moved — drift gradually)
 ${prevBlock}
