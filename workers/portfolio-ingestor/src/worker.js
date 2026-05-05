@@ -166,6 +166,57 @@ export default {
           }
         }
 
+        // -------- GET /query/ticker-{valuation,fundamentals,estimates,peers,
+        //                              context,news_drift,thesis,notes,
+        //                              recommendation,read,earnings_summary} -------- (MS-3h)
+        // Ticker-keyed agent outputs from TICKER_TREND_long. Each takes
+        // ?ticker=<SYMBOL>. 404 if the column is NULL for that ticker —
+        // caller renders an empty state. Mirrors the MS-3d sector block.
+        {
+          const tickerAgentMap = {
+            "/query/ticker-valuation":        { col: "valuation_json",        ts: "valuation_updated_at",        model: "valuation_model"        },
+            "/query/ticker-fundamentals":     { col: "fundamentals_json",     ts: "fundamentals_updated_at",     model: "fundamentals_model"     },
+            "/query/ticker-estimates":        { col: "estimates_json",        ts: "estimates_updated_at",        model: "estimates_model"        },
+            "/query/ticker-peers":            { col: "peers_json",            ts: "peers_updated_at",            model: "peers_model"            },
+            "/query/ticker-context":          { col: "context_json",          ts: "context_updated_at",          model: "context_model"          },
+            "/query/ticker-news-drift":       { col: "news_drift_json",       ts: "news_drift_updated_at",       model: "news_drift_model"       },
+            "/query/ticker-thesis":           { col: "thesis_json",           ts: "thesis_updated_at",           model: "thesis_model"           },
+            "/query/ticker-notes":            { col: "notes_json",            ts: "notes_updated_at",            model: "notes_model"            },
+            "/query/ticker-recommendation":   { col: "recommendation_json",   ts: "recommendation_updated_at",   model: "recommendation_model"   },
+            "/query/ticker-read":             { col: "read_json",             ts: "read_updated_at",             model: "read_model"             },
+            "/query/ticker-earnings-summary": { col: "earnings_summary_json", ts: "earnings_summary_updated_at", model: "earnings_summary_model" },
+          };
+          const cfg = tickerAgentMap[path];
+          if (cfg) {
+            const ticker = url.searchParams.get("ticker");
+            if (!ticker) {
+              return Response.json({ error: "ticker query param required" }, { status: 400, headers: corsHeaders });
+            }
+            const row = await db.prepare(
+              `SELECT ticker, regime, score, ${cfg.col} AS payload, ${cfg.ts} AS updated_at, ${cfg.model} AS model
+                 FROM TICKER_TREND_long
+                WHERE ticker = ?
+                  AND ${cfg.col} IS NOT NULL`
+            ).bind(ticker).first();
+            if (!row) {
+              return Response.json({ error: `No ${cfg.col} for ticker ${ticker}` }, { status: 404, headers: corsHeaders });
+            }
+            let parsed = null;
+            try { parsed = JSON.parse(row.payload); } catch {}
+            if (!parsed) {
+              return Response.json({ error: `${cfg.col} failed to parse` }, { status: 500, headers: corsHeaders });
+            }
+            return Response.json({
+              ticker:     row.ticker,
+              regime:     row.regime,
+              score:      row.score,
+              updated_at: row.updated_at,
+              model:      row.model,
+              payload:    parsed,
+            }, { headers: corsHeaders });
+          }
+        }
+
         // -------- GET /query/macro-trend --------
         if (path === "/query/macro-trend") {
           const row = await db.prepare(`

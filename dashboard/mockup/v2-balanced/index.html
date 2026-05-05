@@ -1733,6 +1733,119 @@
       <strong>Mockup note:</strong> Full per-name detail (read, thesis, readings, notes) is illustrated only for <strong>NVDA</strong> below. In the real dashboard every panel populates from the selected ticker's data.
     </div>
 
+    <!-- ============ MS-3h: AGENT-LIVE TICKER PANEL ============
+         All 11 ticker agents land here. Static mockup cards below remain as
+         the visual reference for the eventual rich layout; these cards are
+         the *truth source* (D1 → portfolio-ingestor → /api/ticker-*).
+         Empty states surface clearly so a stale/missing agent is obvious.
+    -->
+    <div id="np-agents-block">
+      <h3 style="font-size:11px; font-weight:700; letter-spacing:0.6px; color:var(--muted); margin:0 0 8px; padding:0">AI · LIVE AGENT READOUT (TICKER_TREND_long)</h3>
+
+      <!-- #10 Read (lede) -->
+      <div class="analyst-read" id="ticker-read-card">
+        <div class="ar-head">
+          <span class="ar-tag">READ · <span data-tr-tk>—</span></span>
+          <span class="ar-meta" data-tr-meta>—</span>
+        </div>
+        <p data-tr-prose>(no read yet — fire ticker-read-agent)</p>
+      </div>
+
+      <!-- #7 Thesis (keystone) -->
+      <div class="ent-card" id="ticker-thesis-card">
+        <h3>THESIS · <span data-tt-tk>—</span> <span class="meta" data-tt-meta>—</span></h3>
+        <p class="thesis-prose" data-tt-prose>(no thesis yet — fire ticker-thesis-agent)</p>
+        <div class="thesis-cols">
+          <div>
+            <h4 data-tt-drivers-head>DRIVERS</h4>
+            <ul data-tt-drivers></ul>
+          </div>
+          <div>
+            <h4 data-tt-tripwires-head>TRIPWIRES</h4>
+            <ul data-tt-tripwires></ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- #9 Recommendation -->
+      <div class="ent-card" id="ticker-rec-card">
+        <h3>RECOMMENDATION <span class="meta" data-trec-meta>—</span></h3>
+        <div class="rec-head">
+          <h4 data-trec-stance>—</h4>
+          <span class="rec-act" data-trec-action>—</span>
+          <span class="rec-delta" data-trec-delta>—</span>
+        </div>
+        <p data-trec-rationale>(no recommendation yet)</p>
+      </div>
+
+      <!-- 5 readings (#1-#4 + #6) in a 2-col grid -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+        <div class="ent-card" id="ticker-val-card">
+          <h3>VALUATION READING <span class="meta" data-tval-meta>—</span></h3>
+          <div style="font-size:11px; color:var(--text2); margin-bottom:6px">
+            Verdict: <strong data-tval-verdict>—</strong> · vs <span data-tval-vswhat>—</span>
+          </div>
+          <p data-tval-prose>(no valuation reading yet)</p>
+        </div>
+        <div class="ent-card" id="ticker-fund-card">
+          <h3>FUNDAMENTALS READING <span class="meta" data-tfund-meta>—</span></h3>
+          <div style="font-size:11px; color:var(--text2); margin-bottom:6px">
+            Verdict: <strong data-tfund-verdict>—</strong>
+          </div>
+          <p data-tfund-prose>(no fundamentals reading yet)</p>
+          <div data-tfund-deltas style="margin-top:6px; font-size:11px; color:var(--text2)"></div>
+        </div>
+        <div class="ent-card" id="ticker-est-card">
+          <h3>ESTIMATES READING <span class="meta" data-test-meta>—</span></h3>
+          <div style="font-size:11px; color:var(--text2); margin-bottom:6px">
+            Verdict: <strong data-test-verdict>—</strong> · fade <span data-test-fade>—</span>
+          </div>
+          <p data-test-prose>(no estimates reading yet)</p>
+        </div>
+        <div class="ent-card" id="ticker-peers-card">
+          <h3>PEER COMPS READING <span class="meta" data-tpeers-meta>—</span></h3>
+          <div style="font-size:11px; color:var(--text2); margin-bottom:6px">
+            Position: <strong data-tpeers-pos>—</strong> · premium <span data-tpeers-prem>—</span> · <span data-tpeers-count>—</span> peers
+          </div>
+          <p data-tpeers-prose>(no peers reading yet)</p>
+        </div>
+        <div class="ent-card" id="ticker-context-card">
+          <h3>CONTEXT READING <span class="meta" data-tctx-meta>—</span></h3>
+          <div style="font-size:11px; color:var(--text2); margin-bottom:6px">
+            Verdict: <strong data-tctx-verdict>—</strong> · <span data-tctx-events>—</span> events
+          </div>
+          <p data-tctx-prose>(no context reading yet)</p>
+        </div>
+        <div class="ent-card" id="ticker-drift-card">
+          <h3>NEWS DRIFT <span class="meta" data-tdr-meta>—</span></h3>
+          <div style="font-size:11px; color:var(--text2); margin-bottom:6px">
+            Verdict: <strong data-tdr-verdict>—</strong> · <span data-tdr-topics>—</span> topics · tripwires fired: <span data-tdr-fired>—</span>
+          </div>
+          <p data-tdr-prose>(no drift reading yet)</p>
+        </div>
+      </div>
+
+      <!-- #8 Notes -->
+      <div class="ent-card" id="ticker-notes-card">
+        <h3>NOTES <span class="meta" data-tn-meta>—</span></h3>
+        <div class="notes-list" data-tn-list>
+          <div class="note-row"><div class="note-body">(no notes yet)</div></div>
+        </div>
+      </div>
+
+      <!-- #11 Earnings summary -->
+      <div class="ent-card" id="ticker-earn-card">
+        <h3>EARNINGS SUMMARY · <span data-tearn-period>—</span> <span class="meta" data-tearn-meta>—</span></h3>
+        <div style="font-size:11px; color:var(--text2); margin-bottom:6px">
+          Surprise: <strong data-tearn-surprise>—</strong>%
+        </div>
+        <ul class="notes-list" data-tearn-bullets>
+          <li class="note-row"><div class="note-body">(no earnings summary yet)</div></li>
+        </ul>
+      </div>
+    </div>
+    <!-- ============ end MS-3h agent block ============ -->
+
     <!-- ============ PRICE DETAIL — daily 1y line chart from PRICE_01_Daily ============
          Source: PRICE_01_Daily for this ticker, full history. Chart renders the last
          252 trading days; key stats are computed at render time from the same series. -->
@@ -2752,6 +2865,11 @@
 
     document.getElementById("namepanel").classList.add("open");
     document.getElementById("panel-backdrop").classList.add("open");
+
+    // MS-3h: hydrate the live ticker slide-out (11 fetches in parallel).
+    if (typeof loadTickerSlideOut === "function") {
+      loadTickerSlideOut(r.tk);
+    }
   }
   function closePanel() {
     document.getElementById("namepanel").classList.remove("open");
@@ -3259,6 +3377,262 @@
         card.querySelector("[data-sr-prose]").innerHTML =
           `<span style="color:var(--bad)">Failed to load sector read for ${__mEsc(sectorName)}: ${__mEsc(err.message)}</span>`;
         console.error("[sector-read]", sectorName, err);
+      });
+  }
+
+  // ============ MS-3h: live ticker slide-out (11 agents in parallel) ============
+  // Hydrates the per-ticker agent block (#ticker-{read,thesis,rec,val,fund,
+  // est,peers,context,drift,notes,earn}-card) on every openPanel(<ticker>).
+  // Tickers outside TICKERS_BUILD_PHASE (everything except NVDA today; MS-4b
+  // fans out to 24) surface a clean 404 message in each card.
+  function loadTickerSlideOut(ticker) {
+    const tEsc = __mEsc(ticker);
+    const errMsg = (msg) => `<span style="color:var(--bad)">${tEsc}: ${__mEsc(msg)}</span>`;
+
+    // #10 Read (lede)
+    fetch(`/api/ticker-read?ticker=${encodeURIComponent(ticker)}`)
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then(data => {
+        const t = data.payload || {};
+        const card = document.getElementById("ticker-read-card");
+        card.querySelector("[data-tr-tk]").textContent = ticker;
+        card.querySelector("[data-tr-meta]").textContent =
+          `#10 v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+        card.querySelector("[data-tr-prose]").textContent = t.prose || "(no prose)";
+      })
+      .catch(err => {
+        const card = document.getElementById("ticker-read-card");
+        card.querySelector("[data-tr-tk]").textContent = ticker;
+        card.querySelector("[data-tr-meta]").textContent = "ERROR";
+        card.querySelector("[data-tr-prose]").innerHTML = errMsg(err.message);
+        console.error("[ticker-read]", ticker, err);
+      });
+
+    // #7 Thesis
+    fetch(`/api/ticker-thesis?ticker=${encodeURIComponent(ticker)}`)
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then(data => {
+        const t = data.payload || {};
+        const drivers   = Array.isArray(t.drivers)   ? t.drivers   : [];
+        const tripwires = Array.isArray(t.tripwires) ? t.tripwires : [];
+        const card = document.getElementById("ticker-thesis-card");
+        card.querySelector("[data-tt-tk]").textContent = ticker;
+        card.querySelector("[data-tt-meta]").textContent =
+          `#7 v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+        card.querySelector("[data-tt-prose]").textContent = t.prose || "(no prose)";
+        card.querySelector("[data-tt-drivers-head]").textContent = `DRIVERS (${drivers.length})`;
+        card.querySelector("[data-tt-tripwires-head]").textContent = `TRIPWIRES (${tripwires.length})`;
+        card.querySelector("[data-tt-drivers]").innerHTML = drivers.map(d => `
+          <li><span class="driver-name"><strong>${__mEsc(d.name)}</strong></span>
+              <span style="font-size:11px;color:var(--text2);display:block;margin-top:2px">${__mEsc(d.rationale)}</span></li>`).join("")
+          || `<li>(no drivers)</li>`;
+        card.querySelector("[data-tt-tripwires]").innerHTML = tripwires.map(tw => `
+          <li><strong>${__mEsc(tw.condition)}</strong>
+              <span class="src" style="font-size:10px;color:var(--muted)">[${__mEsc(tw.id)}]</span>
+              <span style="font-size:11px;color:var(--text2);display:block;margin-top:2px">currently: ${__mEsc(tw.currently)}</span></li>`).join("")
+          || `<li>(no tripwires)</li>`;
+      })
+      .catch(err => {
+        const card = document.getElementById("ticker-thesis-card");
+        card.querySelector("[data-tt-tk]").textContent = ticker;
+        card.querySelector("[data-tt-meta]").textContent = "ERROR";
+        card.querySelector("[data-tt-prose]").innerHTML = errMsg(err.message);
+        card.querySelector("[data-tt-drivers]").innerHTML = "";
+        card.querySelector("[data-tt-tripwires]").innerHTML = "";
+        console.error("[ticker-thesis]", ticker, err);
+      });
+
+    // #9 Recommendation
+    fetch(`/api/ticker-recommendation?ticker=${encodeURIComponent(ticker)}`)
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then(data => {
+        const t = data.payload || {};
+        const card = document.getElementById("ticker-rec-card");
+        const stanceColor = t.stance === "add"  ? "var(--bull)" :
+                            t.stance === "trim" ? "var(--warn)" :
+                            t.stance === "exit" ? "var(--bear)" : "var(--text2)";
+        card.querySelector("[data-trec-meta]").textContent =
+          `#9 v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+        const stanceEl = card.querySelector("[data-trec-stance]");
+        stanceEl.textContent = (t.stance || "?").toUpperCase();
+        stanceEl.style.color = stanceColor;
+        card.querySelector("[data-trec-action]").textContent = t.action || "—";
+        card.querySelector("[data-trec-delta]").textContent =
+          (typeof t.delta_weight_pct === "number" ? `${t.delta_weight_pct >= 0 ? "+" : ""}${t.delta_weight_pct}% NAV` : "—") +
+          (t.window ? ` · ${t.window.replace("_", " ")}` : "");
+        card.querySelector("[data-trec-rationale]").textContent = t.rationale || "(no rationale)";
+      })
+      .catch(err => {
+        const card = document.getElementById("ticker-rec-card");
+        card.querySelector("[data-trec-meta]").textContent = "ERROR";
+        card.querySelector("[data-trec-rationale]").innerHTML = errMsg(err.message);
+        console.error("[ticker-recommendation]", ticker, err);
+      });
+
+    // #1 Valuation
+    fetch(`/api/ticker-valuation?ticker=${encodeURIComponent(ticker)}`)
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then(data => {
+        const t = data.payload || {};
+        const card = document.getElementById("ticker-val-card");
+        card.querySelector("[data-tval-meta]").textContent =
+          `#1 v${t.version ?? "?"} · ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+        card.querySelector("[data-tval-verdict]").textContent = t.verdict || "—";
+        card.querySelector("[data-tval-vswhat]").textContent = t.vs_what || "—";
+        card.querySelector("[data-tval-prose]").textContent = t.prose || "(no prose)";
+      })
+      .catch(err => {
+        document.getElementById("ticker-val-card").querySelector("[data-tval-prose]").innerHTML = errMsg(err.message);
+        document.getElementById("ticker-val-card").querySelector("[data-tval-meta]").textContent = "ERROR";
+      });
+
+    // #2 Fundamentals
+    fetch(`/api/ticker-fundamentals?ticker=${encodeURIComponent(ticker)}`)
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then(data => {
+        const t = data.payload || {};
+        const deltas = Array.isArray(t.top_3_deltas) ? t.top_3_deltas : [];
+        const card = document.getElementById("ticker-fund-card");
+        card.querySelector("[data-tfund-meta]").textContent =
+          `#2 v${t.version ?? "?"} · ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+        card.querySelector("[data-tfund-verdict]").textContent = t.verdict || "—";
+        card.querySelector("[data-tfund-prose]").textContent = t.prose || "(no prose)";
+        card.querySelector("[data-tfund-deltas]").innerHTML = deltas.length
+          ? "Top deltas: " + deltas.map(d => `<strong>${__mEsc(d.metric)}</strong> ${__mEsc(d.value)} (${__mEsc(d.direction)})`).join(" · ")
+          : "";
+      })
+      .catch(err => {
+        document.getElementById("ticker-fund-card").querySelector("[data-tfund-prose]").innerHTML = errMsg(err.message);
+        document.getElementById("ticker-fund-card").querySelector("[data-tfund-meta]").textContent = "ERROR";
+      });
+
+    // #3 Estimates
+    fetch(`/api/ticker-estimates?ticker=${encodeURIComponent(ticker)}`)
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then(data => {
+        const t = data.payload || {};
+        const card = document.getElementById("ticker-est-card");
+        card.querySelector("[data-test-meta]").textContent =
+          `#3 v${t.version ?? "?"} · ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+        card.querySelector("[data-test-verdict]").textContent = t.verdict || "—";
+        card.querySelector("[data-test-fade]").textContent = t.fade_year || "—";
+        card.querySelector("[data-test-prose]").textContent = t.prose || "(no prose)";
+      })
+      .catch(err => {
+        document.getElementById("ticker-est-card").querySelector("[data-test-prose]").innerHTML = errMsg(err.message);
+        document.getElementById("ticker-est-card").querySelector("[data-test-meta]").textContent = "ERROR";
+      });
+
+    // #4 Peers
+    fetch(`/api/ticker-peers?ticker=${encodeURIComponent(ticker)}`)
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then(data => {
+        const t = data.payload || {};
+        const card = document.getElementById("ticker-peers-card");
+        card.querySelector("[data-tpeers-meta]").textContent =
+          `#4 v${t.version ?? "?"} · ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+        card.querySelector("[data-tpeers-pos]").textContent = t.relative_position || "—";
+        card.querySelector("[data-tpeers-prem]").textContent = t.premium_status || "—";
+        card.querySelector("[data-tpeers-count]").textContent = t.peer_count ?? "—";
+        card.querySelector("[data-tpeers-prose]").textContent = t.prose || "(no prose)";
+      })
+      .catch(err => {
+        document.getElementById("ticker-peers-card").querySelector("[data-tpeers-prose]").innerHTML = errMsg(err.message);
+        document.getElementById("ticker-peers-card").querySelector("[data-tpeers-meta]").textContent = "ERROR";
+      });
+
+    // #6 Context
+    fetch(`/api/ticker-context?ticker=${encodeURIComponent(ticker)}`)
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then(data => {
+        const t = data.payload || {};
+        const card = document.getElementById("ticker-context-card");
+        card.querySelector("[data-tctx-meta]").textContent =
+          `#6 v${t.version ?? "?"} · ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+        card.querySelector("[data-tctx-verdict]").textContent = t.verdict || "—";
+        card.querySelector("[data-tctx-events]").textContent = t.event_count ?? "—";
+        card.querySelector("[data-tctx-prose]").textContent = t.prose || "(no prose)";
+      })
+      .catch(err => {
+        document.getElementById("ticker-context-card").querySelector("[data-tctx-prose]").innerHTML = errMsg(err.message);
+        document.getElementById("ticker-context-card").querySelector("[data-tctx-meta]").textContent = "ERROR";
+      });
+
+    // #5 News drift
+    fetch(`/api/ticker-news-drift?ticker=${encodeURIComponent(ticker)}`)
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then(data => {
+        const t = data.payload || {};
+        const fired = Array.isArray(t.tripwires_fired) ? t.tripwires_fired : [];
+        const card = document.getElementById("ticker-drift-card");
+        card.querySelector("[data-tdr-meta]").textContent =
+          `#5 v${t.version ?? "?"} · ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+        card.querySelector("[data-tdr-verdict]").textContent = t.verdict || "—";
+        card.querySelector("[data-tdr-topics]").textContent = t.topic_count ?? "—";
+        card.querySelector("[data-tdr-fired]").textContent = fired.length ? fired.join(", ") : "(none)";
+        card.querySelector("[data-tdr-prose]").textContent = t.prose || "(no prose)";
+      })
+      .catch(err => {
+        document.getElementById("ticker-drift-card").querySelector("[data-tdr-prose]").innerHTML = errMsg(err.message);
+        document.getElementById("ticker-drift-card").querySelector("[data-tdr-meta]").textContent = "ERROR";
+      });
+
+    // #8 Notes
+    fetch(`/api/ticker-notes?ticker=${encodeURIComponent(ticker)}`)
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then(data => {
+        const t = data.payload || {};
+        const bullets = Array.isArray(t.bullets) ? t.bullets : [];
+        const card = document.getElementById("ticker-notes-card");
+        card.querySelector("[data-tn-meta]").textContent =
+          `#8 v${t.version ?? "?"} · ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")} · ${bullets.length} bullets`;
+        card.querySelector("[data-tn-list]").innerHTML = bullets.length
+          ? bullets.map(b => {
+              const tags = [
+                ...(b.driver_tags   || []).map(t => `<span class="src" style="font-size:10px;color:var(--ai)">[${__mEsc(t)}]</span>`),
+                ...(b.tripwire_tags || []).map(t => `<span class="src" style="font-size:10px;color:var(--warn)">[trip:${__mEsc(t)}]</span>`),
+              ].join(" ");
+              return `<div class="note-row">
+                <div class="note-meta">${tags || ""} <span class="src">· src=${b.source_count ?? "?"}</span></div>
+                <div class="note-body">${__mEsc(b.claim)}</div>
+              </div>`;
+            }).join("")
+          : `<div class="note-row"><div class="note-body">(no bullets)</div></div>`;
+      })
+      .catch(err => {
+        document.getElementById("ticker-notes-card").querySelector("[data-tn-list]").innerHTML =
+          `<div class="note-row"><div class="note-body">${errMsg(err.message)}</div></div>`;
+        document.getElementById("ticker-notes-card").querySelector("[data-tn-meta]").textContent = "ERROR";
+      });
+
+    // #11 Earnings summary
+    fetch(`/api/ticker-earnings-summary?ticker=${encodeURIComponent(ticker)}`)
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then(data => {
+        const t = data.payload || {};
+        const bullets = Array.isArray(t.bullets) ? t.bullets : [];
+        const card = document.getElementById("ticker-earn-card");
+        card.querySelector("[data-tearn-period]").textContent = t.period || "—";
+        card.querySelector("[data-tearn-meta]").textContent =
+          `#11 v${t.version ?? "?"} · ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+        card.querySelector("[data-tearn-surprise]").textContent =
+          (typeof t.surprise_pct === "number") ? t.surprise_pct.toFixed(2) : "—";
+        card.querySelector("[data-tearn-bullets]").innerHTML = bullets.length
+          ? bullets.map(b => {
+              const tags = [];
+              if (b.driver_tag)   tags.push(`<span class="src" style="font-size:10px;color:var(--ai)">[${__mEsc(b.driver_tag)}]</span>`);
+              if (b.tripwire_tag) tags.push(`<span class="src" style="font-size:10px;color:var(--warn)">[trip:${__mEsc(b.tripwire_tag)}]</span>`);
+              return `<li class="note-row">
+                <div class="note-meta"><strong>${__mEsc((b.angle || "").toUpperCase().replace("_"," "))}</strong> ${tags.join(" ")} <span class="src">· ${__mEsc(b.source)}</span></div>
+                <div class="note-body">${__mEsc(b.claim)}</div>
+              </li>`;
+            }).join("")
+          : `<li class="note-row"><div class="note-body">(no bullets)</div></li>`;
+      })
+      .catch(err => {
+        document.getElementById("ticker-earn-card").querySelector("[data-tearn-bullets]").innerHTML =
+          `<li class="note-row"><div class="note-body">${errMsg(err.message)}</div></li>`;
+        document.getElementById("ticker-earn-card").querySelector("[data-tearn-meta]").textContent = "ERROR";
       });
   }
 

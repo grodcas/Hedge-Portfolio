@@ -294,6 +294,41 @@ for (const r of SECTOR_AGENT_ROUTES) {
   });
 }
 
+// MS-3h: Ticker slide-out proxies. Each takes ?ticker=<symbol> and forwards
+// it to the ingestor's /query/ticker-* endpoint (TICKER_TREND_long).
+const TICKER_AGENT_ROUTES = [
+  { api: "/api/ticker-valuation",        query: "/query/ticker-valuation",        agent: "ticker-valuation-agent"        },
+  { api: "/api/ticker-fundamentals",     query: "/query/ticker-fundamentals",     agent: "ticker-fundamentals-agent"     },
+  { api: "/api/ticker-estimates",        query: "/query/ticker-estimates",        agent: "ticker-estimates-agent"        },
+  { api: "/api/ticker-peers",            query: "/query/ticker-peers",            agent: "ticker-peers-agent"            },
+  { api: "/api/ticker-context",          query: "/query/ticker-context",          agent: "ticker-context-agent"          },
+  { api: "/api/ticker-news-drift",       query: "/query/ticker-news-drift",       agent: "ticker-news-drift-agent"       },
+  { api: "/api/ticker-thesis",           query: "/query/ticker-thesis",           agent: "ticker-thesis-agent"           },
+  { api: "/api/ticker-notes",            query: "/query/ticker-notes",            agent: "ticker-notes-agent"            },
+  { api: "/api/ticker-recommendation",   query: "/query/ticker-recommendation",   agent: "ticker-recommendation-agent"   },
+  { api: "/api/ticker-read",             query: "/query/ticker-read",             agent: "ticker-read-agent"             },
+  { api: "/api/ticker-earnings-summary", query: "/query/ticker-earnings-summary", agent: "ticker-earnings-summary-agent" },
+];
+for (const r of TICKER_AGENT_ROUTES) {
+  app.get(r.api, async (req, res) => {
+    const ticker = req.query.ticker;
+    if (!ticker) return res.status(400).json({ error: "ticker query param required", source: "D1" });
+    try {
+      const data = await fetchFromWorker(`${r.query}?ticker=${encodeURIComponent(ticker)}`);
+      if (!data || !data.payload) {
+        return res.status(404).json({
+          error: `No ${r.api} payload for ticker ${ticker}`,
+          source: "D1",
+          hint: `Fire ${r.agent} (or agent-orchestrator /run?agent=...:${ticker}) to generate`,
+        });
+      }
+      res.json({ ...data, source: "D1" });
+    } catch (error) {
+      handleD1Error(res, `${r.api}?ticker=${ticker}`, error);
+    }
+  });
+}
+
 // Get macro trend from D1 (BETA_09_Trend)
 app.get("/api/macro-trend/:date", async (req, res) => {
   try {
