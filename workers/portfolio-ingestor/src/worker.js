@@ -2202,6 +2202,30 @@ export default {
       return Response.json({ ok: true, inserted }, { headers: corsHeaders });
     }
 
+    // -------- PEER_SET_config (MS-1c) --------
+    // Accepts the same shape as config/peers-mapping.json:
+    //   { "AAPL": { "sector": "Technology", "industry": "...", "peers": [...] }, ... }
+    // Upserts one row per ticker. `source` defaults to 'finnhub'.
+    if (which === "peer-set-config") {
+      const source = body.__source || "finnhub";
+      let inserted = 0;
+      for (const [ticker, entry] of Object.entries(body)) {
+        if (ticker.startsWith("__")) continue; // skip meta keys like __source
+        const peers = Array.isArray(entry?.peers) ? entry.peers : [];
+        if (peers.length === 0) continue;
+        await db.prepare(`
+          INSERT INTO PEER_SET_config (ticker, peers_json, source, updated_at)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(ticker) DO UPDATE SET
+            peers_json = excluded.peers_json,
+            source     = excluded.source,
+            updated_at = excluded.updated_at
+        `).bind(ticker, JSON.stringify(peers), source, now).run();
+        inserted++;
+      }
+      return Response.json({ ok: true, inserted }, { headers: corsHeaders });
+    }
+
     return new Response("OK", { headers: corsHeaders });
   }
 };
