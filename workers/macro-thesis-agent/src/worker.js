@@ -160,6 +160,8 @@ async function build(db, apiKey, force) {
   validateThesis(blob);
 
   // ---------- Stamp + persist ----------
+  // `regime_at_write` is here so the orchestrator (MS-2c) can detect a
+  // regime label change without re-reading the indicator panel.
   const now = new Date().toISOString();
   const thesis = {
     prose:        blob.prose.trim(),
@@ -168,6 +170,7 @@ async function build(db, apiKey, force) {
     version:      prevVersion + 1,
     last_updated: now,
     input_fingerprint: fingerprint,
+    regime_at_write: macroRow.regime ?? null,
   };
 
   await db.prepare(
