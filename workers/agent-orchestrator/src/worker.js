@@ -46,6 +46,11 @@ const AGENTS = [
     binding: "MACRO_SIGNPOSTS",
     shouldFire: shouldFireMacroSignposts,
   },
+  {
+    name:    "macro-read",
+    binding: "MACRO_READ",
+    shouldFire: shouldFireMacroRead,
+  },
 ];
 
 export default {
@@ -251,6 +256,28 @@ async function shouldFireMacroSignposts(db) {
   }
 
   return { fire: false, reason: "thesis stable, no new high-impact calendar events in horizon" };
+}
+
+// M6 Read epsilon: re-fire whenever any of {thesis, positioning, signposts}
+// has been rewritten more recently than read. M6 is the slide-out lede — its
+// only job is to stitch the upstream three. Runs LAST in the orchestrator.
+async function shouldFireMacroRead(db) {
+  const row = await db.prepare(
+    `SELECT thesis_updated_at, positioning_updated_at, signposts_updated_at, read_updated_at
+       FROM BETA_10_Daily_macro
+      ORDER BY creation_date DESC LIMIT 1`,
+  ).first();
+  if (!row) return { fire: false, reason: "no BETA_10_Daily_macro row yet" };
+  if (!row.thesis_updated_at)      return { fire: false, reason: "no thesis_json yet" };
+  if (!row.positioning_updated_at) return { fire: false, reason: "no positioning_json yet (M4 must fire first)" };
+  if (!row.signposts_updated_at)   return { fire: false, reason: "no signposts_json yet (M5 must fire first)" };
+  if (!row.read_updated_at)        return { fire: true, reason: "first run (no prior read)" };
+
+  if (row.thesis_updated_at      > row.read_updated_at) return { fire: true, reason: "thesis newer than read" };
+  if (row.positioning_updated_at > row.read_updated_at) return { fire: true, reason: "positioning newer than read" };
+  if (row.signposts_updated_at   > row.read_updated_at) return { fire: true, reason: "signposts newer than read" };
+
+  return { fire: false, reason: "thesis/positioning/signposts all stable since last read" };
 }
 
 // ---------------------------------------------------------------------------
