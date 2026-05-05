@@ -19,7 +19,8 @@
     { "binding": "MACRO_THESIS",      "service": "macro-thesis-agent" },
     { "binding": "MACRO_POSITIONING", "service": "macro-positioning-agent" },
     { "binding": "MACRO_SIGNPOSTS",   "service": "macro-signposts-agent" },
-    { "binding": "MACRO_READ",        "service": "macro-read-agent" }
+    { "binding": "MACRO_READ",        "service": "macro-read-agent" },
+    { "binding": "MACRO_FOMC_SUMMARY","service": "macro-fomc-summary-agent" }
   ],
   "triggers": {
     "crons": ["0 14-22 * * 1-5"]

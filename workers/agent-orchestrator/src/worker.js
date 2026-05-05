@@ -51,6 +51,11 @@ const AGENTS = [
     binding: "MACRO_READ",
     shouldFire: shouldFireMacroRead,
   },
+  {
+    name:    "macro-fomc-summary",
+    binding: "MACRO_FOMC_SUMMARY",
+    shouldFire: shouldFireMacroFomcSummary,
+  },
 ];
 
 export default {
@@ -278,6 +283,34 @@ async function shouldFireMacroRead(db) {
   if (row.signposts_updated_at   > row.read_updated_at) return { fire: true, reason: "signposts newer than read" };
 
   return { fire: false, reason: "thesis/positioning/signposts all stable since last read" };
+}
+
+// M7 FOMC summary epsilon: cached until the NEXT meeting parse. Fire iff
+// MACRO_STATE_fomc has a meeting_date newer than what's stashed inside the
+// existing fomc_summary_json (or no summary exists).  Independent of the
+// per-refresh agents per [MAP_PIPELINE.md §M7].
+async function shouldFireMacroFomcSummary(db) {
+  const row = await db.prepare(
+    `SELECT fomc_summary_json, fomc_summary_updated_at
+       FROM BETA_10_Daily_macro
+      ORDER BY creation_date DESC LIMIT 1`,
+  ).first();
+  if (!row) return { fire: false, reason: "no BETA_10_Daily_macro row yet" };
+
+  const latestFomc = await db.prepare(
+    `SELECT meeting_date FROM MACRO_STATE_fomc ORDER BY meeting_date DESC LIMIT 1`,
+  ).first();
+  if (!latestFomc) return { fire: false, reason: "no MACRO_STATE_fomc rows yet" };
+
+  if (!row.fomc_summary_json) {
+    return { fire: true, reason: `first run (no prior fomc_summary; latest meeting ${latestFomc.meeting_date})` };
+  }
+  let storedMeeting = null;
+  try { storedMeeting = JSON.parse(row.fomc_summary_json)?.fomc_meeting_date_at_write ?? null; } catch {}
+  if (storedMeeting !== latestFomc.meeting_date) {
+    return { fire: true, reason: `new FOMC meeting ${latestFomc.meeting_date} (was ${storedMeeting})` };
+  }
+  return { fire: false, reason: `cached for meeting ${storedMeeting}` };
 }
 
 // ---------------------------------------------------------------------------
