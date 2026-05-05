@@ -143,6 +143,12 @@ const AGENTS = [
     ticker,
     shouldFire: (db) => shouldFireTickerPeers(db, ticker),
   })),
+  ...TICKERS_BUILD_PHASE.map(ticker => ({
+    name:     `ticker-context:${ticker}`,
+    binding:  "TICKER_CONTEXT",
+    ticker,
+    shouldFire: (db) => shouldFireTickerContext(db, ticker),
+  })),
 ];
 
 export default {
@@ -793,6 +799,64 @@ async function shouldFireTickerPeers(db, ticker) {
   }
   return { fire: false, reason: `peers fresh: no new factors / config for ${ticker}` };
 }
+
+// Ticker Context epsilon: re-fire if no prior reading, ticker thesis was
+// rewritten (driver-based event filter changes), macro thesis was rewritten,
+// the sector thesis for the ticker's sector was rewritten, or fresh
+// MACRO_STATE_calendar rows in the 21d horizon landed since last write.
+async function shouldFireTickerContext(db, ticker) {
+  const sector = TICKER_TO_SECTOR_GATE[ticker] || null;
+  const [trendRow, macroRow, sectorRow, freshCal] = await Promise.all([
+    db.prepare(
+      `SELECT thesis_updated_at, context_updated_at
+         FROM TICKER_TREND_long WHERE ticker = ?`,
+    ).bind(ticker).first(),
+    db.prepare(
+      `SELECT thesis_updated_at FROM BETA_10_Daily_macro
+        ORDER BY creation_date DESC LIMIT 1`,
+    ).first(),
+    sector
+      ? db.prepare(
+          `SELECT thesis_updated_at FROM SECTOR_TREND_long WHERE sector = ?`,
+        ).bind(sector).first()
+      : Promise.resolve(null),
+    db.prepare(
+      `SELECT MAX(created_at) AS latest FROM MACRO_STATE_calendar
+        WHERE event_date >= date('now')
+          AND event_date <= date('now', '+21 days')
+          AND impact = 'high'`,
+    ).first(),
+  ]);
+  if (!trendRow) return { fire: false, reason: `no TICKER_TREND_long row for ${ticker}` };
+  if (!trendRow.context_updated_at) return { fire: true, reason: `first run for ${ticker}` };
+
+  if (trendRow.thesis_updated_at && trendRow.thesis_updated_at > trendRow.context_updated_at) {
+    return { fire: true, reason: "ticker thesis newer than context" };
+  }
+  if (macroRow?.thesis_updated_at && macroRow.thesis_updated_at > trendRow.context_updated_at) {
+    return { fire: true, reason: "macro thesis newer than context" };
+  }
+  if (sectorRow?.thesis_updated_at && sectorRow.thesis_updated_at > trendRow.context_updated_at) {
+    return { fire: true, reason: `${sector} sector thesis newer than context` };
+  }
+  if (freshCal?.latest && freshCal.latest > trendRow.context_updated_at) {
+    return { fire: true, reason: `new high-impact calendar event added at ${freshCal.latest}` };
+  }
+  return { fire: false, reason: `context fresh: macro/sector/calendar all stable for ${ticker}` };
+}
+
+// Mirror of the canonical sector map. Duplicated to keep the orchestrator
+// dependency-free.
+const TICKER_TO_SECTOR_GATE = {
+  AAPL: "Technology", MSFT: "Technology", NVDA: "Technology", INTC: "Technology", AMD: "Technology",
+  AMZN: "ConsDisc", TSLA: "ConsDisc", HD: "ConsDisc",
+  GOOGL: "Communication", META: "Communication", NFLX: "Communication",
+  JPM: "Finance", GS: "Finance", BAC: "Finance", MS: "Finance", "BRK.B": "Finance",
+  XOM: "Energy", CVX: "Energy",
+  UNH: "Healthcare", LLY: "Healthcare", JNJ: "Healthcare",
+  PG: "Staples", KO: "Staples",
+  CAT: "Industrial", BA: "Industrial",
+};
 
 // ---------------------------------------------------------------------------
 // Firing log
