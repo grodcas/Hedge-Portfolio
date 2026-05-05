@@ -39,7 +39,8 @@
     { "binding": "TICKER_NOTES",          "service": "ticker-notes-agent" },
     { "binding": "TICKER_RECOMMENDATION", "service": "ticker-recommendation-agent" },
     { "binding": "TICKER_READ",           "service": "ticker-read-agent" },
-    { "binding": "TICKER_EARNINGS_SUMMARY","service": "ticker-earnings-summary-agent" }
+    { "binding": "TICKER_EARNINGS_SUMMARY","service": "ticker-earnings-summary-agent" },
+    { "binding": "TAPE_ANNOTATION",       "service": "tape-annotation-agent" }
   ],
   "triggers": {
     "crons": ["0 14-22 * * 1-5"]

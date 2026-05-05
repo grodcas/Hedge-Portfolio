@@ -329,6 +329,19 @@ for (const r of TICKER_AGENT_ROUTES) {
   });
 }
 
+// MS-3i: Tape annotations proxy. Returns every annotated mover for a given
+// date (defaults to the latest annotated date when ?date= is omitted).
+app.get("/api/tape-annotations", async (req, res) => {
+  const date = req.query.date;
+  const qs = date ? `?date=${encodeURIComponent(date)}` : "";
+  try {
+    const data = await fetchFromWorker(`/query/tape-annotations${qs}`);
+    res.json({ ...data, source: "D1" });
+  } catch (error) {
+    handleD1Error(res, `/api/tape-annotations${qs}`, error);
+  }
+});
+
 // Get macro trend from D1 (BETA_09_Trend)
 app.get("/api/macro-trend/:date", async (req, res) => {
   try {

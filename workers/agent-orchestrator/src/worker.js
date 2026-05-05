@@ -188,6 +188,14 @@ const AGENTS = [
     ticker,
     shouldFire: (db) => shouldFireTickerEarningsSummary(db, ticker),
   })),
+  // ----- Tape annotation (MS-3i, the 25th agent). Date-batched: one
+  // ----- AGENTS entry that picks the latest MOVER_EXPLANATIONS_daily date
+  // ----- with unannotated rows and fires once with ?date=<that-date>.
+  {
+    name:    "tape-annotation",
+    binding: "TAPE_ANNOTATION",
+    shouldFire: shouldFireTapeAnnotation,
+  },
 ];
 
 export default {
@@ -220,11 +228,13 @@ async function orchestrate(env, { force, onlyAgent }) {
   for (const agent of AGENTS) {
     if (onlyAgent && agent.name !== onlyAgent) continue;
 
+    // Always run the gate so it can produce extra fetch params (e.g. tape
+    // annotation's ?date=). Force-mode just overrides the fire decision —
+    // the gate's other return fields (dateParam, etc.) flow through.
     let gate;
     try {
-      gate = force
-        ? { fire: true, reason: "force=1 (orchestrator override)" }
-        : await agent.shouldFire(env.DB);
+      gate = await agent.shouldFire(env.DB);
+      if (force) gate = { ...gate, fire: true, reason: `force=1 (orchestrator override)${gate.reason ? ` — gate: ${gate.reason}` : ""}` };
     } catch (err) {
       await logDecision(env.DB, agent.name, "error", `gate threw: ${err.message}`, null);
       results.push({ agent: agent.name, decision: "error", error: err.message });
@@ -248,10 +258,12 @@ async function orchestrate(env, { force, onlyAgent }) {
     }
 
     // Build the downstream URL. Sector-scoped agents take ?sector=X,
-    // ticker-scoped take ?ticker=X. force=1 is appended when explicitly set.
+    // ticker-scoped take ?ticker=X. Tape annotation takes ?date=YYYY-MM-DD
+    // computed by its gate. force=1 is appended when explicitly set.
     const params = [];
     if (agent.sector) params.push(`sector=${encodeURIComponent(agent.sector)}`);
     if (agent.ticker) params.push(`ticker=${encodeURIComponent(agent.ticker)}`);
+    if (gate.dateParam) params.push(`date=${encodeURIComponent(gate.dateParam)}`);
     if (force)        params.push("force=1");
     const path = `/build${params.length ? "?" + params.join("&") : ""}`;
     let body, decision;
@@ -1075,6 +1087,27 @@ async function shouldFireTickerEarningsSummary(db, ticker) {
     return { fire: true, reason: `new earnings period ${latestEarn.period} (was ${stored})` };
   }
   return { fire: false, reason: `cached for period ${stored}` };
+}
+
+// Tape annotation epsilon: pick the latest date in MOVER_EXPLANATIONS_daily
+// that still has unannotated rows; fire once with ?date=<that-date>. The
+// agent itself iterates every unannotated mover for that date. If everything
+// up to the latest date is already annotated, skip.
+async function shouldFireTapeAnnotation(db) {
+  const row = await db.prepare(
+    `SELECT date, COUNT(*) AS unannotated
+       FROM MOVER_EXPLANATIONS_daily
+      WHERE annotation_json IS NULL
+      GROUP BY date
+      ORDER BY date DESC
+      LIMIT 1`,
+  ).first();
+  if (!row) return { fire: false, reason: "no MOVER_EXPLANATIONS_daily rows OR all already annotated" };
+  return {
+    fire: true,
+    reason: `${row.unannotated} unannotated movers on ${row.date}`,
+    dateParam: row.date,
+  };
 }
 
 // Mirror of the canonical sector map. Duplicated to keep the orchestrator

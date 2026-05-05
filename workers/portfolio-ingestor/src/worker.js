@@ -217,6 +217,52 @@ export default {
           }
         }
 
+        // -------- GET /query/tape-annotations -------- (MS-3i)
+        // Returns every annotated mover for a given date. ?date= is optional
+        // — if omitted, picks the latest date that has any annotation_json.
+        if (path === "/query/tape-annotations") {
+          let date = url.searchParams.get("date");
+          if (!date) {
+            const latest = await db.prepare(
+              `SELECT MAX(date) AS d FROM MOVER_EXPLANATIONS_daily
+                WHERE annotation_json IS NOT NULL`
+            ).first();
+            date = latest?.d || null;
+          }
+          if (!date) {
+            return Response.json({
+              date: null,
+              count: 0,
+              annotations: [],
+            }, { headers: corsHeaders });
+          }
+          const rowsRes = await db.prepare(
+            `SELECT id, date, ticker, direction, move_pct, rank,
+                    annotation_json, annotation_updated_at, annotation_model
+               FROM MOVER_EXPLANATIONS_daily
+              WHERE date = ?
+                AND annotation_json IS NOT NULL
+              ORDER BY ABS(move_pct) DESC`
+          ).bind(date).all();
+          const rows = rowsRes?.results || [];
+          const annotations = rows.map(r => {
+            let payload = null;
+            try { payload = JSON.parse(r.annotation_json); } catch {}
+            return {
+              id:          r.id,
+              date:        r.date,
+              ticker:      r.ticker,
+              direction:   r.direction,
+              move_pct:    r.move_pct,
+              rank:        r.rank,
+              updated_at:  r.annotation_updated_at,
+              model:       r.annotation_model,
+              payload,
+            };
+          });
+          return Response.json({ date, count: annotations.length, annotations }, { headers: corsHeaders });
+        }
+
         // -------- GET /query/macro-trend --------
         if (path === "/query/macro-trend") {
           const row = await db.prepare(`

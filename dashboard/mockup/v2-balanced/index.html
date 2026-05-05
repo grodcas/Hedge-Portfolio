@@ -2544,6 +2544,20 @@
   </div>
 
   <div class="ent-body" style="padding-top:0">
+
+    <!-- ============ MS-3i: AGENT ANNOTATIONS — LIVE ============
+         tape-annotation-agent (gpt-5-mini) writes one cautious sentence
+         per qualifying mover, citing a TOPIC_FEED row when one is
+         temporally plausible. Source: MOVER_EXPLANATIONS_daily.annotation_json.
+         The mock columns below remain as the visual reference.
+    -->
+    <div class="ent-card" id="tape-agent-card" style="margin-bottom:14px">
+      <h3>AGENT ANNOTATIONS · <span data-ta-date>—</span> <span class="meta" data-ta-meta>—</span></h3>
+      <div data-ta-list class="notes-list">
+        <div class="note-row"><div class="note-body">(loading…)</div></div>
+      </div>
+    </div>
+
     <div class="tape-grid">
       <!-- ============ LEFT: NEWS ============ -->
       <div class="tape-col">
@@ -3116,8 +3130,55 @@
 
   function openTape(scope) {
     renderTape(scope || "all");
+    if (typeof loadTapeAnnotations === "function") loadTapeAnnotations();
     document.getElementById("tapepanel").classList.add("open");
     document.getElementById("panel-backdrop").classList.add("open");
+  }
+
+  // ============ MS-3i: live tape annotations (the 25th agent) ============
+  // Hydrates #tape-agent-card with every annotated mover for the latest date
+  // that has annotations. Each row: ↑/↓X.X% NVDA — "<cautious sentence>" · cites topic.
+  // Confidence chip surfaces "low" vs "medium" so the analyst can weight them.
+  function loadTapeAnnotations() {
+    const card = document.getElementById("tape-agent-card");
+    if (!card) return;
+    fetch("/api/tape-annotations")
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then(data => {
+        const date = data.date || "(no annotated date)";
+        const ann  = Array.isArray(data.annotations) ? data.annotations : [];
+        card.querySelector("[data-ta-date]").textContent = date;
+        card.querySelector("[data-ta-meta]").textContent =
+          `${ann.length} annotated movers · tape-annotation-agent · ${ann[0]?.model || "?"}`;
+        card.querySelector("[data-ta-list]").innerHTML = ann.length
+          ? ann.map(a => {
+              const p = a.payload || {};
+              const arrow = a.direction === "down" ? "↓" : "↑";
+              const cls   = a.move_pct >= 0 ? "delta-up" : "delta-down";
+              const conf  = p.confidence === "medium" ? "MED" : "LOW";
+              const confColor = p.confidence === "medium" ? "var(--text)" : "var(--muted)";
+              const cite  = p.topic_id
+                ? `<span class="src" style="font-size:10px;color:var(--ai)">cites [${__mEsc(p.topic_id)}]</span>`
+                : `<span class="src" style="font-size:10px;color:var(--muted)">no topic match</span>`;
+              return `<div class="note-row">
+                <div class="note-meta">
+                  <strong>${__mEsc(a.ticker)}</strong>
+                  <span class="${cls}">${arrow}${(a.move_pct ?? 0).toFixed(2)}%</span>
+                  <span class="src" style="font-size:10px; color:${confColor}; font-weight:600">conf:${conf}</span>
+                  ${cite}
+                  <span class="src">· updated ${__mFmtTs(a.updated_at)}</span>
+                </div>
+                <div class="note-body">${__mEsc(p.sentence || "(no sentence)")}</div>
+              </div>`;
+            }).join("")
+          : `<div class="note-row"><div class="note-body" style="color:var(--muted);font-style:italic">No tape annotations yet — fire tape-annotation-agent (or agent-orchestrator /run?agent=tape-annotation).</div></div>`;
+      })
+      .catch(err => {
+        card.querySelector("[data-ta-meta]").textContent = "ERROR";
+        card.querySelector("[data-ta-list]").innerHTML =
+          `<div class="note-row"><div class="note-body"><span style="color:var(--bad)">Failed to load tape annotations: ${__mEsc(err.message)}</span></div></div>`;
+        console.error("[tape-annotations]", err);
+      });
   }
   function closeTape() {
     document.getElementById("tapepanel").classList.remove("open");
