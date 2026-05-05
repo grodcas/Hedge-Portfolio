@@ -58,41 +58,52 @@ async function main(options = {}) {
     // external source (company IR, WH, Edgar, BLS/FRED, CBOE/COT/AAII).
     // Running them sequentially wastes ~3 minutes; Promise.all bounds the
     // whole stage to the slowest single scraper (Edgar, ~90s).
-    logger.log("PIPELINE", "Starting parallel scraping of 6 data sources...");
+    logger.log("PIPELINE", "Starting parallel scraping of 7 data sources...");
     const parallelStart = Date.now();
+
+    // Track which parallel tasks have resolved so the heartbeat can show
+    // what's still pending. Without this, a single slow scraper looks like
+    // the whole pipeline is hung.
+    const pending = new Set(["PRESS","WH","NEWS","EDGAR","MACRO","SENTIMENT","FUNDAMENTALS"]);
+    const heartbeat = setInterval(() => {
+      const elapsed = ((Date.now() - parallelStart) / 1000).toFixed(0);
+      logger.log("PIPELINE", `heartbeat: ${elapsed}s elapsed, still pending: [${[...pending].join(", ")}]`);
+    }, 60000);
+    const done = (label) => { pending.delete(label); };
 
     const [pressResult, whResult, newsResult, edgarResult, macroResult, sentimentResult, fundResult] =
       await Promise.all([
         ingestPress(config, logger, results).catch(err => {
           logger.log("PRESS", `Step failed: ${err.message}`, "fail");
           return { data: null, validation: null, error: err.message };
-        }),
+        }).finally(() => done("PRESS")),
         ingestWhitehouse(config, logger, results).catch(err => {
           logger.log("WH", `Step failed: ${err.message}`, "fail");
           return { data: null, validation: null, error: err.message };
-        }),
+        }).finally(() => done("WH")),
         ingestNews(config, logger, results).catch(err => {
           logger.log("NEWS", `Step failed: ${err.message}`, "fail");
           return { data: null, validation: null, error: err.message };
-        }),
+        }).finally(() => done("NEWS")),
         ingestEdgar(config, logger, results).catch(err => {
           logger.log("EDGAR", `Step failed: ${err.message}`, "fail");
           return { data: null, validation: null, comparison: null, error: err.message };
-        }),
+        }).finally(() => done("EDGAR")),
         ingestMacro(config, logger, results).catch(err => {
           logger.log("MACRO", `Step failed: ${err.message}`, "fail");
           return { data: null, validation: null, error: err.message };
-        }),
+        }).finally(() => done("MACRO")),
         ingestSentiment(config, logger, results).catch(err => {
           logger.log("SENTIMENT", `Step failed: ${err.message}`, "fail");
           return { data: null, validation: null, error: err.message };
-        }),
+        }).finally(() => done("SENTIMENT")),
         fetchFundamentals(config, logger, results).catch(err => {
           logger.log("FUNDAMENTALS", `Step failed: ${err.message}`, "fail");
           return { data: null, fetched: 0, errors: 0, error: err.message };
-        }),
+        }).finally(() => done("FUNDAMENTALS")),
       ]);
 
+    clearInterval(heartbeat);
     const parallelElapsed = ((Date.now() - parallelStart) / 1000).toFixed(1);
     logger.log("PIPELINE", `Parallel scraping complete in ${parallelElapsed}s`, "ok");
 

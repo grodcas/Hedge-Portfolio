@@ -15,6 +15,10 @@ function loadingBar(step, total) {
   process.stdout.write(`\r[${"█".repeat(bars)}${" ".repeat(20 - bars)}] ${pct}%`);
 }
 
+function ts() {
+  return new Date().toISOString().slice(11, 19);
+}
+
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -87,6 +91,7 @@ function runTicker(fileName) {
 
     let out = "";
     const timer = setTimeout(() => {
+      console.log(`[${ts()}] [PRESS] discovery TIMEOUT after 60s → SIGKILL ${path.basename(fileName)}`);
       child.kill("SIGKILL");
       resolve({ items: null, error: "TIMEOUT" });
     }, 60000);
@@ -111,6 +116,7 @@ function runArticleScraper(ticker, url) {
 
     let out = "";
     const timer = setTimeout(() => {
+      console.log(`[${ts()}] [PRESS] article scrape TIMEOUT after 60s → SIGKILL ${ticker}`);
       child.kill("SIGKILL");
       resolve(null);
     }, 60000);
@@ -146,9 +152,13 @@ async function main() {
 
   for (const [ticker, file] of entries) {
     count++;
-    loadingBar(count, entries.length);
+    const tickerStart = Date.now();
+    process.stdout.write("\n");
+    console.log(`[${ts()}] [PRESS ${count}/${entries.length}] ${ticker} → discovery…`);
 
     const { items, error } = await runTicker(file);
+    const discMs = Date.now() - tickerStart;
+    console.log(`[${ts()}] [PRESS ${count}/${entries.length}] ${ticker} discovery ${discMs}ms (${items?.length ?? 0} items, err=${error || "none"})`);
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       console.error(`❌ ${ticker} discovery failed → ${error}`);
@@ -197,7 +207,11 @@ async function main() {
         latest: { title: latest?.title, url: latest?.url, date: latestNorm }
       };
     } else {
+      const scrapeStart = Date.now();
+      console.log(`[${ts()}] [PRESS ${count}/${entries.length}] ${ticker} → article scrape ${latest.url}`);
       const text = await runArticleScraper(ticker, latest.url);
+      const scrapeMs = Date.now() - scrapeStart;
+      console.log(`[${ts()}] [PRESS ${count}/${entries.length}] ${ticker} article scrape ${scrapeMs}ms (${text?.length ?? 0} chars)`);
       const contentValid = isValidArticleText(text);
       if (!contentValid) {
         console.error(`❌ ${ticker} BAD LATEST ARTICLE`);
