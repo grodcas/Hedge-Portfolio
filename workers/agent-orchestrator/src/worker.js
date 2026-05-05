@@ -75,6 +75,13 @@ const AGENTS = [
   // ----- keep orchestrate() loop logic simple — the gate per entry
   // ----- still queries SECTOR_TREND_long / SECTOR_FACTORS_daily for that
   // ----- specific sector and the fetch carries ?sector=X.
+  // S1 must run BEFORE S2 — sector thesis consumes the sector drift verdict.
+  ...SECTORS_BUILD_PHASE.map(sector => ({
+    name:     `sector-news-drift:${sector}`,
+    binding:  "SECTOR_NEWS_DRIFT",
+    sector,
+    shouldFire: (db) => shouldFireSectorNewsDrift(db, sector),
+  })),
   ...SECTORS_BUILD_PHASE.map(sector => ({
     name:     `sector-thesis:${sector}`,
     binding:  "SECTOR_THESIS",
@@ -438,13 +445,59 @@ async function shouldFireMacroFomcSummary(db) {
   return { fire: false, reason: `cached for meeting ${storedMeeting}` };
 }
 
+// S1 Sector News drift epsilon (per sector): re-fire if no prior drift, the
+// sector thesis was rewritten (driver/tripwire targets changed), or new
+// TOPIC_FEED rows scoped to this sector have arrived since the last write.
+async function shouldFireSectorNewsDrift(db, sector) {
+  const sectorRow = await db.prepare(
+    `SELECT thesis_updated_at, news_drift_updated_at
+       FROM SECTOR_TREND_long WHERE sector = ?`,
+  ).bind(sector).first();
+  if (!sectorRow) return { fire: false, reason: `no SECTOR_TREND_long row for ${sector}` };
+  if (!sectorRow.thesis_updated_at) return { fire: false, reason: `no sector thesis yet for ${sector} (S2 must fire first)` };
+  if (!sectorRow.news_drift_updated_at) return { fire: true, reason: `first run for ${sector}` };
+
+  if (sectorRow.thesis_updated_at > sectorRow.news_drift_updated_at) {
+    return { fire: true, reason: "sector thesis newer than news_drift" };
+  }
+
+  // Reuse the synonym-aware scope set so we catch ConsumerDiscretionary etc.
+  const scopes = SECTOR_TOPIC_SCOPES_GATE[sector] || [`sector:${sector}`];
+  const since = sectorRow.news_drift_updated_at.slice(0, 10);
+  const placeholders = scopes.map(() => "?").join(",");
+  const fresh = await db.prepare(
+    `SELECT topic_canonical, date_last_seen
+       FROM TOPIC_FEED
+      WHERE scope IN (${placeholders})
+        AND date_last_seen > ?
+      ORDER BY date_last_seen DESC LIMIT 1`,
+  ).bind(...scopes, since).first();
+  if (fresh) {
+    return { fire: true, reason: `new ${sector} topic '${fresh.topic_canonical}' on ${fresh.date_last_seen}` };
+  }
+  return { fire: false, reason: `no new ${sector} topics since last drift` };
+}
+
+// Mirror of SECTOR_TOPIC_SCOPES inside macro-sector-news-drift-agent.
+// Duplicated here to keep the orchestrator dependency-free.
+const SECTOR_TOPIC_SCOPES_GATE = {
+  Technology:    ["sector:Technology"],
+  ConsDisc:      ["sector:ConsDisc", "sector:ConsumerDiscretionary"],
+  Communication: ["sector:Communication"],
+  Finance:       ["sector:Finance", "sector:Financials"],
+  Energy:        ["sector:Energy"],
+  Healthcare:    ["sector:Healthcare"],
+  Staples:       ["sector:Staples", "sector:ConsumerStaples"],
+  Industrial:    ["sector:Industrial", "sector:Industrials"],
+};
+
 // S2 Sector Thesis epsilon (per sector): re-fire if the sector's row has no
 // thesis yet, the macro thesis was rewritten more recently, the macro regime
-// label changed, or the sector's latest SECTOR_FACTORS_daily landed since
-// the last sector thesis write.
+// label changed, the sector's latest SECTOR_FACTORS_daily landed since the
+// last sector thesis write, or the sector news_drift verdict flipped.
 async function shouldFireSectorThesis(db, sector) {
   const [sectorRow, macroRow, latestFactors] = await Promise.all([
-    db.prepare(`SELECT thesis_json, thesis_updated_at FROM SECTOR_TREND_long WHERE sector = ?`).bind(sector).first(),
+    db.prepare(`SELECT thesis_json, thesis_updated_at, news_drift_json FROM SECTOR_TREND_long WHERE sector = ?`).bind(sector).first(),
     db.prepare(`SELECT regime, thesis_updated_at FROM BETA_10_Daily_macro ORDER BY creation_date DESC LIMIT 1`).first(),
     db.prepare(`SELECT date FROM SECTOR_FACTORS_daily WHERE sector = ? ORDER BY date DESC LIMIT 1`).bind(sector).first(),
   ]);
@@ -469,7 +522,16 @@ async function shouldFireSectorThesis(db, sector) {
     return { fire: true, reason: `new SECTOR_FACTORS_daily row on ${latestFactors.date}` };
   }
 
-  return { fire: false, reason: "sector thesis fresh: macro stable, no new factors row" };
+  // S1 News drift verdict change since last sector thesis write (MS-3e).
+  let driftAtLastWrite = null;
+  try { driftAtLastWrite = JSON.parse(sectorRow.thesis_json || "{}")?.drift_verdict_at_write ?? null; } catch {}
+  let currentDriftVerdict = null;
+  try { currentDriftVerdict = JSON.parse(sectorRow.news_drift_json || "{}")?.verdict ?? null; } catch {}
+  if (currentDriftVerdict && currentDriftVerdict !== driftAtLastWrite) {
+    return { fire: true, reason: `${sector} news drift: ${driftAtLastWrite || "(none)"} → ${currentDriftVerdict}` };
+  }
+
+  return { fire: false, reason: "sector thesis fresh: macro stable, drift unchanged, no new factors row" };
 }
 
 // S4 Sector Implementation epsilon (per sector): re-fire when the sector

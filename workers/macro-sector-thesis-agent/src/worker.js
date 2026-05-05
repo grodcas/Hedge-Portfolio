@@ -14,7 +14,9 @@
  *     hand-picked slice per sector — Energy: WTI / RIG_PROXY; Finance:
  *     curve + credit; Tech: 10y + reals; Industrial: HOUST / INDPRO; etc.).
  *     Each carries current value + delta_1m + z_vs_24m.
- *   - Sector News drift verdict      HARDCODED "intact" until S1 (MS-3e)
+ *   - Sector News drift verdict      SECTOR_TREND_long.news_drift_json.verdict
+ *                                    (S1 — added in MS-3e). Defaults to
+ *                                    "intact" if S1 hasn't fired yet.
  *   - Previous SECTOR_TREND_long.thesis_json
  *
  * Output (validated):
@@ -81,7 +83,8 @@ async function build(db, apiKey, sector, force) {
   // ---------- Sector trend row + macro context ----------
   const [sectorRow, macroRow, sectorFactors] = await Promise.all([
     db.prepare(
-      `SELECT sector, regime, score, thesis_json, thesis_updated_at
+      `SELECT sector, regime, score, thesis_json, thesis_updated_at,
+              news_drift_json, news_drift_updated_at
          FROM SECTOR_TREND_long WHERE sector = ?`,
     ).bind(sector).first(),
     db.prepare(
@@ -122,7 +125,16 @@ async function build(db, apiKey, sector, force) {
       ).bind(...slice).all()).results || []
     : [];
 
-  const driftVerdict = "intact"; // S1 deferred MS-3e
+  // ---------- News drift verdict (S1, MS-3e). Defaults to "intact" until
+  //            S1 has run for the first time on this sector. ----------
+  let driftVerdict = "intact";
+  let driftStructured = null;
+  if (sectorRow.news_drift_json) {
+    try {
+      driftStructured = JSON.parse(sectorRow.news_drift_json);
+      if (driftStructured?.verdict) driftVerdict = driftStructured.verdict;
+    } catch {}
+  }
 
   // ---------- Fingerprint + no-op ----------
   const prevThesis = sectorRow.thesis_json ? safeJson(sectorRow.thesis_json) : null;
@@ -139,6 +151,8 @@ async function build(db, apiKey, sector, force) {
     ],
     indicators: indRows.map(r => [r.indicator_code, r.value, r.delta_1m, r.z_vs_24m]),
     drift: driftVerdict,
+    drift_signs:     driftStructured?.driver_drift ?? null,
+    tripwires_fired: driftStructured?.tripwires_fired ?? null,
   }));
 
   if (!force && prevThesis?.input_fingerprint === fingerprint) {
@@ -160,6 +174,7 @@ async function build(db, apiKey, sector, force) {
     sectorFactors,
     indRows,
     driftVerdict,
+    driftStructured,
     prevThesis,
   });
 
@@ -175,6 +190,7 @@ async function build(db, apiKey, sector, force) {
     last_updated: now,
     input_fingerprint: fingerprint,
     regime_at_write: macroRow.regime ?? null,
+    drift_verdict_at_write: driftVerdict,
   };
 
   await db.prepare(
@@ -195,7 +211,7 @@ async function build(db, apiKey, sector, force) {
   };
 }
 
-function buildPrompt({ sector, macroRegime, macroDrivers, macroTripwires, sectorFactors, indRows, driftVerdict, prevThesis }) {
+function buildPrompt({ sector, macroRegime, macroDrivers, macroTripwires, sectorFactors, indRows, driftVerdict, driftStructured, prevThesis }) {
   const macroDriversBlock   = macroDrivers.map(d => `  - ${d.name}: ${d.rationale}`).join("\n") || "  (none)";
   const macroTripwiresBlock = macroTripwires.map(t => `  - [${t.id}] ${t.condition} — currently: ${t.currently}`).join("\n") || "  (none)";
   const sfBlock = `  date:                ${sectorFactors.date}
@@ -243,8 +259,10 @@ ${sfBlock}
 SECTOR-SPECIFIC RAW RELEASES (current value | 1m delta | Z vs 24m)
 ${indBlock}
 
-SECTOR NEWS DRIFT VERDICT
-  ${driftVerdict}
+SECTOR NEWS DRIFT
+  Verdict: ${driftVerdict}
+  Driver drift signs: ${driftStructured?.driver_drift ? JSON.stringify(driftStructured.driver_drift) : "(none yet)"}
+  Tripwires fired:    ${driftStructured?.tripwires_fired ? JSON.stringify(driftStructured.tripwires_fired) : "[]"}
 
 PREVIOUS SECTOR THESIS (drift gradually — only swap when data demands)
 ${prevBlock}
