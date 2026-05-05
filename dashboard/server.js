@@ -239,6 +239,33 @@ app.get("/api/macro-thesis", async (req, res) => {
   }
 });
 
+// MS-3b: M4/M5/M6/M7 proxies. Each maps 1:1 to a /query/macro-* endpoint
+// on portfolio-ingestor that returns the parsed agent payload + meta from
+// the latest BETA_10_Daily_macro row.
+const MACRO_AGENT_ROUTES = [
+  { api: "/api/macro-positioning",  query: "/query/macro-positioning",  agent: "macro-positioning-agent" },
+  { api: "/api/macro-signposts",    query: "/query/macro-signposts",    agent: "macro-signposts-agent"   },
+  { api: "/api/macro-read",         query: "/query/macro-read",         agent: "macro-read-agent"        },
+  { api: "/api/macro-fomc-summary", query: "/query/macro-fomc-summary", agent: "macro-fomc-summary-agent"},
+];
+for (const r of MACRO_AGENT_ROUTES) {
+  app.get(r.api, async (req, res) => {
+    try {
+      const data = await fetchFromWorker(r.query);
+      if (!data || !data.payload) {
+        return res.status(404).json({
+          error: `No ${r.api} payload available`,
+          source: "D1",
+          hint: `Fire ${r.agent} (or agent-orchestrator /run) to generate`,
+        });
+      }
+      res.json({ ...data, source: "D1" });
+    } catch (error) {
+      handleD1Error(res, r.api, error);
+    }
+  });
+}
+
 // Get macro trend from D1 (BETA_09_Trend)
 app.get("/api/macro-trend/:date", async (req, res) => {
   try {

@@ -2190,18 +2190,13 @@
       </div>
     </div>
 
-    <!-- ============ ANALYST READ — plain prose synthesis ============ -->
-    <div class="analyst-read">
+    <!-- MS-3b: live wiring for M6 macro-read-agent. /api/macro-read. -->
+    <div class="analyst-read" id="macro-read-card">
       <div class="ar-head">
         <span class="ar-tag">READ</span>
-        <span class="ar-meta">refreshed 08:55 ET · 12m ago · last material event 1d ago</span>
+        <span class="ar-meta" data-mr-meta>loading…</span>
       </div>
-      <p>
-        The economy is in an <strong>extended late-cycle plateau</strong> — and the distinction between "plateau" and "front edge of a recession" is the entire point of this read. The data is fighting both directions at once: tightening credit and firm commodities deny the recession-now case, while rising claims and a sub-50 ISM deny the no-landing reacceleration case. The most useful framing isn't a probability table; it's that <strong>the regime gets to keep its multiples but loses its tailwind</strong>. Risk assets won't be repriced lower in this environment, but they don't get the wind at their back either.
-      </p>
-      <p>
-        The flavor is what matters for positioning. Real yields are <em>drifting down</em> while breakevens are <em>drifting up</em> — historically that combination rewards <strong>inflation-beneficiaries</strong> (Energy, quality cyclicals) and punishes long-duration disappointment-prone names (high-multiple software, REITs at premium yields). The macro hedge sized at 10% is <strong>adequate for this read</strong>; the dashboard's tripwire watch (claims, ISM, HY OAS) tells you when it stops being adequate. Today none has fired. Next material catalyst is the <strong>FOMC May 03</strong> meeting; the second-most-important is the next claims print.
-      </p>
+      <p data-mr-prose>Loading macro read…</p>
     </div>
 
     <!-- MS-2d: live wiring. Static markup above is the design; live data
@@ -2223,21 +2218,13 @@
         </div>
       </div>
 
-      <!-- ============ LAST FOMC SUMMARY — foldable, refreshes per meeting ============ -->
-      <div class="thesis-notes" style="margin-top:14px">
-        <div class="sec-head">LAST FOMC · 2026-03-19 <span style="color:var(--muted);font-weight:500;font-size:10px;margin-left:8px;letter-spacing:0">cached until next meeting (May 03) · sources: statement · dot plot · SEP · presser</span></div>
+      <!-- MS-3b: live wiring for M7 macro-fomc-summary-agent. /api/macro-fomc-summary. -->
+      <div class="thesis-notes" style="margin-top:14px" id="macro-fomc-card">
+        <div class="sec-head">LAST FOMC <span data-mf-meta style="color:var(--muted);font-weight:500;font-size:10px;margin-left:8px;letter-spacing:0">loading…</span></div>
         <span class="ai-chip" data-toggle="mp-fomc-summary"><span class="arrow">▸</span> keypoints</span>
         <div class="ai-chip-body" id="mp-fomc-summary">
-          <ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.55;color:var(--text2)">
-            <li><strong>Decision:</strong> held funds at 4.50–4.75%, 12th consecutive hold. Unanimous vote, no dissents. <span class="src" style="font-size:10px">— statement</span></li>
-            <li><strong>Dot plot shifts:</strong> 2026 median dots moved from 3 cuts → 2 cuts; 2027 dots unchanged. Longer-run rate raised 2.6% → 2.8%. <em style="color:var(--ai)">touches Fed-pause-priced driver</em>. <span class="src" style="font-size:10px">— dot plot</span></li>
-            <li><strong>SEP changes:</strong> 2026 GDP raised 1.8% → 2.1%; unemployment lowered 4.3% → 4.1%; core PCE projection raised 2.4% → 2.6%. The "soft-landing-with-stickier-inflation" SEP. <span class="src" style="font-size:10px">— SEP table</span></li>
-            <li><strong>Statement language change:</strong> "inflation has eased" → "inflation has eased but remains somewhat elevated." Subtle hawkish edit. <span class="src" style="font-size:10px">— statement diff vs prior</span></li>
-            <li><strong>Powell Q&amp;A highlight:</strong> "We do not need to be in a hurry to adjust policy." Used "patient" three times. <em style="color:var(--ai)">confirms Fed-pause-priced driver</em>. <span class="src" style="font-size:10px">— press conference transcript</span></li>
-            <li><strong>Balance sheet:</strong> QT pace unchanged. Powell flagged that taper of QT may be discussed at upcoming meetings. <span class="src" style="font-size:10px">— statement + presser</span></li>
-            <li><strong>Market reaction:</strong> 2y +6bps, 10y +3bps, DXY +0.4, S&amp;P −0.5%. Reaction consistent with hawkish-hold framing. <span class="src" style="font-size:10px">— deterministic price snapshot</span></li>
-          </ul>
-          <div class="src"><strong>Cited:</strong> FOMC statement (Mar 19) · statement-vs-prior diff · dot plot · SEP · Powell press conference transcript. Cross-references thesis driver (Fed pause priced).</div>
+          <ul data-mf-bullets style="margin:0;padding-left:18px;font-size:12px;line-height:1.55;color:var(--text2)"><li>loading…</li></ul>
+          <div class="src" data-mf-cited><strong>Cited:</strong> loading…</div>
         </div>
       </div>
 
@@ -2263,23 +2250,17 @@
         </table>
       </div>
 
-      <div class="thesis-notes" style="margin-top:14px">
-        <div class="sec-head">SIGNPOSTS — NEXT 30 DAYS</div>
-        <ul class="sig-list">
-          <li><span class="when">May 03</span><span class="what"><strong>FOMC rate decision + dot plot.</strong> Hawkish surprise = duration trade hit; dovish surprise = risk-on bid.</span><span class="impact-tag">7d</span></li>
-          <li><span class="when">May 02</span><span class="what"><strong>Initial claims (weekly).</strong> Third consecutive print &gt; 230k starts the bear flag.</span><span class="impact-tag">6d</span></li>
-          <li><span class="when">May 06</span><span class="what"><strong>CPI print.</strong> Sticky core &gt; 3.5% would punish growth multiples again.</span><span class="impact-tag">10d</span></li>
-          <li><span class="when">May 07</span><span class="what"><strong>ISM Services.</strong> A second sub-50 manufacturing print + sub-50 services would confirm spread to services.</span><span class="impact-tag">11d</span></li>
-        </ul>
+      <!-- MS-3b: live wiring for M5 macro-signposts-agent. /api/macro-signposts. -->
+      <div class="thesis-notes" style="margin-top:14px" id="macro-signposts-card">
+        <div class="sec-head">SIGNPOSTS <span data-ms-meta style="color:var(--muted);font-weight:500;font-size:10px;margin-left:8px;letter-spacing:0">loading…</span></div>
+        <ul class="sig-list" data-ms-list><li>loading…</li></ul>
       </div>
 
-      <div class="thesis-notes" style="margin-top:14px">
-        <div class="sec-head">POSITIONING IMPLICATION</div>
-        <ul class="sig-list">
-          <li><span class="when">Net</span><span class="what">Stay net long ~50%. Beta-adjusted +63%. <strong>OW Energy / Tech / Financials</strong>; UW pure-duration (REITs, Utilities), UW lower-quality Discretionary.</span></li>
-          <li><span class="when">Hedge</span><span class="what">Macro hedge sized at 10% via SPX put-spread. <strong>Size up to 15%</strong> only on claims-tripwire confirm, not on single weekly print.</span></li>
-          <li><span class="when">Style</span><span class="what">Stagflation-light → favor Energy + quality cyclicals over long-duration software at high multiples.</span></li>
-        </ul>
+      <!-- MS-3b: live wiring for M4 macro-positioning-agent. /api/macro-positioning. -->
+      <div class="thesis-notes" style="margin-top:14px" id="macro-positioning-card">
+        <div class="sec-head">POSITIONING <span data-mp-meta style="color:var(--muted);font-weight:500;font-size:10px;margin-left:8px;letter-spacing:0">loading…</span></div>
+        <p data-mp-prose style="margin:6px 0 8px;color:var(--text2);font-size:12px;line-height:1.55">loading…</p>
+        <ul class="sig-list" data-mp-tilts><li>loading…</li></ul>
       </div>
 
       <div class="thesis-notes">
@@ -3121,6 +3102,28 @@
   renderBook();
   renderTape("all"); // pre-render so opening is instant
 
+  // ============ MS-3b: shared helpers for the macro slide-out renderers ============
+  const __mEsc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => (
+    { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]
+  ));
+  const __mFmtTs = (iso) => iso ? new Date(iso).toUTCString().replace("GMT","UTC") : "?";
+  const __mFmtDate = (yyyy_mm_dd) => {
+    if (!yyyy_mm_dd || !/^\d{4}-\d{2}-\d{2}/.test(yyyy_mm_dd)) return "?";
+    const [, mm, dd] = yyyy_mm_dd.match(/^\d{4}-(\d{2})-(\d{2})/);
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return `${months[+mm - 1]} ${+dd}`;
+  };
+  // Generic render-wrapper. Sets the meta to "ERROR" + a red error message in
+  // a DOM hook on failure so the dashboard never silently shows stale text.
+  function __mFetchRender({ url, cardId, fallback, render }) {
+    const el = document.getElementById(cardId);
+    if (!el) return;
+    fetch(url)
+      .then((r) => r.ok ? r.json() : r.json().then((j) => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then((data) => render(el, data))
+      .catch((err) => fallback(el, err));
+  }
+
   // ============ MS-2d: live macro thesis (M2) ============
   // Pulls BETA_10_Daily_macro.thesis_json via dashboard /api/macro-thesis.
   // Card markup is at #macro-thesis-card. On error the prose row shows the
@@ -3177,6 +3180,114 @@
         console.error("[macro-thesis]", err);
       });
   })();
+
+  // ============ MS-3b: live macro Read (M6) ============
+  __mFetchRender({
+    url: "/api/macro-read",
+    cardId: "macro-read-card",
+    render: (el, data) => {
+      const t = data.payload || {};
+      el.querySelector("[data-mr-meta]").textContent =
+        `M6 · v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+      el.querySelector("[data-mr-prose]").textContent = t.prose || "(no prose)";
+    },
+    fallback: (el, err) => {
+      el.querySelector("[data-mr-meta]").textContent = "ERROR";
+      el.querySelector("[data-mr-prose]").innerHTML =
+        `<span style="color:var(--bad)">Failed to load macro read: ${__mEsc(err.message)}</span>`;
+      console.error("[macro-read]", err);
+    },
+  });
+
+  // ============ MS-3b: live FOMC summary (M7) ============
+  __mFetchRender({
+    url: "/api/macro-fomc-summary",
+    cardId: "macro-fomc-card",
+    render: (el, data) => {
+      const t = data.payload || {};
+      const bullets = Array.isArray(t.bullets) ? t.bullets : [];
+      el.querySelector("[data-mf-meta]").textContent =
+        `· meeting ${__mFmtDate(t.meeting_date)} · v${t.version ?? "?"} · cached until next FOMC · ${__mEsc(data.model || "?")}`;
+      el.querySelector("[data-mf-bullets]").innerHTML = bullets.map((b) => {
+        const tags = [];
+        if (b.touches_driver)   tags.push(`<em style="color:var(--ai)">touches ${__mEsc(b.touches_driver)}</em>`);
+        if (b.touches_tripwire) tags.push(`<em style="color:var(--ai)">tripwire ${__mEsc(b.touches_tripwire)}</em>`);
+        const tagStr = tags.length ? ` · ${tags.join(" · ")}` : "";
+        return `<li><strong>${__mEsc(b.category)}:</strong> ${__mEsc(b.text)}${tagStr} <span class="src" style="font-size:10px">— ${__mEsc(b.source)}</span></li>`;
+      }).join("") || `<li>(no bullets)</li>`;
+      const sources = [...new Set(bullets.map((b) => b.source))].join(" · ");
+      el.querySelector("[data-mf-cited]").innerHTML =
+        `<strong>Cited:</strong> ${__mEsc(sources || "—")}. From MACRO_STATE_fomc + FOMC_PROJECTIONS via macro-fomc-summary-agent.`;
+    },
+    fallback: (el, err) => {
+      el.querySelector("[data-mf-meta]").textContent = "ERROR";
+      el.querySelector("[data-mf-bullets]").innerHTML =
+        `<li style="color:var(--bad)">Failed to load FOMC summary: ${__mEsc(err.message)}</li>`;
+      console.error("[macro-fomc-summary]", err);
+    },
+  });
+
+  // ============ MS-3b: live macro Signposts (M5) ============
+  __mFetchRender({
+    url: "/api/macro-signposts",
+    cardId: "macro-signposts-card",
+    render: (el, data) => {
+      const t = data.payload || {};
+      const events = Array.isArray(t.events) ? t.events : [];
+      el.querySelector("[data-ms-meta]").textContent =
+        `· next 21 days · v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+      const today = new Date().toISOString().slice(0, 10);
+      const daysUntil = (yyyy_mm_dd) => {
+        const a = new Date(today + "T00:00:00Z");
+        const b = new Date(yyyy_mm_dd + "T00:00:00Z");
+        return Math.max(0, Math.round((b - a) / 86400000));
+      };
+      el.querySelector("[data-ms-list]").innerHTML = events.map((e) => {
+        const touchesStr = (e.touches || []).length
+          ? ` <em style="color:var(--ai)">→ ${__mEsc((e.touches || []).join(" · "))}</em>`
+          : "";
+        return `<li>
+          <span class="when">${__mFmtDate(e.date)}</span>
+          <span class="what"><strong>${__mEsc(e.event_label || e.event_code)} (${__mEsc(e.country)}).</strong> ${__mEsc(e.what_to_watch)}${touchesStr}</span>
+          <span class="impact-tag">${daysUntil(e.date)}d</span>
+        </li>`;
+      }).join("") || `<li><span class="what">${__mEsc(t.note || "(no signposts in horizon)")}</span></li>`;
+    },
+    fallback: (el, err) => {
+      el.querySelector("[data-ms-meta]").textContent = "ERROR";
+      el.querySelector("[data-ms-list]").innerHTML =
+        `<li style="color:var(--bad)">Failed to load signposts: ${__mEsc(err.message)}</li>`;
+      console.error("[macro-signposts]", err);
+    },
+  });
+
+  // ============ MS-3b: live macro Positioning (M4) ============
+  __mFetchRender({
+    url: "/api/macro-positioning",
+    cardId: "macro-positioning-card",
+    render: (el, data) => {
+      const t = data.payload || {};
+      const tilts = Array.isArray(t.tilts) ? t.tilts : [];
+      tilts.sort((a, b) => (b.magnitude || 0) - (a.magnitude || 0));
+      el.querySelector("[data-mp-meta]").textContent =
+        `M4 · v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+      el.querySelector("[data-mp-prose]").textContent = t.prose || "(no prose)";
+      el.querySelector("[data-mp-tilts]").innerHTML = tilts.map((tilt) => {
+        const stanceColor = tilt.stance === "OW" ? "var(--good)" : tilt.stance === "UW" ? "var(--bad)" : "var(--muted)";
+        return `<li>
+          <span class="when" style="color:${stanceColor}">${__mEsc(tilt.stance)} ${tilt.magnitude}</span>
+          <span class="what"><strong>${__mEsc(tilt.scope)}: ${__mEsc(tilt.name)}</strong> — ${__mEsc(tilt.rationale)}</span>
+          <span class="impact-tag">${__mEsc(tilt.window)}</span>
+        </li>`;
+      }).join("") || `<li><span class="what">(no tilts)</span></li>`;
+    },
+    fallback: (el, err) => {
+      el.querySelector("[data-mp-meta]").textContent = "ERROR";
+      el.querySelector("[data-mp-tilts]").innerHTML =
+        `<li style="color:var(--bad)">Failed to load positioning: ${__mEsc(err.message)}</li>`;
+      console.error("[macro-positioning]", err);
+    },
+  });
 </script>
 
 </body>

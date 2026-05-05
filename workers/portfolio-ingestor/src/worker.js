@@ -79,6 +79,50 @@ export default {
           }, { headers: corsHeaders });
         }
 
+        // -------- GET /query/macro-positioning -------- (M4, MS-3b)
+        // -------- GET /query/macro-signposts ----------- (M5, MS-3b)
+        // -------- GET /query/macro-read ---------------- (M6, MS-3b)
+        // -------- GET /query/macro-fomc-summary -------- (M7, MS-3b)
+        // Each returns the parsed *_json column from the latest BETA_10 row
+        // alongside the *_updated_at + *_model meta the dashboard uses for
+        // its "last updated" badge.
+        {
+          const macroAgentMap = {
+            "/query/macro-positioning":   { col: "positioning_json",  ts: "positioning_updated_at",  model: "positioning_model"  },
+            "/query/macro-signposts":     { col: "signposts_json",    ts: "signposts_updated_at",    model: "signposts_model"    },
+            "/query/macro-read":          { col: "read_json",         ts: "read_updated_at",         model: "read_model"         },
+            "/query/macro-fomc-summary":  { col: "fomc_summary_json", ts: "fomc_summary_updated_at", model: "fomc_summary_model" },
+          };
+          const cfg = macroAgentMap[path];
+          if (cfg) {
+            const row = await db.prepare(
+              `SELECT id, regime, confidence, ${cfg.col} AS payload, ${cfg.ts} AS updated_at, ${cfg.model} AS model, creation_date
+                 FROM BETA_10_Daily_macro
+                WHERE ${cfg.col} IS NOT NULL
+                ORDER BY creation_date DESC
+                LIMIT 1`
+            ).first();
+
+            if (!row) {
+              return Response.json({ error: `No ${cfg.col} row yet` }, { status: 404, headers: corsHeaders });
+            }
+            let parsed = null;
+            try { parsed = JSON.parse(row.payload); } catch {}
+            if (!parsed) {
+              return Response.json({ error: `${cfg.col} failed to parse` }, { status: 500, headers: corsHeaders });
+            }
+            return Response.json({
+              id:            row.id,
+              regime:        row.regime,
+              confidence:    row.confidence,
+              creation_date: row.creation_date,
+              updated_at:    row.updated_at,
+              model:         row.model,
+              payload:       parsed,
+            }, { headers: corsHeaders });
+          }
+        }
+
         // -------- GET /query/macro-trend --------
         if (path === "/query/macro-trend") {
           const row = await db.prepare(`
