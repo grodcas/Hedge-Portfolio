@@ -1,5 +1,8 @@
 # SPRINT · Historical Initialization · 2026-05-06
 
+> **Prereq**: [SPRINT_2026-05-06_pre_init_api_audit.md](SPRINT_2026-05-06_pre_init_api_audit.md) ships first.
+> Without that, MS-6d will 403 on Alpha Vantage — `fetch-fundamentals` and `consensus-fetcher` share one 25/day budget.
+>
 > Picks up the deferred scope from [HISTORICAL_INIT_FANOUT.md](sprint-output/HISTORICAL_INIT_FANOUT.md).
 > Goal: every dashboard cell has a non-empty value the user can read by end of day.
 
