@@ -34,6 +34,10 @@
 // sectors during MS-3. Full fan-out is reserved for MS-4b.
 const SECTORS_BUILD_PHASE = ["Technology", "Energy"];
 
+// Ticker build-phase set: NVDA only during MS-3f/g. Per the sprint chain
+// "JSON rows for at least 1 test ticker (NVDA)". MS-4b fans out to all 24.
+const TICKERS_BUILD_PHASE = ["NVDA"];
+
 const AGENTS = [
   // M1 must run BEFORE M2 — the thesis consumes the news_drift verdict.
   {
@@ -112,6 +116,15 @@ const AGENTS = [
     sector,
     shouldFire: (db) => shouldFireSectorRead(db, sector),
   })),
+  // ----- Ticker readings (MS-3f). One AGENTS entry per (ticker, agent).
+  // ----- Each gate queries TICKER_TREND_long for the specific ticker;
+  // ----- the fetch carries ?ticker=X.
+  ...TICKERS_BUILD_PHASE.map(ticker => ({
+    name:     `ticker-valuation:${ticker}`,
+    binding:  "TICKER_VALUATION",
+    ticker,
+    shouldFire: (db) => shouldFireTickerValuation(db, ticker),
+  })),
 ];
 
 export default {
@@ -171,10 +184,11 @@ async function orchestrate(env, { force, onlyAgent }) {
       continue;
     }
 
-    // Build the downstream URL. Sector-scoped agents take ?sector=X; force=1
-    // is appended as a second param when the user explicitly requested it.
+    // Build the downstream URL. Sector-scoped agents take ?sector=X,
+    // ticker-scoped take ?ticker=X. force=1 is appended when explicitly set.
     const params = [];
     if (agent.sector) params.push(`sector=${encodeURIComponent(agent.sector)}`);
+    if (agent.ticker) params.push(`ticker=${encodeURIComponent(agent.ticker)}`);
     if (force)        params.push("force=1");
     const path = `/build${params.length ? "?" + params.join("&") : ""}`;
     let body, decision;
@@ -636,6 +650,43 @@ async function shouldFireSectorRead(db, sector) {
   if (r.implementation_updated_at > r.read_updated_at) return { fire: true, reason: "implementation newer than read" };
   if (r.hedges_updated_at         > r.read_updated_at) return { fire: true, reason: "hedges newer than read" };
   return { fire: false, reason: `read fresh: thesis/impl/hedges all stable for ${sector}` };
+}
+
+// ---------------------------------------------------------------------------
+// Ticker readings (MS-3f) — per-ticker gates
+// ---------------------------------------------------------------------------
+
+// Ticker Valuation epsilon: re-fire if no prior reading, the ticker thesis
+// was rewritten (driver targets changed → we read valuation against THIS
+// story), or a fresh STOCK_FACTORS_daily / FUND_01_Fundamentals row landed
+// since the last write.
+async function shouldFireTickerValuation(db, ticker) {
+  const [trendRow, latestFactors, latestFund] = await Promise.all([
+    db.prepare(
+      `SELECT thesis_updated_at, valuation_updated_at
+         FROM TICKER_TREND_long WHERE ticker = ?`,
+    ).bind(ticker).first(),
+    db.prepare(
+      `SELECT date FROM STOCK_FACTORS_daily WHERE ticker = ? ORDER BY date DESC LIMIT 1`,
+    ).bind(ticker).first(),
+    db.prepare(
+      `SELECT date FROM FUND_01_Fundamentals WHERE ticker = ? ORDER BY date DESC LIMIT 1`,
+    ).bind(ticker).first(),
+  ]);
+  if (!trendRow) return { fire: false, reason: `no TICKER_TREND_long row for ${ticker}` };
+  if (!trendRow.valuation_updated_at) return { fire: true, reason: `first run for ${ticker}` };
+
+  if (trendRow.thesis_updated_at && trendRow.thesis_updated_at > trendRow.valuation_updated_at) {
+    return { fire: true, reason: `ticker thesis newer than valuation` };
+  }
+  const since = trendRow.valuation_updated_at.slice(0, 10);
+  if (latestFactors?.date && latestFactors.date > since) {
+    return { fire: true, reason: `new STOCK_FACTORS_daily on ${latestFactors.date}` };
+  }
+  if (latestFund?.date && latestFund.date > since) {
+    return { fire: true, reason: `new FUND_01_Fundamentals on ${latestFund.date}` };
+  }
+  return { fire: false, reason: `valuation fresh: no new factors / fundamentals for ${ticker}` };
 }
 
 // ---------------------------------------------------------------------------

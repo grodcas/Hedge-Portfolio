@@ -28,7 +28,8 @@
     { "binding": "SECTOR_NOTES",          "service": "macro-sector-notes-agent" },
     { "binding": "SECTOR_IMPLEMENTATION", "service": "macro-sector-implementation-agent" },
     { "binding": "SECTOR_HEDGES",         "service": "macro-sector-hedges-agent" },
-    { "binding": "SECTOR_READ",           "service": "macro-sector-read-agent" }
+    { "binding": "SECTOR_READ",           "service": "macro-sector-read-agent" },
+    { "binding": "TICKER_VALUATION",      "service": "ticker-valuation-agent" }
   ],
   "triggers": {
     "crons": ["0 14-22 * * 1-5"]
