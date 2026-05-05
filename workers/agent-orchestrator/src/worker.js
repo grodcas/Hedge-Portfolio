@@ -170,6 +170,12 @@ const AGENTS = [
     ticker,
     shouldFire: (db) => shouldFireTickerNotes(db, ticker),
   })),
+  ...TICKERS_BUILD_PHASE.map(ticker => ({
+    name:     `ticker-recommendation:${ticker}`,
+    binding:  "TICKER_RECOMMENDATION",
+    ticker,
+    shouldFire: (db) => shouldFireTickerRecommendation(db, ticker),
+  })),
 ];
 
 export default {
@@ -954,6 +960,49 @@ async function shouldFireTickerNotes(db, ticker) {
     return { fire: true, reason: `new ${ticker} topic '${fresh.topic_canonical}' on ${fresh.date_last_seen}` };
   }
   return { fire: false, reason: `notes fresh: no new topics or upstream rewrites for ${ticker}` };
+}
+
+// Ticker Recommendation epsilon: re-fire if no prior, ticker thesis was
+// rewritten, drift was rewritten (changes drift signs), a tripwire fired,
+// or a fresh STOCK_FACTORS_daily / POSITION_01_Daily row landed.
+async function shouldFireTickerRecommendation(db, ticker) {
+  const trendRow = await db.prepare(
+    `SELECT thesis_updated_at, news_drift_updated_at, news_drift_json,
+            recommendation_updated_at
+       FROM TICKER_TREND_long WHERE ticker = ?`,
+  ).bind(ticker).first();
+  if (!trendRow) return { fire: false, reason: `no TICKER_TREND_long row for ${ticker}` };
+  if (!trendRow.thesis_updated_at) return { fire: false, reason: "no thesis_json yet (#7 must fire first)" };
+  if (!trendRow.recommendation_updated_at) return { fire: true, reason: `first run for ${ticker}` };
+
+  if (trendRow.thesis_updated_at > trendRow.recommendation_updated_at) {
+    return { fire: true, reason: "ticker thesis newer than recommendation" };
+  }
+  if (trendRow.news_drift_updated_at && trendRow.news_drift_updated_at > trendRow.recommendation_updated_at) {
+    return { fire: true, reason: "ticker news_drift newer than recommendation" };
+  }
+  // Tripwire-fired check: even if drift wasn't rewritten, if it currently
+  // shows fired tripwires the rec must respect that.
+  const drift = safeJsonGate(trendRow.news_drift_json);
+  if (Array.isArray(drift?.tripwires_fired) && drift.tripwires_fired.length > 0) {
+    return { fire: true, reason: `tripwires fired: ${drift.tripwires_fired.join(",")}` };
+  }
+  const since = trendRow.recommendation_updated_at.slice(0, 10);
+  const [latestFactors, latestPos] = await Promise.all([
+    db.prepare(
+      `SELECT date FROM STOCK_FACTORS_daily WHERE ticker = ? ORDER BY date DESC LIMIT 1`,
+    ).bind(ticker).first(),
+    db.prepare(
+      `SELECT date FROM POSITION_01_Daily WHERE ticker = ? ORDER BY date DESC LIMIT 1`,
+    ).bind(ticker).first(),
+  ]);
+  if (latestFactors?.date && latestFactors.date > since) {
+    return { fire: true, reason: `new STOCK_FACTORS_daily on ${latestFactors.date}` };
+  }
+  if (latestPos?.date && latestPos.date > since) {
+    return { fire: true, reason: `new POSITION_01_Daily on ${latestPos.date}` };
+  }
+  return { fire: false, reason: `recommendation fresh for ${ticker}` };
 }
 
 // Mirror of the canonical sector map. Duplicated to keep the orchestrator
