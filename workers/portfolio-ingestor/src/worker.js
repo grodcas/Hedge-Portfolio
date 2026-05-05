@@ -123,6 +123,49 @@ export default {
           }
         }
 
+        // -------- GET /query/sector-{thesis,implementation,hedges,read} -------- (MS-3d)
+        // Sector-keyed agent outputs from SECTOR_TREND_long. Each takes
+        // ?sector=<canonical sector name> (Technology / Energy / etc.).
+        // 404 if the column is NULL for that sector — caller renders an
+        // empty state.
+        {
+          const sectorAgentMap = {
+            "/query/sector-thesis":         { col: "thesis_json",         ts: "thesis_updated_at",         model: "thesis_model"         },
+            "/query/sector-implementation": { col: "implementation_json", ts: "implementation_updated_at", model: "implementation_model" },
+            "/query/sector-hedges":         { col: "hedges_json",         ts: "hedges_updated_at",         model: "hedges_model"         },
+            "/query/sector-read":           { col: "read_json",           ts: "read_updated_at",           model: "read_model"           },
+          };
+          const cfg = sectorAgentMap[path];
+          if (cfg) {
+            const sector = url.searchParams.get("sector");
+            if (!sector) {
+              return Response.json({ error: "sector query param required" }, { status: 400, headers: corsHeaders });
+            }
+            const row = await db.prepare(
+              `SELECT sector, regime, score, ${cfg.col} AS payload, ${cfg.ts} AS updated_at, ${cfg.model} AS model
+                 FROM SECTOR_TREND_long
+                WHERE sector = ?
+                  AND ${cfg.col} IS NOT NULL`
+            ).bind(sector).first();
+            if (!row) {
+              return Response.json({ error: `No ${cfg.col} for sector ${sector}` }, { status: 404, headers: corsHeaders });
+            }
+            let parsed = null;
+            try { parsed = JSON.parse(row.payload); } catch {}
+            if (!parsed) {
+              return Response.json({ error: `${cfg.col} failed to parse` }, { status: 500, headers: corsHeaders });
+            }
+            return Response.json({
+              sector:     row.sector,
+              regime:     row.regime,
+              score:      row.score,
+              updated_at: row.updated_at,
+              model:      row.model,
+              payload:    parsed,
+            }, { headers: corsHeaders });
+          }
+        }
+
         // -------- GET /query/macro-trend --------
         if (path === "/query/macro-trend") {
           const row = await db.prepare(`

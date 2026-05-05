@@ -266,6 +266,34 @@ for (const r of MACRO_AGENT_ROUTES) {
   });
 }
 
+// MS-3d: Sector slide-out proxies. Each takes ?sector=<name> and forwards
+// it to the ingestor's /query/sector-* endpoint (SECTOR_TREND_long).
+const SECTOR_AGENT_ROUTES = [
+  { api: "/api/sector-thesis",         query: "/query/sector-thesis",         agent: "macro-sector-thesis-agent"         },
+  { api: "/api/sector-implementation", query: "/query/sector-implementation", agent: "macro-sector-implementation-agent" },
+  { api: "/api/sector-hedges",         query: "/query/sector-hedges",         agent: "macro-sector-hedges-agent"         },
+  { api: "/api/sector-read",           query: "/query/sector-read",           agent: "macro-sector-read-agent"           },
+];
+for (const r of SECTOR_AGENT_ROUTES) {
+  app.get(r.api, async (req, res) => {
+    const sector = req.query.sector;
+    if (!sector) return res.status(400).json({ error: "sector query param required", source: "D1" });
+    try {
+      const data = await fetchFromWorker(`${r.query}?sector=${encodeURIComponent(sector)}`);
+      if (!data || !data.payload) {
+        return res.status(404).json({
+          error: `No ${r.api} payload for sector ${sector}`,
+          source: "D1",
+          hint: `Fire ${r.agent} (or agent-orchestrator /run?agent=...) for ${sector} to generate`,
+        });
+      }
+      res.json({ ...data, source: "D1" });
+    } catch (error) {
+      handleD1Error(res, `${r.api}?sector=${sector}`, error);
+    }
+  });
+}
+
 // Get macro trend from D1 (BETA_09_Trend)
 app.get("/api/macro-trend/:date", async (req, res) => {
   try {

@@ -2352,97 +2352,48 @@
       </div>
     </div>
 
-    <!-- ============ ANALYST READ — plain prose synthesis ============ -->
-    <div class="analyst-read">
+    <!-- MS-3d: live wiring for S6 macro-sector-read-agent. /api/sector-read?sector=. -->
+    <div class="analyst-read" id="sector-read-card">
       <div class="ar-head">
         <span class="ar-tag">READ</span>
-        <span class="ar-meta">refreshed 08:55 ET · 14m ago · last material event 2d ago</span>
+        <span class="ar-meta" data-sr-meta>open a sector to load…</span>
       </div>
-      <p id="sp-lede-body">
-        Energy is the <strong>cleanest sector signal on the dashboard right now</strong>. Every sub-score on the stance composite is positive, the one-month change is positive, and the relative-strength reading places XLE in the leading quadrant — there is no sector with a stronger composite read today. The book is under-target by ~1.6pp, which makes this a rare alignment: the dashboard's rebalance compass <em>and</em> the convergence engine are pointing the same way, on the same name (XOM), at the same time. That convergence is what makes this an action setup, not a watch setup.
-      </p>
-      <p>
-        The implementation has one twist: <strong>XOM has earnings in 3 days</strong>, and the rule of the dashboard is that a binary is the binary regardless of how clean the setup looks. The textbook split is half-add today (to participate in the alignment), half post-print (to remove the binary risk). OXY has room without an earnings binary and is the cleaner add on speed. CVX is already at target — no action.
-      </p>
+      <p data-sr-prose id="sp-lede-body">Open a sector row above to load its live read.</p>
     </div>
 
-    <div class="ent-card">
-      <h3>SECTOR THESIS <span class="meta">v2 · locked by analyst 2026-04-10 · 0 drivers in WATCH</span></h3>
-      <div class="thesis-prose-meta">Sources: SECTOR_FACTORS_daily · OPEC+ meeting outcomes · WTI futures · US rig-count series · regime-state · book composition</div>
-      <p class="thesis-prose">
-        Four forces support a <strong>higher floor under WTI than consensus models price</strong>: late-cycle inflation, structurally underinvested capacity from a decade of capex discipline, OPEC+ supply discipline, and capital-return-focused US shale management that pays out cash rather than drilling it back into the ground. On the demand side, three trends keep consumption intact for the next 4–5 years: EM stockpiling (China), military rebuilds, and a slower-than-expected EV transition. The <strong>asymmetric upside</strong> is supply discipline holding through one demand wobble — that's the shape of every prior commodity bull cycle. The downside is OPEC fracture or a hard US recession; the first is a price-action signal, the second is a tripwire on the macro thesis above.
-      </p>
+    <!-- MS-3d: live wiring for S2 (thesis) + S4 (implementation) + S5 (hedges).
+         All three render into this card on openSector(sec). -->
+    <div class="ent-card" id="sector-thesis-card">
+      <h3>SECTOR THESIS <span class="meta" data-st-meta>open a sector to load…</span></h3>
+      <div class="thesis-prose-meta" data-st-sources>Sources: SECTOR_TREND_long.thesis_json · macro-sector-thesis-agent (gpt-5)</div>
+      <p class="thesis-prose" data-st-prose>Loading sector thesis…</p>
 
       <div class="thesis-cols">
         <div>
-          <h4>DRIVERS (4)</h4>
-          <div class="driver-row">
-            <div class="name"><strong>WTI &gt; $75 sustained</strong></div>
-            <div class="threshold">$78.20 ✓</div>
-            <div class="status ok">CONFIRM</div>
-          </div>
-          <div class="driver-row">
-            <div class="name"><strong>OPEC+ cuts honored</strong></div>
-            <div class="threshold">latest meeting extended</div>
-            <div class="status ok">CONFIRM</div>
-          </div>
-          <div class="driver-row">
-            <div class="name"><strong>US rig count flat-to-down</strong></div>
-            <div class="threshold">flat (capital discipline)</div>
-            <div class="status ok">CONFIRM</div>
-          </div>
-          <div class="driver-row">
-            <div class="name"><strong>EM demand sustained</strong></div>
-            <div class="threshold">China imports y/y &gt; 0%</div>
-            <div class="status watch">WATCH</div>
-          </div>
+          <h4 data-st-drivers-head>DRIVERS</h4>
+          <div data-st-drivers></div>
         </div>
         <div>
           <h4>TRIPWIRES</h4>
-          <div class="driver-row">
-            <div class="name">WTI &lt; $60 sustained</div>
-            <div class="threshold">currently $78</div>
-            <div class="status ok">SAFE</div>
-          </div>
-          <div class="driver-row">
-            <div class="name">Major OPEC member breaks discipline</div>
-            <div class="threshold">no current evidence</div>
-            <div class="status ok">SAFE</div>
-          </div>
-          <div class="driver-row">
-            <div class="name">Global recession −2% GDP</div>
-            <div class="threshold">macro tripwire — not fired</div>
-            <div class="status ok">SAFE</div>
-          </div>
-          <div class="driver-row">
-            <div class="name">10Y &gt; 5.5%</div>
-            <div class="threshold">currently 4.18%</div>
-            <div class="status ok">SAFE</div>
-          </div>
+          <div data-st-tripwires></div>
         </div>
       </div>
 
-      <div class="thesis-notes" style="margin-top:14px">
-        <div class="sec-head">IMPLEMENTATION — 3 NAMES</div>
+      <div class="thesis-notes" style="margin-top:14px" id="sector-impl-card">
+        <div class="sec-head">IMPLEMENTATION <span data-si-meta style="color:var(--muted);font-weight:500;font-size:10px;margin-left:8px;letter-spacing:0">loading…</span></div>
+        <p data-si-prose style="margin:6px 0 8px;color:var(--text2);font-size:12px;line-height:1.55">loading…</p>
         <table class="impl-table">
           <thead>
-            <tr><th class="left">Ticker</th><th>Current</th><th>Target</th><th>Drift</th><th class="left">Action</th></tr>
+            <tr><th class="left">Ticker</th><th>Action</th><th>Mag</th><th class="left">Rationale</th><th class="left">Sequence</th></tr>
           </thead>
-          <tbody>
-            <tr><td class="left">XOM</td><td>3.8%</td><td>5.0%</td><td style="color:var(--warn)">−1.2pp</td><td class="action left" style="color:var(--bull)">ADD (half-now/half-post-earnings)</td></tr>
-            <tr><td class="left">CVX</td><td>3.0%</td><td>3.0%</td><td>0.0pp</td><td class="action left">HOLD</td></tr>
-            <tr><td class="left">OXY</td><td>1.6%</td><td>2.0%</td><td style="color:var(--warn)">−0.4pp</td><td class="action left" style="color:var(--bull)">ADD (no near catalyst)</td></tr>
-            <tr><td class="left"><em>Sector total</em></td><td>8.4%</td><td>10.0%</td><td style="color:var(--warn)">−1.6pp</td><td class="action left">add ~1.6pp gross</td></tr>
-          </tbody>
+          <tbody data-si-rows><tr><td colspan="5">loading…</td></tr></tbody>
         </table>
       </div>
 
-      <div class="thesis-notes" style="margin-top:14px">
-        <div class="sec-head">PAIR / HEDGE IDEAS</div>
-        <ul class="sig-list">
-          <li><span class="when">PAIR</span><span class="what"><strong>Long XOM / short XOP</strong> (small-cap E&amp;P ETF) — captures discipline premium of integrateds. Currently not implemented.</span></li>
-          <li><span class="when">HEDGE</span><span class="what"><strong>XLE short overlay</strong> if sector grows past 12% holding. Currently 8.4% — no overlay needed.</span></li>
-        </ul>
+      <div class="thesis-notes" style="margin-top:14px" id="sector-hedges-card">
+        <div class="sec-head">HEDGE IDEAS <span data-sh-meta style="color:var(--muted);font-weight:500;font-size:10px;margin-left:8px;letter-spacing:0">loading…</span></div>
+        <p data-sh-prose style="margin:6px 0 8px;color:var(--text2);font-size:12px;line-height:1.55">loading…</p>
+        <ul class="sig-list" data-sh-list><li>loading…</li></ul>
       </div>
     </div>
   </div>
@@ -2825,21 +2776,34 @@
   // ============ SECTOR PANEL ============
   // For the mockup we only fully populate XLE; other clicks open the same panel
   // with a "data populates from selected sector" stub.
+  // MS-3d: ETF ticker (XLE/XLK/...) → canonical sector name used by the
+  // agent endpoints (must match SECTOR_MAP keys in the agent workers).
+  const ETF_TO_SECTOR = {
+    XLE:  "Energy",
+    XLK:  "Technology",
+    XLF:  "Finance",
+    XLC:  "Communication",
+    XLP:  "Staples",
+    XLV:  "Healthcare",
+    XLY:  "ConsDisc",
+    XLI:  "Industrial",
+    // XLU / XLB / XLRE not in our 8-sector book — agents will 404, UI shows that.
+  };
+
   function openSector(sec) {
     document.getElementById("sectorpanel").classList.add("open");
     document.getElementById("panel-backdrop").classList.add("open");
-    // Update header (other sectors would populate from data)
-    if (sec && sec !== "XLE") {
-      document.getElementById("sp-tk").textContent = sec;
-      const note = "Mockup detail fully populated only for XLE. Full thesis, drivers, tripwires, and implementation table would render from this sector's data.";
-      document.getElementById("sp-lede-body").innerHTML =
-        `<em>${note}</em>`;
-    }
-    // Render the sector-ETF 1y price chart
     const etf = sec || "XLE";
+    document.getElementById("sp-tk").textContent = etf;
+    // Render the sector-ETF 1y price chart
     const h3 = document.getElementById("sp-price-h3");
     if (h3) h3.firstChild.nodeValue = etf + " · 1Y ";
     renderPricePanel(etf, "sp-price-svg", "sp-px-last", "sp-px-1y", "sp-px-hi", "sp-px-lo", "sp-px-50", "sp-px-200");
+    // MS-3d: hydrate the live sector slide-out (4 fetches in parallel).
+    const sectorName = ETF_TO_SECTOR[etf];
+    if (sectorName && typeof loadSectorSlideOut === "function") {
+      loadSectorSlideOut(sectorName);
+    }
   }
   function closeSector() {
     document.getElementById("sectorpanel").classList.remove("open");
@@ -3180,6 +3144,123 @@
         console.error("[macro-thesis]", err);
       });
   })();
+
+  // ============ MS-3d: live sector slide-out (S2 + S4 + S5 + S6) ============
+  // Hydrates #sector-thesis-card / #sector-impl-card / #sector-hedges-card /
+  // #sector-read-card on demand when openSector(<ETF>) maps to a sector that
+  // has agent data in SECTOR_TREND_long. Sectors with no agent data yet (any
+  // sector outside SECTORS_BUILD_PHASE = [Technology, Energy] until MS-4b)
+  // surface a clear 404 message instead of a silent empty card.
+  function loadSectorSlideOut(sectorName) {
+    // S2 thesis
+    fetch(`/api/sector-thesis?sector=${encodeURIComponent(sectorName)}`)
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then(data => {
+        const t = data.payload || {};
+        const drivers   = Array.isArray(t.drivers)   ? t.drivers   : [];
+        const tripwires = Array.isArray(t.tripwires) ? t.tripwires : [];
+        const card = document.getElementById("sector-thesis-card");
+        card.querySelector("[data-st-meta]").textContent =
+          `S2 · ${__mEsc(sectorName)} · v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+        card.querySelector("[data-st-sources]").textContent =
+          `Sources: SECTOR_TREND_long.thesis_json · SECTOR_FACTORS_daily · sector-specific MACRO_STATE_indicators · macro-sector-thesis-agent (${data.model || "?"})`;
+        card.querySelector("[data-st-prose]").textContent = t.prose || "(no prose)";
+        card.querySelector("[data-st-drivers-head]").textContent = `DRIVERS (${drivers.length})`;
+        card.querySelector("[data-st-drivers]").innerHTML = drivers.map(d => `
+          <div class="driver-row">
+            <div class="name"><strong>${__mEsc(d.name)}</strong></div>
+            <div class="threshold">${__mEsc(d.rationale)}</div>
+          </div>`).join("") || `<div class="driver-row"><div class="name">(no drivers)</div></div>`;
+        card.querySelector("[data-st-tripwires]").innerHTML = tripwires.map(t => `
+          <div class="driver-row">
+            <div class="name">${__mEsc(t.condition)} <span class="src" style="font-size:10px;color:var(--muted)">[${__mEsc(t.id)}]</span></div>
+            <div class="threshold">${__mEsc(t.currently)}</div>
+          </div>`).join("") || `<div class="driver-row"><div class="name">(no tripwires)</div></div>`;
+      })
+      .catch(err => {
+        const card = document.getElementById("sector-thesis-card");
+        card.querySelector("[data-st-meta]").textContent = "ERROR";
+        card.querySelector("[data-st-prose]").innerHTML =
+          `<span style="color:var(--bad)">Failed to load sector thesis for ${__mEsc(sectorName)}: ${__mEsc(err.message)}</span>`;
+        card.querySelector("[data-st-drivers]").innerHTML = "";
+        card.querySelector("[data-st-tripwires]").innerHTML = "";
+        console.error("[sector-thesis]", sectorName, err);
+      });
+
+    // S4 implementation
+    fetch(`/api/sector-implementation?sector=${encodeURIComponent(sectorName)}`)
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then(data => {
+        const t = data.payload || {};
+        const actions = Array.isArray(t.actions) ? t.actions : [];
+        const card = document.getElementById("sector-impl-card");
+        card.querySelector("[data-si-meta]").textContent =
+          `· S4 v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+        card.querySelector("[data-si-prose]").textContent = t.prose || "(no prose)";
+        const actColor = (a) => a === "OW" || a === "initiate" ? "var(--bull)" :
+                                a === "UW" || a === "exit"     ? "var(--bear)" : "var(--text2)";
+        card.querySelector("[data-si-rows]").innerHTML = actions.map(a => `
+          <tr>
+            <td class="left"><strong>${__mEsc(a.ticker)}</strong></td>
+            <td class="action" style="color:${actColor(a.action)}">${__mEsc(a.action)}</td>
+            <td>${a.magnitude ?? "?"}</td>
+            <td class="left" style="color:var(--text2);font-size:11px">${__mEsc(a.rationale)}</td>
+            <td class="left" style="color:var(--muted);font-size:11px"><em>${__mEsc(a.sequence_note || "")}</em></td>
+          </tr>`).join("") || `<tr><td colspan="5">(no actions)</td></tr>`;
+      })
+      .catch(err => {
+        const card = document.getElementById("sector-impl-card");
+        card.querySelector("[data-si-meta]").textContent = "ERROR";
+        card.querySelector("[data-si-prose]").innerHTML =
+          `<span style="color:var(--bad)">Failed to load implementation: ${__mEsc(err.message)}</span>`;
+        card.querySelector("[data-si-rows]").innerHTML = "";
+        console.error("[sector-implementation]", sectorName, err);
+      });
+
+    // S5 hedges
+    fetch(`/api/sector-hedges?sector=${encodeURIComponent(sectorName)}`)
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then(data => {
+        const t = data.payload || {};
+        const hedges = Array.isArray(t.hedges) ? t.hedges : [];
+        const card = document.getElementById("sector-hedges-card");
+        card.querySelector("[data-sh-meta]").textContent =
+          `· S5 v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+        card.querySelector("[data-sh-prose]").textContent = t.prose || "(no prose)";
+        card.querySelector("[data-sh-list]").innerHTML = hedges.map(h => `
+          <li>
+            <span class="when">${__mEsc((h.kind || "?").toUpperCase().replace("_", " "))}</span>
+            <span class="what"><strong>${__mEsc(h.instrument)}</strong> — ${__mEsc(h.rationale)} <em style="color:var(--ai)">(tripwire ${__mEsc(h.tripwire_id)})</em></span>
+            <span class="impact-tag">${__mEsc(h.sizing)}</span>
+          </li>`).join("") || `<li><span class="what">(no hedge ideas)</span></li>`;
+      })
+      .catch(err => {
+        const card = document.getElementById("sector-hedges-card");
+        card.querySelector("[data-sh-meta]").textContent = "ERROR";
+        card.querySelector("[data-sh-prose]").innerHTML =
+          `<span style="color:var(--bad)">Failed to load hedges: ${__mEsc(err.message)}</span>`;
+        card.querySelector("[data-sh-list]").innerHTML = "";
+        console.error("[sector-hedges]", sectorName, err);
+      });
+
+    // S6 read
+    fetch(`/api/sector-read?sector=${encodeURIComponent(sectorName)}`)
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then(data => {
+        const t = data.payload || {};
+        const card = document.getElementById("sector-read-card");
+        card.querySelector("[data-sr-meta]").textContent =
+          `S6 · ${__mEsc(sectorName)} · v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+        card.querySelector("[data-sr-prose]").textContent = t.prose || "(no prose)";
+      })
+      .catch(err => {
+        const card = document.getElementById("sector-read-card");
+        card.querySelector("[data-sr-meta]").textContent = "ERROR";
+        card.querySelector("[data-sr-prose]").innerHTML =
+          `<span style="color:var(--bad)">Failed to load sector read for ${__mEsc(sectorName)}: ${__mEsc(err.message)}</span>`;
+        console.error("[sector-read]", sectorName, err);
+      });
+  }
 
   // ============ MS-3b: live macro Read (M6) ============
   __mFetchRender({
