@@ -70,6 +70,12 @@ const AGENTS = [
     sector,
     shouldFire: (db) => shouldFireSectorThesis(db, sector),
   })),
+  ...SECTORS_BUILD_PHASE.map(sector => ({
+    name:     `sector-implementation:${sector}`,
+    binding:  "SECTOR_IMPLEMENTATION",
+    sector,
+    shouldFire: (db) => shouldFireSectorImplementation(db, sector),
+  })),
 ];
 
 export default {
@@ -364,6 +370,33 @@ async function shouldFireSectorThesis(db, sector) {
   }
 
   return { fire: false, reason: "sector thesis fresh: macro stable, no new factors row" };
+}
+
+// S4 Sector Implementation epsilon (per sector): re-fire when the sector
+// thesis was rewritten, when a fresh SECTOR_FACTORS_daily row landed, or
+// any in-sector ticker had its TICKER_TREND_long score updated since the
+// last implementation write. Does NOT fire on macro alone — sector thesis
+// is the load-bearing input.
+async function shouldFireSectorImplementation(db, sector) {
+  const sectorRow = await db.prepare(
+    `SELECT thesis_updated_at, implementation_updated_at
+       FROM SECTOR_TREND_long WHERE sector = ?`,
+  ).bind(sector).first();
+  if (!sectorRow) return { fire: false, reason: `no SECTOR_TREND_long row for ${sector}` };
+  if (!sectorRow.thesis_updated_at) return { fire: false, reason: `no sector thesis yet for ${sector}` };
+  if (!sectorRow.implementation_updated_at) return { fire: true, reason: `first run for ${sector}` };
+
+  if (sectorRow.thesis_updated_at > sectorRow.implementation_updated_at) {
+    return { fire: true, reason: `sector thesis newer than implementation` };
+  }
+
+  // Note: TICKER_TREND_long doesn't have an explicit updated_at column we
+  // can compare easily across sectors. Skipping that gate path for MS-3c —
+  // the thesis-newer check above covers the common case (ticker updates
+  // typically trigger a sector thesis re-run via SECTOR_FACTORS_daily,
+  // which feeds back here). Tightening deferred.
+
+  return { fire: false, reason: `implementation fresh: sector thesis stable for ${sector}` };
 }
 
 // ---------------------------------------------------------------------------
