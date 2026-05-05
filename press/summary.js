@@ -11,12 +11,15 @@ const __dirname = path.dirname(__filename);
 
 console.log("PRESS SUMMARY STARTED")
 
+const ts = () => new Date().toISOString().slice(11, 19);
 
 // ----------------------
 // OPENAI CLIENT
 // ----------------------
 const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,   // <-- SET YOUR KEY IN ENV
+  apiKey: process.env.OPENAI_API_KEY,
+  timeout: 30000,
+  maxRetries: 1,
 });
 
 // ----------------------
@@ -27,6 +30,25 @@ const base = JSON.parse(
 ).results;
 
 const tickers = Object.keys(base);
+
+// Idempotency: load any existing summary file and skip articles whose URL
+// is already summarized. The previous behavior was to overwrite the whole
+// file from scratch, so a hang on article 1 lost everything.
+const summaryPath = path.join(__dirname, "AA_press_summary.json");
+let priorOutput = {};
+try {
+  if (fs.existsSync(summaryPath)) {
+    priorOutput = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
+  }
+} catch (err) {
+  console.error(`[${ts()}] [PRESS-SUMMARY] could not read prior summary: ${err.message}`);
+}
+
+function alreadySummarized(ticker, url) {
+  const existing = priorOutput[ticker];
+  if (!Array.isArray(existing)) return false;
+  return existing.some(a => a.url === url || a.heading === url);
+}
 
 // ----------------------
 // RUN ARTICLE SCRAPER
@@ -40,8 +62,22 @@ function runArticleScraper(ticker, url) {
     });
 
     let out = "";
+    const timer = setTimeout(() => {
+      console.log(`[${ts()}] [PRESS-SUMMARY] article scrape TIMEOUT 45s → SIGKILL ${ticker}`);
+      child.kill("SIGKILL");
+      resolve("");
+    }, 45000);
+
     child.stdout.on("data", (d) => (out += d.toString()));
-    child.on("close", () => resolve(out.trim()));
+    child.on("close", () => {
+      clearTimeout(timer);
+      resolve(out.trim());
+    });
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      console.log(`[${ts()}] [PRESS-SUMMARY] article scraper spawn error ${ticker}: ${err.message}`);
+      resolve("");
+    });
   });
 }
 
@@ -103,6 +139,9 @@ ${text}
 // ----------------------
 async function main() {
   const output = {};
+  const totalArticles = tickers.reduce((n, t) => n + (base[t]?.length || 0), 0);
+  let processed = 0;
+  console.log(`[${ts()}] [PRESS-SUMMARY] ${tickers.length} tickers, ${totalArticles} articles to process`);
 
   for (const ticker of tickers) {
     const articles = base[ticker];
@@ -111,25 +150,49 @@ async function main() {
     output[ticker] = [];
 
     for (const art of articles) {
-      const text = await runArticleScraper(ticker, art.url);
-      console.log(art.title)
-      const result = await summarize(text);
+      processed++;
+      const tag = `[${ts()}] [PRESS-SUMMARY ${processed}/${totalArticles}] ${ticker}`;
 
-      output[ticker].push({
+      if (alreadySummarized(ticker, art.url)) {
+        console.log(`${tag} SKIP (already summarized) ${art.url}`);
+        const prior = priorOutput[ticker].find(a => a.url === art.url || a.heading === art.url);
+        if (prior) output[ticker].push(prior);
+        continue;
+      }
+
+      const aStart = Date.now();
+      console.log(`${tag} scrape ${art.url}`);
+      const text = await runArticleScraper(ticker, art.url);
+      console.log(`${tag} scraped ${text?.length ?? 0} chars in ${Date.now() - aStart}ms`);
+
+      let result;
+      try {
+        const sStart = Date.now();
+        result = await summarize(text);
+        console.log(`${tag} summarized in ${Date.now() - sStart}ms (${result.sentiment}, mag=${result.magnitude})`);
+      } catch (err) {
+        console.error(`${tag} summarize FAILED: ${err.message}`);
+        result = { summary: `[summarize-failed: ${err.message}]`, sentiment: "neutral", magnitude: 0 };
+      }
+
+      const entry = {
         heading: art.title,
+        url: art.url,
         date: art.norm,
         summary: result.summary,
         sentiment: result.sentiment,
         magnitude: result.magnitude,
-        rawContent: text,  // Save raw content for verification
-      });
+        rawContent: text,
+      };
+      output[ticker].push(entry);
+
+      // Persist after every article so a crash doesn't wipe all progress.
+      fs.writeFileSync(summaryPath, JSON.stringify(output, null, 2));
     }
   }
 
-  fs.writeFileSync(
-    path.join(__dirname, "AA_press_summary.json"),
-    JSON.stringify(output, null, 2)
-  );
+  fs.writeFileSync(summaryPath, JSON.stringify(output, null, 2));
+  console.log(`[${ts()}] [PRESS-SUMMARY] wrote ${summaryPath} (${Object.keys(output).length} tickers)`);
 }
 
 await main();

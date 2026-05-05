@@ -24,9 +24,23 @@ export async function ingestPress(config, logger, results) {
   logger.startStep(0);
   logger.log("PRESS", "Fetching press releases...");
 
-  // Run scrapers
+  // Idempotency: if the discovery file was already produced today, don't
+  // re-run the slow puppeteer pass. The summary pass still runs (it has
+  // its own per-article skip-if-summarized check).
+  const todayJsonPath = path.join(BASE_DIR, "press/AA_press_releases_today.json");
+  const todayISO = new Date().toISOString().slice(0, 10);
+  let discoveryFreshToday = false;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(todayJsonPath, "utf8"));
+    if (parsed?.date === todayISO) discoveryFreshToday = true;
+  } catch {}
+
   if (!config.skipIngestion) {
-    await importScript("../../press/index.js", logger, "PRESS");
+    if (discoveryFreshToday) {
+      logger.log("PRESS", "AA_press_releases_today.json already produced today — skipping discovery", "ok");
+    } else {
+      await importScript("../../press/index.js", logger, "PRESS");
+    }
     await importScript("../../press/summary.js", logger, "PRESS");
   }
 
