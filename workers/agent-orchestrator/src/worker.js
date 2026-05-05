@@ -137,6 +137,12 @@ const AGENTS = [
     ticker,
     shouldFire: (db) => shouldFireTickerEstimates(db, ticker),
   })),
+  ...TICKERS_BUILD_PHASE.map(ticker => ({
+    name:     `ticker-peers:${ticker}`,
+    binding:  "TICKER_PEERS",
+    ticker,
+    shouldFire: (db) => shouldFireTickerPeers(db, ticker),
+  })),
 ];
 
 export default {
@@ -756,6 +762,36 @@ async function shouldFireTickerEstimates(db, ticker) {
     return { fire: true, reason: `new FUND_03_Estimates row at ${fresh.latest}` };
   }
   return { fire: false, reason: `estimates fresh: no new consensus rows for ${ticker}` };
+}
+
+// Ticker Peers epsilon: re-fire if no prior reading, the PEER_SET_config
+// row was rewritten (peer set changed), or the ticker's STOCK_FACTORS_daily
+// row landed since last write. Self-contained reading per spec — does NOT
+// fire on thesis change.
+async function shouldFireTickerPeers(db, ticker) {
+  const [trendRow, peerCfg, latestFactors] = await Promise.all([
+    db.prepare(
+      `SELECT peers_updated_at FROM TICKER_TREND_long WHERE ticker = ?`,
+    ).bind(ticker).first(),
+    db.prepare(
+      `SELECT updated_at FROM PEER_SET_config WHERE ticker = ?`,
+    ).bind(ticker).first(),
+    db.prepare(
+      `SELECT date FROM STOCK_FACTORS_daily WHERE ticker = ? ORDER BY date DESC LIMIT 1`,
+    ).bind(ticker).first(),
+  ]);
+  if (!trendRow) return { fire: false, reason: `no TICKER_TREND_long row for ${ticker}` };
+  if (!peerCfg)  return { fire: false, reason: `no PEER_SET_config for ${ticker}` };
+  if (!trendRow.peers_updated_at) return { fire: true, reason: `first run for ${ticker}` };
+
+  if (peerCfg.updated_at && peerCfg.updated_at > trendRow.peers_updated_at) {
+    return { fire: true, reason: `PEER_SET_config rewritten at ${peerCfg.updated_at}` };
+  }
+  const since = trendRow.peers_updated_at.slice(0, 10);
+  if (latestFactors?.date && latestFactors.date > since) {
+    return { fire: true, reason: `new STOCK_FACTORS_daily on ${latestFactors.date}` };
+  }
+  return { fire: false, reason: `peers fresh: no new factors / config for ${ticker}` };
 }
 
 // ---------------------------------------------------------------------------

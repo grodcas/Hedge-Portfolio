@@ -31,7 +31,8 @@
     { "binding": "SECTOR_READ",           "service": "macro-sector-read-agent" },
     { "binding": "TICKER_VALUATION",      "service": "ticker-valuation-agent" },
     { "binding": "TICKER_FUNDAMENTALS",   "service": "ticker-fundamentals-agent" },
-    { "binding": "TICKER_ESTIMATES",      "service": "ticker-estimates-agent" }
+    { "binding": "TICKER_ESTIMATES",      "service": "ticker-estimates-agent" },
+    { "binding": "TICKER_PEERS",          "service": "ticker-peers-agent" }
   ],
   "triggers": {
     "crons": ["0 14-22 * * 1-5"]
