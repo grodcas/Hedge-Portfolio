@@ -131,6 +131,12 @@ const AGENTS = [
     ticker,
     shouldFire: (db) => shouldFireTickerFundamentals(db, ticker),
   })),
+  ...TICKERS_BUILD_PHASE.map(ticker => ({
+    name:     `ticker-estimates:${ticker}`,
+    binding:  "TICKER_ESTIMATES",
+    ticker,
+    shouldFire: (db) => shouldFireTickerEstimates(db, ticker),
+  })),
 ];
 
 export default {
@@ -727,6 +733,29 @@ async function shouldFireTickerFundamentals(db, ticker) {
     return { fire: true, reason: `new FUND_01_Quarterly on ${latestQ.fiscal_period_ending}` };
   }
   return { fire: false, reason: `fundamentals fresh: no new prints for ${ticker}` };
+}
+
+// Ticker Estimates epsilon: re-fire if no prior reading, ticker thesis was
+// rewritten, or any FUND_03_Estimates row for this ticker has a created_at
+// newer than the last estimates write.
+async function shouldFireTickerEstimates(db, ticker) {
+  const trendRow = await db.prepare(
+    `SELECT thesis_updated_at, estimates_updated_at
+       FROM TICKER_TREND_long WHERE ticker = ?`,
+  ).bind(ticker).first();
+  if (!trendRow) return { fire: false, reason: `no TICKER_TREND_long row for ${ticker}` };
+  if (!trendRow.estimates_updated_at) return { fire: true, reason: `first run for ${ticker}` };
+
+  if (trendRow.thesis_updated_at && trendRow.thesis_updated_at > trendRow.estimates_updated_at) {
+    return { fire: true, reason: `ticker thesis newer than estimates` };
+  }
+  const fresh = await db.prepare(
+    `SELECT MAX(created_at) AS latest FROM FUND_03_Estimates WHERE ticker = ?`,
+  ).bind(ticker).first();
+  if (fresh?.latest && fresh.latest > trendRow.estimates_updated_at) {
+    return { fire: true, reason: `new FUND_03_Estimates row at ${fresh.latest}` };
+  }
+  return { fire: false, reason: `estimates fresh: no new consensus rows for ${ticker}` };
 }
 
 // ---------------------------------------------------------------------------
