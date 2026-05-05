@@ -2204,59 +2204,22 @@
       </p>
     </div>
 
-    <div class="ent-card">
-      <h3>MACRO THESIS <span class="meta">v4 · locked by analyst 2026-04-22 · 1 driver in WATCH</span></h3>
-      <div class="thesis-prose-meta">Sources: MACRO_STATE_indicators · FRED rates &amp; credit series · regime-state classifier · 12m regime history</div>
-      <p class="thesis-prose">
-        The late-cycle plateau is <strong>extending, not breaking</strong>. Credit and commodity strength deny the recession-now case; rising claims and softening ISM deny the no-landing reacceleration case. The base case is a <strong>6–9 month muddle-through</strong> with sticky inflation, real rates drifting lower, and the Fed unable to cut decisively before September. Risk assets keep their multiples but lose their tailwind. The exit on the dovish side is a sharp Fed pivot driven by the labor market breaking; the exit on the hawkish side is a re-acceleration in core inflation that pushes the Fed back to a pause-or-hike posture. The labor exit is the more probable of the two — which is why the claims tripwire is the load-bearing one in the table below.
-      </p>
+    <!-- MS-2d: live wiring. Static markup above is the design; live data
+         comes from /api/macro-thesis (BETA_10_Daily_macro.thesis_json,
+         written by macro-thesis-agent / orchestrator).  See script section. -->
+    <div class="ent-card" id="macro-thesis-card">
+      <h3>MACRO THESIS <span class="meta" data-mt-meta>loading…</span></h3>
+      <div class="thesis-prose-meta" data-mt-sources>Sources: MACRO_STATE_indicators · BETA_10_Daily_macro · regime-state classifier · macro-thesis-agent (gpt-5)</div>
+      <p class="thesis-prose" data-mt-prose>Loading macro thesis…</p>
 
       <div class="thesis-cols">
         <div>
-          <h4>DRIVERS (4)</h4>
-          <div class="driver-row">
-            <div class="name"><strong>Credit spreads stable to tightening</strong></div>
-            <div class="threshold">HY OAS &lt; 425bps · 358 ✓</div>
-            <div class="status ok">CONFIRM</div>
-          </div>
-          <div class="driver-row">
-            <div class="name"><strong>Real yields contained</strong></div>
-            <div class="threshold">1.5%–2.2% · 1.92% ✓</div>
-            <div class="status ok">CONFIRM</div>
-          </div>
-          <div class="driver-row">
-            <div class="name"><strong>Labor softening but not breaking</strong></div>
-            <div class="threshold">claims 200–260k · rising ✓</div>
-            <div class="status watch">WATCH</div>
-          </div>
-          <div class="driver-row">
-            <div class="name"><strong>Commodity strength persists</strong></div>
-            <div class="threshold">WTI $70–$95 · $78 ✓</div>
-            <div class="status ok">CONFIRM</div>
-          </div>
+          <h4 data-mt-drivers-head>DRIVERS</h4>
+          <div data-mt-drivers></div>
         </div>
         <div>
           <h4>TRIPWIRES</h4>
-          <div class="driver-row">
-            <div class="name">HY OAS &gt; 475bps (2w)</div>
-            <div class="threshold">currently 358bps</div>
-            <div class="status ok">SAFE</div>
-          </div>
-          <div class="driver-row">
-            <div class="name">Claims 4w avg &gt; 260k (3w)</div>
-            <div class="threshold">currently 222k, rising</div>
-            <div class="status watch">WATCH</div>
-          </div>
-          <div class="driver-row">
-            <div class="name">ISM Mfg &lt; 47 (2 prints)</div>
-            <div class="threshold">currently 49.8</div>
-            <div class="status watch">WATCH</div>
-          </div>
-          <div class="driver-row">
-            <div class="name">10Y &gt; 5.0% w/ reals &gt; 2.5%</div>
-            <div class="threshold">10Y 4.18% · reals 1.92%</div>
-            <div class="status ok">SAFE</div>
-          </div>
+          <div data-mt-tripwires></div>
         </div>
       </div>
 
@@ -3157,6 +3120,63 @@
   // initial render
   renderBook();
   renderTape("all"); // pre-render so opening is instant
+
+  // ============ MS-2d: live macro thesis (M2) ============
+  // Pulls BETA_10_Daily_macro.thesis_json via dashboard /api/macro-thesis.
+  // Card markup is at #macro-thesis-card. On error the prose row shows the
+  // failure inline rather than leaving the static fallback (the fallback no
+  // longer exists in the markup) — this is how we'll spot a stale agent.
+  (function loadMacroThesis() {
+    const el = document.getElementById("macro-thesis-card");
+    if (!el) return;
+    const $prose      = el.querySelector("[data-mt-prose]");
+    const $meta       = el.querySelector("[data-mt-meta]");
+    const $sources    = el.querySelector("[data-mt-sources]");
+    const $driversHd  = el.querySelector("[data-mt-drivers-head]");
+    const $drivers    = el.querySelector("[data-mt-drivers]");
+    const $tripwires  = el.querySelector("[data-mt-tripwires]");
+
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => (
+      { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]
+    ));
+
+    fetch("/api/macro-thesis")
+      .then((r) => r.ok ? r.json() : r.json().then((j) => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then((data) => {
+        const t = data.thesis || {};
+        const drivers   = Array.isArray(t.drivers)   ? t.drivers   : [];
+        const tripwires = Array.isArray(t.tripwires) ? t.tripwires : [];
+
+        const updated = data.thesis_updated_at ? new Date(data.thesis_updated_at).toUTCString().replace("GMT","UTC") : "?";
+        const regimeLbl = data.regime ? `regime: ${esc(data.regime)} · ` : "";
+        $meta.textContent = `v${t.version ?? "?"} · ${regimeLbl}updated ${updated} · ${esc(data.thesis_model || "?")}`;
+
+        $sources.innerHTML = `Sources: BETA_10_Daily_macro.thesis_json · MACRO_STATE_indicators (panel + cross-asset) · macro-thesis-agent (${esc(data.thesis_model || "?")})`;
+        $prose.textContent = t.prose || "(no prose)";
+        $driversHd.textContent = `DRIVERS (${drivers.length})`;
+
+        $drivers.innerHTML = drivers.map((d) => `
+          <div class="driver-row">
+            <div class="name"><strong>${esc(d.name)}</strong></div>
+            <div class="threshold">${esc(d.rationale)}</div>
+          </div>
+        `).join("") || `<div class="driver-row"><div class="name">(no drivers)</div></div>`;
+
+        $tripwires.innerHTML = tripwires.map((t) => `
+          <div class="driver-row">
+            <div class="name">${esc(t.condition)} <span class="src" style="font-size:10px;color:var(--muted)">[${esc(t.id)}]</span></div>
+            <div class="threshold">${esc(t.currently)}</div>
+          </div>
+        `).join("") || `<div class="driver-row"><div class="name">(no tripwires)</div></div>`;
+      })
+      .catch((err) => {
+        $meta.textContent = "ERROR";
+        $prose.innerHTML = `<span style="color:var(--bad)">Failed to load macro thesis: ${esc(err.message)}</span>`;
+        $drivers.innerHTML = "";
+        $tripwires.innerHTML = "";
+        console.error("[macro-thesis]", err);
+      });
+  })();
 </script>
 
 </body>

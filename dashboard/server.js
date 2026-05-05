@@ -219,6 +219,26 @@ app.get("/api/daily-macro/:date", async (req, res) => {
   }
 });
 
+// Get M2 Macro Thesis from D1 (BETA_10_Daily_macro.thesis_json)
+// Wired in MS-2d. Source: macro-thesis-agent (gpt-5).
+app.get("/api/macro-thesis", async (req, res) => {
+  try {
+    const data = await fetchFromWorker("/query/macro-thesis");
+
+    if (!data || !data.thesis) {
+      return res.status(404).json({
+        error: "No macro thesis available",
+        source: "D1",
+        hint: "Fire the agent-orchestrator (or macro-thesis-agent /build?force=1) to generate"
+      });
+    }
+
+    res.json({ ...data, source: "D1" });
+  } catch (error) {
+    handleD1Error(res, "/api/macro-thesis", error);
+  }
+});
+
 // Get macro trend from D1 (BETA_09_Trend)
 app.get("/api/macro-trend/:date", async (req, res) => {
   try {

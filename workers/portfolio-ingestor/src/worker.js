@@ -45,6 +45,40 @@ export default {
           }, { headers: corsHeaders });
         }
 
+        // -------- GET /query/macro-thesis --------
+        // M2 Macro Thesis (MS-2b agent output). Returns the latest
+        // BETA_10_Daily_macro.thesis_json with parsed body + meta. The
+        // dashboard reads this for the v2-balanced Macro slide-out.
+        if (path === "/query/macro-thesis") {
+          const row = await db.prepare(`
+            SELECT id, regime, confidence, thesis_json, thesis_updated_at, thesis_model, creation_date
+            FROM BETA_10_Daily_macro
+            WHERE thesis_json IS NOT NULL
+            ORDER BY creation_date DESC
+            LIMIT 1
+          `).first();
+
+          if (!row) {
+            return Response.json({ error: "No thesis row yet" }, { status: 404, headers: corsHeaders });
+          }
+
+          let thesis = null;
+          try { thesis = JSON.parse(row.thesis_json); } catch {}
+          if (!thesis) {
+            return Response.json({ error: "thesis_json failed to parse" }, { status: 500, headers: corsHeaders });
+          }
+
+          return Response.json({
+            id: row.id,
+            regime: row.regime,
+            confidence: row.confidence,
+            creation_date: row.creation_date,
+            thesis_updated_at: row.thesis_updated_at,
+            thesis_model: row.thesis_model,
+            thesis,
+          }, { headers: corsHeaders });
+        }
+
         // -------- GET /query/macro-trend --------
         if (path === "/query/macro-trend") {
           const row = await db.prepare(`
