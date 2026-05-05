@@ -176,6 +176,12 @@ const AGENTS = [
     ticker,
     shouldFire: (db) => shouldFireTickerRecommendation(db, ticker),
   })),
+  ...TICKERS_BUILD_PHASE.map(ticker => ({
+    name:     `ticker-read:${ticker}`,
+    binding:  "TICKER_READ",
+    ticker,
+    shouldFire: (db) => shouldFireTickerRead(db, ticker),
+  })),
 ];
 
 export default {
@@ -1003,6 +1009,39 @@ async function shouldFireTickerRecommendation(db, ticker) {
     return { fire: true, reason: `new POSITION_01_Daily on ${latestPos.date}` };
   }
   return { fire: false, reason: `recommendation fresh for ${ticker}` };
+}
+
+// Ticker Read epsilon: re-fire whenever any of {thesis, recommendation,
+// valuation, fundamentals, estimates, peers, news_drift, context}_updated_at
+// is newer than read_updated_at. The ticker lede stitches the upstream
+// chain. Runs LAST.
+async function shouldFireTickerRead(db, ticker) {
+  const r = await db.prepare(
+    `SELECT thesis_updated_at, recommendation_updated_at,
+            valuation_updated_at, fundamentals_updated_at, estimates_updated_at,
+            peers_updated_at, news_drift_updated_at, context_updated_at,
+            read_updated_at
+       FROM TICKER_TREND_long WHERE ticker = ?`,
+  ).bind(ticker).first();
+  if (!r) return { fire: false, reason: `no TICKER_TREND_long row for ${ticker}` };
+  if (!r.thesis_updated_at)         return { fire: false, reason: "no thesis_json yet" };
+  if (!r.recommendation_updated_at) return { fire: false, reason: "no recommendation_json yet (#9 must fire first)" };
+  if (!r.read_updated_at)           return { fire: true, reason: `first run for ${ticker}` };
+
+  const checks = [
+    ["thesis",         r.thesis_updated_at],
+    ["recommendation", r.recommendation_updated_at],
+    ["valuation",      r.valuation_updated_at],
+    ["fundamentals",   r.fundamentals_updated_at],
+    ["estimates",      r.estimates_updated_at],
+    ["peers",          r.peers_updated_at],
+    ["news_drift",     r.news_drift_updated_at],
+    ["context",        r.context_updated_at],
+  ];
+  for (const [name, ts] of checks) {
+    if (ts && ts > r.read_updated_at) return { fire: true, reason: `${name} newer than read` };
+  }
+  return { fire: false, reason: `read fresh: all upstream stable for ${ticker}` };
 }
 
 // Mirror of the canonical sector map. Duplicated to keep the orchestrator

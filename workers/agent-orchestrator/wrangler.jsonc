@@ -37,7 +37,8 @@
     { "binding": "TICKER_NEWS_DRIFT",     "service": "ticker-news-drift-agent" },
     { "binding": "TICKER_THESIS",         "service": "ticker-thesis-agent" },
     { "binding": "TICKER_NOTES",          "service": "ticker-notes-agent" },
-    { "binding": "TICKER_RECOMMENDATION", "service": "ticker-recommendation-agent" }
+    { "binding": "TICKER_RECOMMENDATION", "service": "ticker-recommendation-agent" },
+    { "binding": "TICKER_READ",           "service": "ticker-read-agent" }
   ],
   "triggers": {
     "crons": ["0 14-22 * * 1-5"]
