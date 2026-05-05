@@ -149,6 +149,15 @@ const AGENTS = [
     ticker,
     shouldFire: (db) => shouldFireTickerContext(db, ticker),
   })),
+  // ----- Ticker synthesis (MS-3g). News drift runs first; thesis (keystone)
+  // ----- consumes drift verdict + fundamentals verdict; recommendation /
+  // ----- read run after thesis; earnings_summary is independent, per-quarter.
+  ...TICKERS_BUILD_PHASE.map(ticker => ({
+    name:     `ticker-news-drift:${ticker}`,
+    binding:  "TICKER_NEWS_DRIFT",
+    ticker,
+    shouldFire: (db) => shouldFireTickerNewsDrift(db, ticker),
+  })),
 ];
 
 export default {
@@ -843,6 +852,32 @@ async function shouldFireTickerContext(db, ticker) {
     return { fire: true, reason: `new high-impact calendar event added at ${freshCal.latest}` };
   }
   return { fire: false, reason: `context fresh: macro/sector/calendar all stable for ${ticker}` };
+}
+
+// Ticker News drift epsilon: re-fire if no prior drift, the ticker thesis
+// was rewritten (driver/tripwire targets changed), or new TOPIC_FEED rows
+// scoped to ticker:X have arrived since the last write.
+async function shouldFireTickerNewsDrift(db, ticker) {
+  const trendRow = await db.prepare(
+    `SELECT thesis_updated_at, news_drift_updated_at
+       FROM TICKER_TREND_long WHERE ticker = ?`,
+  ).bind(ticker).first();
+  if (!trendRow) return { fire: false, reason: `no TICKER_TREND_long row for ${ticker}` };
+  if (!trendRow.news_drift_updated_at) return { fire: true, reason: `first run for ${ticker}` };
+
+  if (trendRow.thesis_updated_at && trendRow.thesis_updated_at > trendRow.news_drift_updated_at) {
+    return { fire: true, reason: "ticker thesis newer than news_drift" };
+  }
+  const since = trendRow.news_drift_updated_at.slice(0, 10);
+  const fresh = await db.prepare(
+    `SELECT topic_canonical, date_last_seen FROM TOPIC_FEED
+      WHERE scope = ? AND date_last_seen > ?
+      ORDER BY date_last_seen DESC LIMIT 1`,
+  ).bind(`ticker:${ticker}`, since).first();
+  if (fresh) {
+    return { fire: true, reason: `new ${ticker} topic '${fresh.topic_canonical}' on ${fresh.date_last_seen}` };
+  }
+  return { fire: false, reason: `no new ${ticker} topics since last drift` };
 }
 
 // Mirror of the canonical sector map. Duplicated to keep the orchestrator
