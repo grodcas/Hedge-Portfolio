@@ -164,6 +164,12 @@ const AGENTS = [
     ticker,
     shouldFire: (db) => shouldFireTickerThesis(db, ticker),
   })),
+  ...TICKERS_BUILD_PHASE.map(ticker => ({
+    name:     `ticker-notes:${ticker}`,
+    binding:  "TICKER_NOTES",
+    ticker,
+    shouldFire: (db) => shouldFireTickerNotes(db, ticker),
+  })),
 ];
 
 export default {
@@ -920,6 +926,35 @@ async function shouldFireTickerThesis(db, ticker) {
   return { fire: false, reason: "fund + drift verdicts unchanged, no tripwires fired" };
 }
 function safeJsonGate(s) { try { return JSON.parse(s); } catch { return null; } }
+
+// Ticker Notes epsilon: re-fire if no prior notes, ticker thesis or drift
+// rewritten, or new ticker:X TOPIC_FEED rows landed since last write.
+async function shouldFireTickerNotes(db, ticker) {
+  const trendRow = await db.prepare(
+    `SELECT thesis_updated_at, news_drift_updated_at, notes_updated_at
+       FROM TICKER_TREND_long WHERE ticker = ?`,
+  ).bind(ticker).first();
+  if (!trendRow) return { fire: false, reason: `no TICKER_TREND_long row for ${ticker}` };
+  if (!trendRow.thesis_updated_at) return { fire: false, reason: "no thesis_json yet (#7 must fire first)" };
+  if (!trendRow.notes_updated_at) return { fire: true, reason: `first run for ${ticker}` };
+
+  if (trendRow.thesis_updated_at > trendRow.notes_updated_at) {
+    return { fire: true, reason: "ticker thesis newer than notes" };
+  }
+  if (trendRow.news_drift_updated_at && trendRow.news_drift_updated_at > trendRow.notes_updated_at) {
+    return { fire: true, reason: "ticker news_drift newer than notes" };
+  }
+  const since = trendRow.notes_updated_at.slice(0, 10);
+  const fresh = await db.prepare(
+    `SELECT topic_canonical, date_last_seen FROM TOPIC_FEED
+      WHERE scope = ? AND date_last_seen > ?
+      ORDER BY date_last_seen DESC LIMIT 1`,
+  ).bind(`ticker:${ticker}`, since).first();
+  if (fresh) {
+    return { fire: true, reason: `new ${ticker} topic '${fresh.topic_canonical}' on ${fresh.date_last_seen}` };
+  }
+  return { fire: false, reason: `notes fresh: no new topics or upstream rewrites for ${ticker}` };
+}
 
 // Mirror of the canonical sector map. Duplicated to keep the orchestrator
 // dependency-free.
