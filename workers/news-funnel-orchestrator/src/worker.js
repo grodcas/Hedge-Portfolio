@@ -122,55 +122,43 @@ export default {
     filtered = reranked;
 
     // =========================================================
-    // STAGE 3: GEMINI SUMMARIES
+    // STAGE 3: BUILD SUMMARIES FROM EXISTING SIGNALS
     // =========================================================
-    console.log("[NEWS FUNNEL] Stage 3: Generating summaries via Gemini...");
+    // We already have, for every selected headline:
+    //   - the title (the actual signal)
+    //   - a Finnhub blurb for many ticker items (from Stage 1)
+    //   - the Stage 2 filter's `relevance` / `portfolio_impact` sentence
+    // Calling Gemini with Google-Search grounding here was paying ~$0.035
+    // per item to re-search the web for context that was already on hand.
+    // We persist what Stage 2 produced. Branch `feature/gemini-grounded-summary`
+    // preserves the grounded path for re-enable when we want richer prose.
+    console.log("[NEWS FUNNEL] Stage 3: Stitching summaries from filter output (no LLM call)...");
 
-    // Collect all headlines that need summaries
-    const toSummarize = [];
+    const summaries = [];
 
     for (const t of (filtered.ticker_news || [])) {
       for (const h of (t.headlines || [])) {
-        // Skip if Finnhub already provided a summary (from gatherer)
         const gathered_ticker = gathered.headlines.ticker.find(gt => gt.ticker === t.ticker);
         const gathered_item = gathered_ticker?.items.find(gi =>
           gi.title === h.title && gi.finnhub_summary
         );
+        const finnhub = gathered_item?.finnhub_summary || null;
 
-        toSummarize.push({
-          type: "ticker",
-          ticker: t.ticker,
-          ...h,
-          finnhub_summary: gathered_item?.finnhub_summary || null,
-        });
+        // Prefer Finnhub's blurb when present (it's editorially written),
+        // otherwise the filter's relevance line. Title is always the primary
+        // carrier of the signal — the dashboard renders title + summary.
+        const summary = finnhub || h.relevance || h.title || "";
+
+        summaries.push({ type: "ticker", ticker: t.ticker, ...h, summary });
       }
     }
 
     for (const m of (filtered.macro_news || [])) {
-      toSummarize.push({ type: "macro", ...m });
+      const summary = m.portfolio_impact || m.title || "";
+      summaries.push({ type: "macro", ...m, summary });
     }
 
-    // Call Gemini in batches of 5 (avoid rate limit)
-    const summaries = [];
-    for (let i = 0; i < toSummarize.length; i += 5) {
-      const batch = toSummarize.slice(i, i + 5);
-      const batchResults = await Promise.allSettled(
-        batch.map(item => summarizeWithGemini(item, env.GEMINI_API_KEY, today))
-      );
-      for (let j = 0; j < batchResults.length; j++) {
-        const item = batch[j];
-        if (batchResults[j].status === "fulfilled") {
-          summaries.push({ ...item, summary: batchResults[j].value });
-        } else {
-          console.error(`Gemini failed for "${item.title}":`, batchResults[j].reason?.message);
-          summaries.push({ ...item, summary: item.finnhub_summary || item.relevance || item.portfolio_impact || "" });
-        }
-      }
-      // Small delay between batches
-      if (i + 5 < toSummarize.length) await sleep(500);
-    }
-
-    console.log(`[NEWS FUNNEL] Stage 3 done: ${summaries.length} summaries generated`);
+    console.log(`[NEWS FUNNEL] Stage 3 done: ${summaries.length} summaries stitched from filter output`);
 
     // =========================================================
     // STAGE 4: WRITE TO D1
@@ -227,58 +215,12 @@ export default {
 };
 
 // =========================================================
-// Gemini with Google Search grounding
-// =========================================================
-
-async function summarizeWithGemini(item, apiKey, today) {
-  // If Finnhub already has a good summary, use it directly
-  if (item.finnhub_summary && item.finnhub_summary.length > 100) {
-    return item.finnhub_summary;
-  }
-
-  if (!apiKey) {
-    return item.relevance || item.portfolio_impact || "";
-  }
-
-  const searchQuery = item.title;
-  const context = item.type === "ticker"
-    ? `Focus on market impact for ${item.ticker} stock.`
-    : `Focus on how this affects US equity markets, specifically these sectors: tech, pharma, oil/energy, banks, consumer, industrial.`;
-
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `Summarize the following news in 2-3 sentences. ${context} Be factual and concise.\n\nHeadline: ${searchQuery}\nDate: ${item.date || today}`,
-          }],
-        }],
-        tools: [{ google_search: {} }],
-        generationConfig: {
-          maxOutputTokens: 200,
-          temperature: 0.1,
-        },
-      }),
-    }
-  );
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Gemini ${res.status}: ${errText.slice(0, 200)}`);
-  }
-
-  const data = await res.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Empty Gemini response");
-  return text.trim();
-}
-
-// =========================================================
 // Helpers
 // =========================================================
+// NOTE: `summarizeWithGemini` (Gemini 2.5 Flash + google_search grounding)
+// lives on branch `feature/gemini-grounded-summary`. Re-enable when we want
+// fresh, web-cited prose; budget ~$0.035 per selected headline (~$15/mo at
+// 20 picks/weekday).
 
 function magnitudeFromSentiment(sentiment) {
   if (sentiment === "bullish") return 0.5;
@@ -292,9 +234,6 @@ async function shortHash(input) {
   return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
 }
 
-function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms));
-}
 
 // =========================================================
 // Stage 2.5 — global rerank

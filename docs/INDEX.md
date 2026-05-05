@@ -47,6 +47,7 @@ In-flight brainstorming and feature drafts. Each new feature gets a doc here. Wh
 | [active/MOCKUP_ANALYSIS.md](active/MOCKUP_ANALYSIS.md) | Critique notes from the v2 mockup rebuild (what to keep, what to cut). | Active reference for the rebuild |
 | [active/PORTFOLIO_DASHBOARD_DESIGN.md](active/PORTFOLIO_DASHBOARD_DESIGN.md) | v2 dashboard design doc (layout, sections, surfaces). PDF alongside. | Active design ref |
 | [active/HEDGE_FUND_DATA_REQUIREMENTS.md](active/HEDGE_FUND_DATA_REQUIREMENTS.md) | What hedge-fund-grade analysis actually needs from the data layer. | Active strategic ref |
+| [active/FEATURE_gemini_grounded_summary.md](active/FEATURE_gemini_grounded_summary.md) | Optional Stage 3 summary path (Gemini 2.5 Flash + Google Search grounding). Disabled on master to save ~$15/mo; live code on branch `feature/gemini-grounded-summary`. | Optional · disabled 2026-05-05 |
 
 The current mockup lives at [`dashboard/mockup/index.html`](../dashboard/mockup/index.html) (visually-locked v2). The free-source-honest variant from the 2026-05-04 audit is at [`dashboard/mockup/v2-balanced/index.html`](../dashboard/mockup/v2-balanced/index.html). Both serve on `localhost:8000` during design iteration.
 
