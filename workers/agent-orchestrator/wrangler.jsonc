@@ -29,7 +29,8 @@
     { "binding": "SECTOR_IMPLEMENTATION", "service": "macro-sector-implementation-agent" },
     { "binding": "SECTOR_HEDGES",         "service": "macro-sector-hedges-agent" },
     { "binding": "SECTOR_READ",           "service": "macro-sector-read-agent" },
-    { "binding": "TICKER_VALUATION",      "service": "ticker-valuation-agent" }
+    { "binding": "TICKER_VALUATION",      "service": "ticker-valuation-agent" },
+    { "binding": "TICKER_FUNDAMENTALS",   "service": "ticker-fundamentals-agent" }
   ],
   "triggers": {
     "crons": ["0 14-22 * * 1-5"]

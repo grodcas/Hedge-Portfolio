@@ -125,6 +125,12 @@ const AGENTS = [
     ticker,
     shouldFire: (db) => shouldFireTickerValuation(db, ticker),
   })),
+  ...TICKERS_BUILD_PHASE.map(ticker => ({
+    name:     `ticker-fundamentals:${ticker}`,
+    binding:  "TICKER_FUNDAMENTALS",
+    ticker,
+    shouldFire: (db) => shouldFireTickerFundamentals(db, ticker),
+  })),
 ];
 
 export default {
@@ -687,6 +693,40 @@ async function shouldFireTickerValuation(db, ticker) {
     return { fire: true, reason: `new FUND_01_Fundamentals on ${latestFund.date}` };
   }
   return { fire: false, reason: `valuation fresh: no new factors / fundamentals for ${ticker}` };
+}
+
+// Ticker Fundamentals epsilon: re-fire if no prior reading, the ticker
+// thesis was rewritten (drivers changed → operating-story relevance shifts),
+// or a fresh FUND_01_Fundamentals / FUND_01_Quarterly row landed since last
+// write.
+async function shouldFireTickerFundamentals(db, ticker) {
+  const [trendRow, latestFund, latestQ] = await Promise.all([
+    db.prepare(
+      `SELECT thesis_updated_at, fundamentals_updated_at
+         FROM TICKER_TREND_long WHERE ticker = ?`,
+    ).bind(ticker).first(),
+    db.prepare(
+      `SELECT date FROM FUND_01_Fundamentals WHERE ticker = ? ORDER BY date DESC LIMIT 1`,
+    ).bind(ticker).first(),
+    db.prepare(
+      `SELECT fiscal_period_ending FROM FUND_01_Quarterly WHERE ticker = ?
+        ORDER BY fiscal_period_ending DESC LIMIT 1`,
+    ).bind(ticker).first(),
+  ]);
+  if (!trendRow) return { fire: false, reason: `no TICKER_TREND_long row for ${ticker}` };
+  if (!trendRow.fundamentals_updated_at) return { fire: true, reason: `first run for ${ticker}` };
+
+  if (trendRow.thesis_updated_at && trendRow.thesis_updated_at > trendRow.fundamentals_updated_at) {
+    return { fire: true, reason: `ticker thesis newer than fundamentals` };
+  }
+  const since = trendRow.fundamentals_updated_at.slice(0, 10);
+  if (latestFund?.date && latestFund.date > since) {
+    return { fire: true, reason: `new FUND_01_Fundamentals on ${latestFund.date}` };
+  }
+  if (latestQ?.fiscal_period_ending && latestQ.fiscal_period_ending > since) {
+    return { fire: true, reason: `new FUND_01_Quarterly on ${latestQ.fiscal_period_ending}` };
+  }
+  return { fire: false, reason: `fundamentals fresh: no new prints for ${ticker}` };
 }
 
 // ---------------------------------------------------------------------------
