@@ -30,7 +30,11 @@
 const WINDOW_DAYS = 56;
 
 // FRED daily / weekly / monthly series.
-// Tuple: [series_id, indicator_code, indicator_name, unit].
+// Tuple: [series_id, indicator_code, indicator_name, unit, freq?].
+// freq is optional. "M" = monthly — fetch is allowed past the 56-day window
+// because monthly series only land 1–2 obs in 56 days, which is too shallow
+// for the z_vs_24m rolling stat. Omit freq for daily/weekly (default behavior:
+// 56-day window).
 // Codes are descriptive (not raw FRED IDs) so dashboard reads stay legible.
 const FRED_SERIES = [
   // -------- Rates / curve --------
@@ -58,8 +62,15 @@ const FRED_SERIES = [
   // -------- Labor (weekly) --------
   ["ICSA",                "INITIAL_CLAIMS",      "Initial Unemployment Claims",             "claims"],
   // -------- Survey (monthly) --------
-  ["UMCSENT",             "UMICH_SENT",          "UMich Consumer Sentiment Index",          "index"],
-  ["MICH",                "INFL_EXP_1Y",         "UMich 1-Year Inflation Expectations",     "%"],
+  ["UMCSENT",             "UMICH_SENT",          "UMich Consumer Sentiment Index",          "index", "M"],
+  ["MICH",                "INFL_EXP_1Y",         "UMich 1-Year Inflation Expectations",     "%",     "M"],
+  // -------- Activity (monthly, MS-1b) --------
+  ["HOUST",               "HOUST",               "Housing Starts (SAAR, k)",                "k",     "M"],
+  ["INDPRO",              "INDPRO",              "Industrial Production (Index 2017=100)",  "index", "M"],
+  ["JTSJOL",              "JOLTS",               "Job Openings: Total Nonfarm (k, SAAR)",   "k",     "M"],
+  // WPU0911 (PPI rig count proxy) doesn't exist on FRED — using the IP
+  // sub-index for oil & gas well drilling as the rig count proxy per runbook.
+  ["IPN213111S",          "RIG_PROXY",           "IP: Mining — Oil & Gas Well Drilling",    "index", "M"],
 ];
 
 // BLS monthly series — current+prior year, filter by window.
@@ -102,7 +113,8 @@ async function build(env) {
   // ---------- FRED ----------
   // FRED 500s on individual series are common (one bad series shouldn't kill
   // the whole nightly run); catch + log + continue.
-  for (const [seriesId, code, name, unit] of FRED_SERIES) {
+  for (const [seriesId, code, name, unit, freq] of FRED_SERIES) {
+    const isMonthly = freq === "M";
     let obs;
     try {
       obs = await fetchFRED(fredKey, seriesId);
@@ -113,7 +125,10 @@ async function build(env) {
     for (let i = 0; i < obs.length; i++) {
       const o = obs[i];
       if (o.value === "." || o.value === null) continue;
-      if (o.date < windowStart) break;
+      // Monthly series bypass the 56-day window so z_vs_24m has enough history
+      // (monthly fits ~1–2 obs into 56 days; rolling stats need 24m of data).
+      // FRED's default 80-obs response covers ~6.6 years of monthly history.
+      if (!isMonthly && o.date < windowStart) break;
       if (o.date > todayStr) continue;
       let prior = null;
       for (let j = i + 1; j < obs.length; j++) {
@@ -182,12 +197,53 @@ async function build(env) {
   }
 
   // ---------- D1 upsert ----------
+  // Insert oldest→newest so each row's delta_1m / z_vs_24m subqueries can
+  // reference the prior history that was just inserted in the same /build.
+  // Subqueries filter by indicator_code so cross-series ordering is moot.
+  rows.sort((a, b) => a.release_date.localeCompare(b.release_date));
+
   let inserted = 0;
   for (const r of rows) {
     await env.DB.prepare(
       `INSERT INTO MACRO_STATE_indicators
-         (id, release_date, period, indicator_code, indicator_name, value, prior, unit, source)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         (id, release_date, period, indicator_code, indicator_name, value, prior, unit, source,
+          delta_1m, z_vs_24m)
+       VALUES (
+         ?, ?, ?, ?, ?, ?, ?, ?, ?,
+         -- delta_1m: current value minus most recent prior value at-or-before 30 days ago.
+         ? - (
+           SELECT value FROM MACRO_STATE_indicators
+            WHERE indicator_code = ?
+              AND release_date <= date(?, '-30 days')
+            ORDER BY release_date DESC LIMIT 1
+         ),
+         -- z_vs_24m: (value - mean_24m) / sample_stdev_24m, excluding self.
+         -- NULL when fewer than 2 prior observations exist in the 24m window.
+         CASE WHEN (
+           SELECT COUNT(*) FROM MACRO_STATE_indicators
+            WHERE indicator_code = ?
+              AND release_date <  ?
+              AND release_date >= date(?, '-730 days')
+         ) > 1 THEN (
+           (? - (
+             SELECT AVG(value) FROM MACRO_STATE_indicators
+              WHERE indicator_code = ?
+                AND release_date <  ?
+                AND release_date >= date(?, '-730 days')
+           )) / NULLIF((
+             SELECT SQRT(MAX(
+               (CAST(SUM(value*value) AS REAL)
+                  - CAST(SUM(value)*SUM(value) AS REAL) / COUNT(*))
+                / (COUNT(*) - 1.0),
+               0.0
+             ))
+              FROM MACRO_STATE_indicators
+              WHERE indicator_code = ?
+                AND release_date <  ?
+                AND release_date >= date(?, '-730 days')
+           ), 0)
+         ) ELSE NULL END
+       )
        ON CONFLICT(id) DO UPDATE SET
          release_date   = excluded.release_date,
          period         = excluded.period,
@@ -195,10 +251,22 @@ async function build(env) {
          value          = excluded.value,
          prior          = excluded.prior,
          unit           = excluded.unit,
-         source         = excluded.source`,
+         source         = excluded.source,
+         delta_1m       = excluded.delta_1m,
+         z_vs_24m       = excluded.z_vs_24m`,
     )
-      .bind(r.id, r.release_date, r.period, r.indicator_code, r.indicator_name,
-            r.value, r.prior, r.unit, r.source)
+      .bind(
+        r.id, r.release_date, r.period, r.indicator_code, r.indicator_name,
+        r.value, r.prior, r.unit, r.source,
+        // delta_1m binds: value, indicator_code, release_date
+        r.value, r.indicator_code, r.release_date,
+        // z count binds: indicator_code, release_date, release_date
+        r.indicator_code, r.release_date, r.release_date,
+        // z mean binds: value, indicator_code, release_date, release_date
+        r.value, r.indicator_code, r.release_date, r.release_date,
+        // z stdev binds: indicator_code, release_date, release_date
+        r.indicator_code, r.release_date, r.release_date,
+      )
       .run();
     inserted++;
   }
