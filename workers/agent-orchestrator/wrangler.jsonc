@@ -34,7 +34,8 @@
     { "binding": "TICKER_ESTIMATES",      "service": "ticker-estimates-agent" },
     { "binding": "TICKER_PEERS",          "service": "ticker-peers-agent" },
     { "binding": "TICKER_CONTEXT",        "service": "ticker-context-agent" },
-    { "binding": "TICKER_NEWS_DRIFT",     "service": "ticker-news-drift-agent" }
+    { "binding": "TICKER_NEWS_DRIFT",     "service": "ticker-news-drift-agent" },
+    { "binding": "TICKER_THESIS",         "service": "ticker-thesis-agent" }
   ],
   "triggers": {
     "crons": ["0 14-22 * * 1-5"]

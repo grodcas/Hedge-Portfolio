@@ -158,6 +158,12 @@ const AGENTS = [
     ticker,
     shouldFire: (db) => shouldFireTickerNewsDrift(db, ticker),
   })),
+  ...TICKERS_BUILD_PHASE.map(ticker => ({
+    name:     `ticker-thesis:${ticker}`,
+    binding:  "TICKER_THESIS",
+    ticker,
+    shouldFire: (db) => shouldFireTickerThesis(db, ticker),
+  })),
 ];
 
 export default {
@@ -879,6 +885,41 @@ async function shouldFireTickerNewsDrift(db, ticker) {
   }
   return { fire: false, reason: `no new ${ticker} topics since last drift` };
 }
+
+// Ticker Thesis (keystone) epsilon: re-fire if no prior thesis,
+// fundamentals verdict flipped, drift verdict flipped, or any tripwire
+// fired. Per [TICKER_PIPELINE.md §7] re-run trigger.
+async function shouldFireTickerThesis(db, ticker) {
+  const trendRow = await db.prepare(
+    `SELECT thesis_json, thesis_updated_at,
+            fundamentals_json, news_drift_json
+       FROM TICKER_TREND_long WHERE ticker = ?`,
+  ).bind(ticker).first();
+  if (!trendRow) return { fire: false, reason: `no TICKER_TREND_long row for ${ticker}` };
+  if (!trendRow.fundamentals_json) return { fire: false, reason: "no fundamentals_json yet (#2 must fire first)" };
+  if (!trendRow.thesis_updated_at) return { fire: true, reason: `first run for ${ticker}` };
+
+  const fund = safeJsonGate(trendRow.fundamentals_json);
+  const drift = safeJsonGate(trendRow.news_drift_json);
+  const prior = safeJsonGate(trendRow.thesis_json);
+
+  const fundVerdict  = fund?.verdict || null;
+  const driftVerdict = drift?.verdict || null;
+  const fundAtWrite  = prior?.fundamentals_verdict_at_write || null;
+  const driftAtWrite = prior?.drift_verdict_at_write || null;
+
+  if (fundVerdict && fundVerdict !== fundAtWrite) {
+    return { fire: true, reason: `fundamentals: ${fundAtWrite || "(none)"} → ${fundVerdict}` };
+  }
+  if (driftVerdict && driftVerdict !== driftAtWrite) {
+    return { fire: true, reason: `drift: ${driftAtWrite || "(none)"} → ${driftVerdict}` };
+  }
+  if (Array.isArray(drift?.tripwires_fired) && drift.tripwires_fired.length > 0) {
+    return { fire: true, reason: `tripwires fired: ${drift.tripwires_fired.join(",")}` };
+  }
+  return { fire: false, reason: "fund + drift verdicts unchanged, no tripwires fired" };
+}
+function safeJsonGate(s) { try { return JSON.parse(s); } catch { return null; } }
 
 // Mirror of the canonical sector map. Duplicated to keep the orchestrator
 // dependency-free.
