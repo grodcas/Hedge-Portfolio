@@ -205,9 +205,11 @@ export default {
 
     const force      = url.searchParams.get("force") === "1" || url.searchParams.get("force") === "true";
     const onlyAgent  = url.searchParams.get("agent");
+    const onlyTicker = url.searchParams.get("ticker");
+    const onlySector = url.searchParams.get("sector");
 
     try {
-      const out = await orchestrate(env, { force, onlyAgent });
+      const out = await orchestrate(env, { force, onlyAgent, onlyTicker, onlySector });
       return Response.json({ ok: true, ...out });
     } catch (err) {
       return Response.json({ ok: false, error: err.message }, { status: 500 });
@@ -222,11 +224,13 @@ export default {
   },
 };
 
-async function orchestrate(env, { force, onlyAgent }) {
+async function orchestrate(env, { force, onlyAgent, onlyTicker, onlySector }) {
   const results = [];
 
   for (const agent of AGENTS) {
-    if (onlyAgent && agent.name !== onlyAgent) continue;
+    if (onlyAgent  && agent.name   !== onlyAgent)  continue;
+    if (onlyTicker && agent.ticker !== onlyTicker) continue;
+    if (onlySector && agent.sector !== onlySector) continue;
 
     // Always run the gate so it can produce extra fetch params (e.g. tape
     // annotation's ?date=). Force-mode just overrides the fire decision —
