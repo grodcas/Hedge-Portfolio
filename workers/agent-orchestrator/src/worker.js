@@ -41,6 +41,11 @@ const AGENTS = [
     binding: "MACRO_POSITIONING",
     shouldFire: shouldFireMacroPositioning,
   },
+  {
+    name:    "macro-signposts",
+    binding: "MACRO_SIGNPOSTS",
+    shouldFire: shouldFireMacroSignposts,
+  },
 ];
 
 export default {
@@ -212,6 +217,40 @@ async function shouldFireMacroPositioning(db) {
   }
 
   return { fire: false, reason: "thesis stable, regime intact, no |z|>1.5 fresh prints" };
+}
+
+// M5 Signposts epsilon: re-fire when thesis re-runs (drivers/tripwires changed
+// → relevance filter changes) or a new high-impact calendar event lands inside
+// the 21-day horizon since last write.
+async function shouldFireMacroSignposts(db) {
+  const row = await db.prepare(
+    `SELECT thesis_updated_at, signposts_updated_at
+       FROM BETA_10_Daily_macro
+      ORDER BY creation_date DESC LIMIT 1`,
+  ).first();
+  if (!row) return { fire: false, reason: "no BETA_10_Daily_macro row yet" };
+  if (!row.thesis_updated_at) return { fire: false, reason: "no thesis_json yet (M2 must fire first)" };
+  if (!row.signposts_updated_at) return { fire: true, reason: "first run (no prior signposts)" };
+
+  if (row.thesis_updated_at > row.signposts_updated_at) {
+    return { fire: true, reason: `thesis newer than signposts (${row.thesis_updated_at} > ${row.signposts_updated_at})` };
+  }
+
+  const since = row.signposts_updated_at.slice(0, 10);
+  const fresh = await db.prepare(
+    `SELECT event_date, event_code, country
+       FROM MACRO_STATE_calendar
+      WHERE created_at >= ?
+        AND event_date >= date('now')
+        AND event_date <= date('now', '+21 days')
+        AND impact = 'high'
+      ORDER BY created_at DESC LIMIT 1`,
+  ).bind(since + "T00:00:00Z").first();
+  if (fresh) {
+    return { fire: true, reason: `new ${fresh.country}/${fresh.event_code} on ${fresh.event_date} added since last write` };
+  }
+
+  return { fire: false, reason: "thesis stable, no new high-impact calendar events in horizon" };
 }
 
 // ---------------------------------------------------------------------------

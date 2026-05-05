@@ -1,5 +1,5 @@
 {
-  "name": "agent-orchestrator",
+  "name": "macro-signposts-agent",
   "main": "src/worker.js",
   "workers_dev": true,
   "preview_urls": false,
@@ -14,13 +14,5 @@
       "binding": "DB",
       "database_id": "e306b0a8-7d5e-4032-b46e-9b50fc6c4f99"
     }
-  ],
-  "services": [
-    { "binding": "MACRO_THESIS",      "service": "macro-thesis-agent" },
-    { "binding": "MACRO_POSITIONING", "service": "macro-positioning-agent" },
-    { "binding": "MACRO_SIGNPOSTS",   "service": "macro-signposts-agent" }
-  ],
-  "triggers": {
-    "crons": ["0 14-22 * * 1-5"]
-  }
+  ]
 }
