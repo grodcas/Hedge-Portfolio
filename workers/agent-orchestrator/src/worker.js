@@ -89,6 +89,12 @@ const AGENTS = [
     shouldFire: (db) => shouldFireSectorThesis(db, sector),
   })),
   ...SECTORS_BUILD_PHASE.map(sector => ({
+    name:     `sector-notes:${sector}`,
+    binding:  "SECTOR_NOTES",
+    sector,
+    shouldFire: (db) => shouldFireSectorNotes(db, sector),
+  })),
+  ...SECTORS_BUILD_PHASE.map(sector => ({
     name:     `sector-implementation:${sector}`,
     binding:  "SECTOR_IMPLEMENTATION",
     sector,
@@ -532,6 +538,41 @@ async function shouldFireSectorThesis(db, sector) {
   }
 
   return { fire: false, reason: "sector thesis fresh: macro stable, drift unchanged, no new factors row" };
+}
+
+// S3 Sector Notes epsilon (per sector): re-fire if no prior notes, sector
+// thesis or sector news_drift was rewritten, or new TOPIC_FEED rows scoped
+// to this sector have arrived since the last write.
+async function shouldFireSectorNotes(db, sector) {
+  const sectorRow = await db.prepare(
+    `SELECT thesis_updated_at, news_drift_updated_at, notes_updated_at
+       FROM SECTOR_TREND_long WHERE sector = ?`,
+  ).bind(sector).first();
+  if (!sectorRow) return { fire: false, reason: `no SECTOR_TREND_long row for ${sector}` };
+  if (!sectorRow.thesis_updated_at) return { fire: false, reason: `no sector thesis yet for ${sector}` };
+  if (!sectorRow.notes_updated_at) return { fire: true, reason: `first run for ${sector}` };
+
+  if (sectorRow.thesis_updated_at > sectorRow.notes_updated_at) {
+    return { fire: true, reason: "sector thesis newer than notes" };
+  }
+  if (sectorRow.news_drift_updated_at && sectorRow.news_drift_updated_at > sectorRow.notes_updated_at) {
+    return { fire: true, reason: "sector news_drift newer than notes" };
+  }
+
+  const scopes = SECTOR_TOPIC_SCOPES_GATE[sector] || [`sector:${sector}`];
+  const since = sectorRow.notes_updated_at.slice(0, 10);
+  const placeholders = scopes.map(() => "?").join(",");
+  const fresh = await db.prepare(
+    `SELECT topic_canonical, date_last_seen
+       FROM TOPIC_FEED
+      WHERE scope IN (${placeholders})
+        AND date_last_seen > ?
+      ORDER BY date_last_seen DESC LIMIT 1`,
+  ).bind(...scopes, since).first();
+  if (fresh) {
+    return { fire: true, reason: `new ${sector} topic '${fresh.topic_canonical}' on ${fresh.date_last_seen}` };
+  }
+  return { fire: false, reason: `no new ${sector} topics or upstream rewrites since last notes` };
 }
 
 // S4 Sector Implementation epsilon (per sector): re-fire when the sector
