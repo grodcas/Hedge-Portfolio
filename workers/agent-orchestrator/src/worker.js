@@ -30,6 +30,10 @@
  * Cron: hourly Mon–Fri 14:00–22:00 UTC (US market hours).
  */
 
+// Build-phase smoke set per CREDIT_BUDGET memory: do NOT fan out to all 8
+// sectors during MS-3. Full fan-out is reserved for MS-4b.
+const SECTORS_BUILD_PHASE = ["Technology", "Energy"];
+
 const AGENTS = [
   {
     name:    "macro-thesis",
@@ -56,6 +60,16 @@ const AGENTS = [
     binding: "MACRO_FOMC_SUMMARY",
     shouldFire: shouldFireMacroFomcSummary,
   },
+  // ----- Sector-scoped agents (MS-3c). One AGENTS entry per sector to
+  // ----- keep orchestrate() loop logic simple — the gate per entry
+  // ----- still queries SECTOR_TREND_long / SECTOR_FACTORS_daily for that
+  // ----- specific sector and the fetch carries ?sector=X.
+  ...SECTORS_BUILD_PHASE.map(sector => ({
+    name:     `sector-thesis:${sector}`,
+    binding:  "SECTOR_THESIS",
+    sector,
+    shouldFire: (db) => shouldFireSectorThesis(db, sector),
+  })),
 ];
 
 export default {
@@ -115,7 +129,12 @@ async function orchestrate(env, { force, onlyAgent }) {
       continue;
     }
 
-    const path = force ? "/build?force=1" : "/build";
+    // Build the downstream URL. Sector-scoped agents take ?sector=X; force=1
+    // is appended as a second param when the user explicitly requested it.
+    const params = [];
+    if (agent.sector) params.push(`sector=${encodeURIComponent(agent.sector)}`);
+    if (force)        params.push("force=1");
+    const path = `/build${params.length ? "?" + params.join("&") : ""}`;
     let body, decision;
     try {
       const res  = await target.fetch(new Request(`https://internal${path}`));
@@ -311,6 +330,40 @@ async function shouldFireMacroFomcSummary(db) {
     return { fire: true, reason: `new FOMC meeting ${latestFomc.meeting_date} (was ${storedMeeting})` };
   }
   return { fire: false, reason: `cached for meeting ${storedMeeting}` };
+}
+
+// S2 Sector Thesis epsilon (per sector): re-fire if the sector's row has no
+// thesis yet, the macro thesis was rewritten more recently, the macro regime
+// label changed, or the sector's latest SECTOR_FACTORS_daily landed since
+// the last sector thesis write.
+async function shouldFireSectorThesis(db, sector) {
+  const [sectorRow, macroRow, latestFactors] = await Promise.all([
+    db.prepare(`SELECT thesis_json, thesis_updated_at FROM SECTOR_TREND_long WHERE sector = ?`).bind(sector).first(),
+    db.prepare(`SELECT regime, thesis_updated_at FROM BETA_10_Daily_macro ORDER BY creation_date DESC LIMIT 1`).first(),
+    db.prepare(`SELECT date FROM SECTOR_FACTORS_daily WHERE sector = ? ORDER BY date DESC LIMIT 1`).bind(sector).first(),
+  ]);
+  if (!sectorRow)     return { fire: false, reason: `no SECTOR_TREND_long row for ${sector}` };
+  if (!macroRow?.thesis_updated_at) return { fire: false, reason: "no macro thesis yet" };
+  if (!sectorRow.thesis_updated_at) return { fire: true, reason: `first run for ${sector}` };
+
+  if (macroRow.thesis_updated_at > sectorRow.thesis_updated_at) {
+    return { fire: true, reason: `macro thesis newer than ${sector} sector thesis` };
+  }
+
+  let priorRegime = null;
+  try { priorRegime = JSON.parse(sectorRow.thesis_json || "{}")?.regime_at_write ?? null; } catch {}
+  if (macroRow.regime && priorRegime !== null && macroRow.regime !== priorRegime) {
+    return { fire: true, reason: `macro regime: ${priorRegime} → ${macroRow.regime}` };
+  }
+  if (macroRow.regime && priorRegime === null) {
+    return { fire: true, reason: `macro regime now classified: ${macroRow.regime}` };
+  }
+
+  if (latestFactors?.date && latestFactors.date > sectorRow.thesis_updated_at.slice(0, 10)) {
+    return { fire: true, reason: `new SECTOR_FACTORS_daily row on ${latestFactors.date}` };
+  }
+
+  return { fire: false, reason: "sector thesis fresh: macro stable, no new factors row" };
 }
 
 // ---------------------------------------------------------------------------
