@@ -93,8 +93,14 @@ async function build(env, opts = {}) {
     return { ok: false, error: "PEER_SET_config is empty — run scripts/bootstrap-peer-set-config.js first" };
   }
 
-  // Pre-load the earnings window per ticker and the latest FUND_03 write per
-  // ticker so the gate is decided in-memory (one query each, not 25).
+  // Pre-load gate inputs in three batched queries (one per source-of-truth):
+  //   1. Calendar window — Finnhub's *estimated* next_earnings_date.
+  //   2. Last consensus write — when we last refreshed FUND_03 for this ticker.
+  //   3. EDGAR-confirmed filing date — the SEC-confirmed 10-Q landing date,
+  //      written by fetch-fundamentals.js once AV indexes the new filing.
+  // The third one is what makes this *truly* event-driven: the calendar's
+  // next_earnings_date is a guess (companies pre-announce or shift dates);
+  // EDGAR is the ground truth that the print actually landed.
   const calRows = await env.DB.prepare(
     `SELECT ticker, next_earnings_date FROM EARNINGS_CALENDAR_consensus`
   ).all();
@@ -111,23 +117,42 @@ async function build(env, opts = {}) {
     if (r.ts) lastByTicker.set(r.ticker, String(r.ts).slice(0, 10));
   }
 
+  // FUND_01_Fundamentals.last_10q_filing_date holds the SEC filingDate that
+  // the latest stored quarter corresponds to — see selectStatementTickers in
+  // src/steps/fetch-fundamentals.js. When this advances past our last
+  // consensus write, that's the EDGAR-confirmation trigger.
+  const filingRows = await env.DB.prepare(
+    `SELECT ticker, MAX(last_10q_filing_date) AS d
+       FROM FUND_01_Fundamentals
+      WHERE last_10q_filing_date IS NOT NULL
+      GROUP BY ticker`
+  ).all();
+  const filingByTicker = new Map();
+  for (const r of (filingRows.results || [])) {
+    if (r.d) filingByTicker.set(r.ticker, String(r.d).slice(0, 10));
+  }
+
   // Apply the gate. `skipped` is reported in the response so a sprint can
   // confirm the gate engaged.
   const skipped = [];
   const eligible = [];
   for (const t of tickers) {
     if (force) { eligible.push(t); continue; }
-    const next = nextByTicker.get(t) || null;
-    const last = lastByTicker.get(t) || null;
+    const next   = nextByTicker.get(t)   || null;
+    const last   = lastByTicker.get(t)   || null;
+    const filed  = filingByTicker.get(t) || null;
     const inWindow = next
       && daysBetween(today, next) >= -WINDOW_PRE_DAYS
       && daysBetween(today, next) <=  WINDOW_POST_DAYS;
     const tooStale = !last || daysBetween(today, last) > STALENESS_DAYS;
-    if (inWindow || tooStale) {
+    // EDGAR-confirmed filing newer than our last consensus write — analysts
+    // are now revising on the actual print, so the new estimates carry signal.
+    const newFiling = filed && (!last || filed > last);
+    if (inWindow || tooStale || newFiling) {
       eligible.push(t);
     } else {
-      skipped.push({ ticker: t, last, next });
-      console.log(`[CONSENSUS] skip ${t} (last=${last || "never"}, next_earn=${next || "none"})`);
+      skipped.push({ ticker: t, last, next, filed });
+      console.log(`[CONSENSUS] skip ${t} (last=${last || "never"}, next_earn=${next || "none"}, filed=${filed || "none"})`);
     }
   }
 
