@@ -130,12 +130,50 @@ async function build(db, apiKey, ticker, force) {
 
   const tickerComp = byTicker.get(ticker);
   const peerComps  = peers.map(t => byTicker.get(t)).filter(c => c.factors || c.fund);
-  if (peerComps.length === 0) {
-    throw new Error(`no comp rows found for any peer of ${ticker}`);
-  }
 
   const prevPeers   = trendRow.peers_json ? safeJson(trendRow.peers_json) : null;
   const prevVersion = Number.isInteger(prevPeers?.version) ? prevPeers.version : 0;
+
+  // Annotated-gap path. When STOCK_FACTORS_daily / FUND_01_Fundamentals
+  // have no rows for any of this ticker's configured peers (typical for
+  // names like UNH whose ELV/HUM/CNC peers aren't in the portfolio's 25),
+  // we write a synthetic peers_json instead of throwing. Keeps the
+  // slide-out card rendering with a clear "insufficient peer coverage"
+  // tag rather than going blank or breaking the per-ticker fan-out DAG.
+  if (peerComps.length === 0) {
+    const now = new Date().toISOString();
+    const today = now.slice(0, 10);
+    const out = {
+      prose: `Peer comparison unavailable for ${ticker}. The configured peer set (${peers.join(", ")}) has no comp rows in STOCK_FACTORS_daily or FUND_01_Fundamentals — peer coverage isn't broad enough to land on a relative-position read. Add the missing peers to factor ingestion to unlock this card.`,
+      relative_position: "n/a",
+      premium_status:    "insufficient peer coverage",
+      peer_count:        0,
+      peer_set:          peers,
+      missing_peers:     peers,
+      version:           prevVersion + 1,
+      as_of:             today,
+      last_updated:      now,
+      input_fingerprint: await sha256(JSON.stringify({ ticker, peers, gap: true })),
+      ticker_at_write:   ticker,
+      note:              "annotated-gap fallback (no peer comp rows)",
+    };
+    await db.prepare(
+      `UPDATE TICKER_TREND_long
+          SET peers_json       = ?,
+              peers_updated_at = ?,
+              peers_model      = ?
+        WHERE ticker = ?`,
+    ).bind(JSON.stringify(out), now, "annotated-gap", ticker).run();
+    return {
+      action: "wrote_gap_annotation",
+      ticker,
+      version: out.version,
+      relative_position: out.relative_position,
+      premium_status:    out.premium_status,
+      peer_count:        0,
+      peers_updated_at:  now,
+    };
+  }
 
   const fingerprint = await sha256(JSON.stringify({
     ticker,
