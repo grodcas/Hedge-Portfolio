@@ -17,6 +17,8 @@
  * Cron: 02:00 UTC daily.
  */
 
+import { recordApiCall } from "../../_shared/api-usage.js";
+
 const DEFAULT_WINDOW_DAYS = 14;
 const MODEL = "gpt-5-mini";
 
@@ -46,6 +48,9 @@ export default {
 async function build(env, windowDays) {
   const apiKey = env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY secret not set");
+  // Cache env on a global the caller path can reach so callLLMTracked
+  // gets it without threading env through the cluster pipeline.
+  globalThis.__TFB_ENV = env;
 
   const today = new Date().toISOString().slice(0, 10);
   const windowStart = new Date(Date.now() - windowDays * 86400000)
@@ -205,7 +210,22 @@ async function clusterTopics(apiKey, headlines) {
     `Headlines:\n` +
     JSON.stringify(items);
 
-  return await callLLM(apiKey, prompt);
+  return await callLLMTracked(globalThis.__TFB_ENV, apiKey, prompt);
+}
+
+async function callLLMTracked(env, apiKey, prompt) {
+  // Wrapper that records ok/fail to PROC_04_API_usage. Without this, a
+  // sustained quota issue (like the 11-day OpenAI 429 stall in early May
+  // 2026) is invisible to the Validator tab — the cron fires, the worker
+  // throws, but no row in D1 says "topic-feed-builder failed".
+  try {
+    const out = await callLLM(apiKey, prompt);
+    await recordApiCall({ env, caller: "topic-feed-builder", api: "openai", endpoint: MODEL, calls: 1, ok: true });
+    return out;
+  } catch (err) {
+    await recordApiCall({ env, caller: "topic-feed-builder", api: "openai", endpoint: MODEL, calls: 1, ok: false });
+    throw err;
+  }
 }
 
 async function callLLM(apiKey, prompt) {

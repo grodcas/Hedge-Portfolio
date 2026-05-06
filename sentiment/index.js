@@ -45,11 +45,27 @@ function simplePair(name, latest, previous) {
 //-------------------------------------------------------------
 // AAII DATE FIX
 //-------------------------------------------------------------
+// Defensive year-rollback. AAII publishes bars labeled "Mon DD" with no
+// year (MHTML path) or "MM/DD/YYYY" (live HTML). Either source can yield
+// a date that "looks like" the current year but is actually ahead of
+// today (e.g. an MHTML snapshot from Dec 2025 read in May 2026 maps
+// "Nov 19" → "2026-11-19" without this check). If the constructed date
+// is in the future, roll back one year — that's always the right call
+// for a sentiment-survey timestamp.
+function rollbackIfFuture(iso) {
+  if (!iso) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  if (iso <= today) return iso;
+  const [y, m, d] = iso.split("-");
+  return `${parseInt(y, 10) - 1}-${m}-${d}`;
+}
+
 function fixAAIIDate(str) {
   const [mon, day] = str.split(" ");
   const year = new Date().getFullYear();
   const monthNum = new Date(`${mon} 1, 2000`).getMonth() + 1;
-  return `${year}-${String(monthNum).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+  const iso = `${year}-${String(monthNum).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+  return rollbackIfFuture(iso);
 }
 
 //-------------------------------------------------------------
@@ -58,7 +74,10 @@ function fixAAIIDate(str) {
 function parseUSDate(s) {
   const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (!m) return null;
-  return `${m[3]}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}`;
+  // Live AAII page occasionally renders a "next survey" date inside the
+  // bars wrapper. Roll back if the parsed date is in the future — same
+  // reasoning as fixAAIIDate.
+  return rollbackIfFuture(`${m[3]}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}`);
 }
 
 async function scrapeAAIILive() {

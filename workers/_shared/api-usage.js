@@ -80,7 +80,11 @@ export async function recordApiCall({ env, ingestorUrl, caller, api, endpoint = 
     return { ok: false, error: "recordApiCall: caller + api required" };
   }
   const today = todayISO();
-  const cost  = costFor(api, endpoint, calls);
+  // OpenAI doesn't charge for HTTP 429 quota rejections; AV/Polygon/etc.
+  // are unmetered anyway. Drop cost to 0 on failed calls so the Validator
+  // tab's spend view stays honest. The `calls` counter still ticks so a
+  // sustained 429 streak is visible as N calls / $0 — the right shape.
+  const cost  = ok ? costFor(api, endpoint, calls) : 0;
   const cap   = BUDGET_CAP[api] ?? null;
 
   console.log(`API_USAGE ${today} ${caller} ${api}/${endpoint || "default"} +${calls} cost≈$${cost.toFixed(4)} ${ok ? "ok" : "fail"}`);

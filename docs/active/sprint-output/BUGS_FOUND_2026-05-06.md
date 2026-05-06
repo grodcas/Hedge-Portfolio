@@ -1,10 +1,12 @@
 # BUGS_FOUND · 2026-05-06 validation walk
 
-Output of [SPRINT_validation_cleanup.md](../SPRINT_validation_cleanup.md), run alongside the smart-management audit the user asked for. Read-only walk; nothing here was fixed inline. Logged for follow-up.
+Output of [SPRINT_validation_cleanup.md](../SPRINT_validation_cleanup.md), run alongside the smart-management audit the user asked for. Read-only first pass; second pass deepened the sweep and fixed several inline.
+
+**Status legend**: 🟢 fixed · 🟡 partial / observability added · 🔵 not a bug, logged for clarity · 🔴 needs follow-up.
 
 ---
 
-## #1 SENTIMENT_STATE_indicators latest release_date is in the future
+## #1 🟢 SENTIMENT_STATE_indicators latest release_date is in the future — FIXED
 
 **Severity**: Med · **Path**: `SENTIMENT_STATE_indicators` rows for `AAII_BULL_BEAR`, `AAII_BEARISH`, `AAII_BULLISH`
 
@@ -20,11 +22,11 @@ Today is 2026-05-06; `2026-11-19` is six months in the future. The numeric value
 
 **Impact**: any agent that sorts by `release_date DESC` on this table reads stale values flagged as "fresh today". The macro-thesis gate's hot-print check (`|z_vs_24m| > 1.5` since last write) won't fire on a real AAII spike because the existing rows are pinned to a fictional 2026-11-19.
 
-**Fix sketch**: inspect `workers/sentiment-state-fetcher/src/worker.js` for the date-construction step around AAII; compare against a known-good reference (the value rows came from somewhere reasonable, the date scoping is the issue).
+**Fix applied** (commit `f08b5e3` proposed): `sentiment/index.js fixAAIIDate()` always used `new Date().getFullYear()` regardless of whether the resulting date landed in the future. Added a `rollbackIfFuture()` helper that subtracts a year when the constructed date > today, applied to both the live-scrape path (`parseUSDate`) and the MHTML fallback (`fixAAIIDate`). Bad rows deleted from `BETA_04_Sentiment` + `SENTIMENT_STATE_indicators`; sentiment-state-fetcher re-fired clean — AAII rows now stamp 2026-04-29 with bullish 38.1 / bearish 39.7 / spread −1.6, all confirmed against AAII's actual late-April survey.
 
 ---
 
-## #2 TOPIC_FEED.date_last_seen is 11 days stale
+## #2 🟡 TOPIC_FEED.date_last_seen is 11 days stale — root cause OpenAI quota; observability added
 
 **Severity**: Med · **Path**: every row in `TOPIC_FEED`
 
@@ -44,11 +46,59 @@ Today is 2026-05-06 — `date_last_seen` should advance to ≤ 1 trading day sta
 
 **Impact**: any "what's hot in the news lately" surface (drift detectors, news-rerank gate, dashboard topic chips) sees a frozen view. Macro-news-drift's gate uses `TOPIC_FEED.date_last_seen > thesis_updated_at` — with date_last_seen frozen at 04-25, news drift never fires.
 
-**Fix sketch**: tail topic-feed-builder logs (`wrangler tail topic-feed-builder`) for the last few cron runs. Three likely culprits: (a) upstream news ingest stopped writing rows after 04-25, (b) the canonicalisation step is matching new news items against old topic strings and bumping wrong rows, (c) the cron firing but bailing inside an idempotency check that shouldn't apply here.
+**Diagnosis**: probed `/build` directly. Returned `HTTP 429: You exceeded your current quota`. Same OpenAI billing exhaustion that's blocking the MS-6f LLM fan-out. The 11-day stall predates today's session because the quota tipped on/around 2026-04-25.
+
+**Fix applied**: code is correct, can't run without credits. Two follow-ons:
+1. Wired `topic-feed-builder` to the new `_shared/api-usage.js` `recordApiCall()` helper. Every cluster call now writes a row to `PROC_04_API_usage` (success or fail). Failed-call cost is dropped to $0 (no charge for 429s). The Validator tab will now surface "topic-feed-builder · openai/gpt-5-mini · N calls / $0.00" — an obvious "stalled" signal that didn't exist before.
+2. The same pattern should be applied to every LLM-calling worker so silent OpenAI / Gemini stalls become visible. Not done in this pass — picked up in a follow-up sprint along with the rest of the agent fleet.
+
+**Net**: TOPIC_FEED freshness will resume the moment OpenAI credits replenish and the next 02:00 UTC cron fires. The Validator tab will immediately show the recovered call counter.
 
 ---
 
-## #3 ✅ Smart-management audit — confirmed solid
+## #3 🔵 BETA_11_Macro_news 23 days stale — orphaned table
+
+**Severity**: None (logged for clarity) · **Path**: `BETA_11_Macro_news`, last `date = 2026-04-13`
+
+`grep -rln "BETA_11_Macro_news"` across `workers/` and `src/` returns: zero writers, zero readers. The table was created in migration 0007 and never wired up (or had its producer / consumers deprecated). The 23-day staleness is meaningless — nothing should advance it.
+
+**Action**: not deleted (table is cheap to keep; deletion has migration risk). Recommend dropping in a future cleanup migration if confirmed unused.
+
+---
+
+## #4 🔴 MOVER_EXPLANATIONS_daily 22 days stale (last `date = 2026-04-14`)
+
+**Severity**: Med · **Path**: `big-movers-why` worker writes the table; `tape-annotation-agent` adds annotations.
+
+Producer (`big-movers-why`) has **no cron trigger**. It's invoked by `job-engine-workflow` as a step in the news/movers DAG (`workers/job-engine-workflow/src/index.js:365`), with dependencies on `news-funnel-orchestrator` + `price-fetcher`. Either the workflow stopped firing, or one of its prerequisites stalled out around 2026-04-14.
+
+**Diagnosis pending**: needs `wrangler tail job-engine-workflow` over the next cron window to see whether the workflow runs at all. Also needs a recurring trigger if the design called for one (the wrangler.jsonc has no triggers block — possibly intentional if this runs on-demand only).
+
+**Action**: logged. Not fixed in this pass — needs decisions on (a) is this supposed to run on cron? (b) which downstream consumer of `MOVER_EXPLANATIONS_daily` is impacted? Tape annotations on the dashboard are the obvious candidate.
+
+---
+
+## #5 🔴 SIGNAL_01_Assessment 11 days stale (last `date = 2026-04-25`)
+
+**Severity**: Med · **Path**: `assessment-engine` worker.
+
+Same shape as #4 — no cron, depends on workflow trigger. The 2026-04-25 date matches the TOPIC_FEED stall date exactly, which suggests OpenAI quota exhaustion is the proximate cause for both.
+
+**Action**: logged. Will recover when (a) OpenAI credits replenish and (b) `assessment-engine` is re-fired (likely via job-engine-workflow's job DAG).
+
+---
+
+## #6 🟡 Failed-call cost mis-billing in `_shared/api-usage.js`
+
+**Severity**: Low (caught on the same day it shipped) · **Path**: `workers/_shared/api-usage.js`
+
+Initial helper charged the per-call cost regardless of `ok` flag. A failed OpenAI call would book $0.0008 in `PROC_04_API_usage` even though OpenAI doesn't charge for HTTP 429 quota rejections.
+
+**Fix applied**: `cost = ok ? costFor(...) : 0`. Counter still ticks on failure, so a sustained 429 streak is visible as "N calls / $0.00" — exactly the right shape to catch a quota stall.
+
+---
+
+## #7 ✅ Smart-management audit — confirmed solid
 
 (Not a bug — recording the audit result alongside the bugs above.)
 
@@ -67,7 +117,7 @@ Today is 2026-05-06 — `date_last_seen` should advance to ≤ 1 trading day sta
 
 ---
 
-## #4 ✅ EDGAR-confirmation trigger added to consensus-fetcher
+## #8 ✅ EDGAR-confirmation trigger added to consensus-fetcher
 
 (Not a bug — same-session improvement that this validation pass surfaced.)
 
