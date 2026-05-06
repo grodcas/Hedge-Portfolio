@@ -2162,6 +2162,33 @@ export default {
       return Response.json({ ok: true, inserted }, { headers: corsHeaders });
     }
 
+    // -------- EARNINGS_CALENDAR_consensus --------
+    if (which === "earnings-calendar") {
+      const items = Array.isArray(body) ? body : [body];
+      let inserted = 0;
+      for (const e of items) {
+        if (!e.ticker) continue;
+        await db.prepare(`
+          INSERT INTO EARNINGS_CALENDAR_consensus
+            (ticker, next_earnings_date, last_report_date, source, updated_at)
+          VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT(ticker) DO UPDATE SET
+            next_earnings_date = excluded.next_earnings_date,
+            last_report_date   = excluded.last_report_date,
+            source             = excluded.source,
+            updated_at         = excluded.updated_at
+        `).bind(
+          e.ticker,
+          e.next_earnings_date ?? null,
+          e.last_report_date ?? null,
+          e.source ?? "finnhub",
+          now,
+        ).run();
+        inserted++;
+      }
+      return Response.json({ ok: true, inserted }, { headers: corsHeaders });
+    }
+
     // -------- FUND_02_Earnings --------
     if (which === "earnings") {
       const items = Array.isArray(body) ? body : [body];

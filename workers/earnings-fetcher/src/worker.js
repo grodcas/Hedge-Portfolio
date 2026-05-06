@@ -17,6 +17,7 @@ const INGESTOR_URL = "https://portfolio-ingestor.gines-rodriguez-castro.workers.
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
+    if (url.pathname === "/fetch-calendar") return fetchCalendar(req, env);
     if (url.pathname !== "/fetch-earnings")
       return new Response("Not found", { status: 404 });
 
@@ -25,32 +26,37 @@ export default {
       return Response.json({ ok: false, error: "FINNHUB_KEY not set" }, { status: 500 });
     }
 
+    const force = url.searchParams.get("force") === "1";
     const today = new Date().toISOString().slice(0, 10);
-    console.log(`[EARNINGS] Starting for ${TICKERS.length} tickers (${today})`);
+    console.log(`[EARNINGS] Starting for ${TICKERS.length} tickers (${today})${force ? " [force]" : ""}`);
 
     // ---------- IDEMPOTENCY: skip if already fetched today ----------
     // Finnhub free tier is 60/min — not a hard daily quota — but retries
     // re-burn ~50 API calls per run, which is wasteful. Use D1 to detect
-    // "already fetched today" via FUND_02_Earnings.created_at.
-    try {
-      const existing = await env.DB.prepare(
-        `SELECT COUNT(DISTINCT ticker) AS n FROM FUND_02_Earnings
-         WHERE date(COALESCE(created_at, '1970-01-01')) = ?`
-      ).bind(today).first();
-      if ((existing?.n || 0) >= TICKERS.length) {
-        console.log(`[EARNINGS] All ${TICKERS.length} tickers already fetched today — skipping`);
-        return Response.json({
-          ok: true,
-          earnings_count: 0,
-          recommendations_count: 0,
-          errors: 0,
-          skipped: true,
-          reason: "already_complete",
-          date: today,
-        });
+    // "already fetched today" via FUND_02_Earnings.created_at. Bypassed
+    // with ?force=1 (used to seed/refresh EARNINGS_CALENDAR_consensus on
+    // demand without waiting for tomorrow's cron).
+    if (!force) {
+      try {
+        const existing = await env.DB.prepare(
+          `SELECT COUNT(DISTINCT ticker) AS n FROM FUND_02_Earnings
+           WHERE date(COALESCE(created_at, '1970-01-01')) = ?`
+        ).bind(today).first();
+        if ((existing?.n || 0) >= TICKERS.length) {
+          console.log(`[EARNINGS] All ${TICKERS.length} tickers already fetched today — skipping`);
+          return Response.json({
+            ok: true,
+            earnings_count: 0,
+            recommendations_count: 0,
+            errors: 0,
+            skipped: true,
+            reason: "already_complete",
+            date: today,
+          });
+        }
+      } catch (err) {
+        console.warn(`[EARNINGS] Idempotency check failed, proceeding cautiously: ${err.message}`);
       }
-    } catch (err) {
-      console.warn(`[EARNINGS] Idempotency check failed, proceeding cautiously: ${err.message}`);
     }
 
     // Fetch all in parallel — 50 calls well within 60/min
@@ -100,6 +106,7 @@ export default {
             });
           }
         }
+
       })
     );
 
@@ -146,6 +153,7 @@ export default {
       }
     }
 
+
     // All-fail guard: if every ticker errored AND no data was written, return
     // a non-200 so the workflow marks this job 'failed' (not 'done'). Keeps
     // downstream consumers honest via the requires-gate.
@@ -181,4 +189,101 @@ async function fetchFinnhub(url, ticker) {
     console.error(`[EARNINGS] Finnhub error for ${ticker}: ${err.message}`);
     return null;
   }
+}
+
+// /fetch-calendar — separate handler so the market-wide /calendar/earnings
+// call + ingest POST run in their own subrequest budget. Doing this inside
+// /fetch-earnings pushed us past Cloudflare's 50-subrequest cap (we already
+// spend 50 on per-symbol earnings + recommendation calls).
+//
+// Strategy: ONE market-wide /calendar/earnings call (no &symbol=) for the
+// next 90 days, filter to TICKERS, take earliest upcoming print per symbol,
+// merge in last_report_date from FUND_02_Earnings (read straight from D1).
+async function fetchCalendar(req, env) {
+  const url = new URL(req.url);
+  const apiKey = env.FINNHUB_KEY;
+  if (!apiKey) {
+    return Response.json({ ok: false, error: "FINNHUB_KEY not set" }, { status: 500 });
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const calTo = new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10);
+
+  const calRaw = await fetchFinnhub(
+    `https://finnhub.io/api/v1/calendar/earnings?from=${today}&to=${calTo}&token=${apiKey}`,
+    "MARKET"
+  );
+  const calArr = calRaw?.earningsCalendar || [];
+
+  // Earliest upcoming unfiled print per symbol.
+  const nextBySymbol = new Map();
+  for (const r of calArr) {
+    if (!r.symbol || !r.date || r.date < today) continue;
+    if (r.epsActual != null) continue;
+    const prev = nextBySymbol.get(r.symbol);
+    if (!prev || r.date < prev) nextBySymbol.set(r.symbol, r.date);
+  }
+
+  // last_report_date: latest period in FUND_02_Earnings per ticker. One
+  // grouped query, not 25.
+  const lastRows = await env.DB.prepare(
+    `SELECT ticker, MAX(period) AS last_period FROM FUND_02_Earnings GROUP BY ticker`
+  ).all();
+  const lastByTicker = new Map();
+  for (const r of (lastRows.results || [])) {
+    if (r.last_period) lastByTicker.set(r.ticker, r.last_period);
+  }
+
+  const items = [];
+  for (const ticker of TICKERS) {
+    const symbol = ticker === "BRK.B" ? "BRK-B" : ticker;
+    const next = nextBySymbol.get(symbol) || null;
+    const last = lastByTicker.get(ticker) || null;
+    if (!next && !last) continue;
+    items.push({
+      ticker,
+      next_earnings_date: next,
+      last_report_date: last,
+      source: "finnhub",
+    });
+  }
+
+  // Write directly to D1 via the bound DB. workers.dev → workers.dev HTTP
+  // fetch hits Cloudflare error 1042 (cross-worker on the same zone), so
+  // we bypass the ingestor and use the binding we already have.
+  let inserted = 0;
+  let writeError = null;
+  const now = new Date().toISOString();
+  try {
+    for (const e of items) {
+      await env.DB.prepare(`
+        INSERT INTO EARNINGS_CALENDAR_consensus
+          (ticker, next_earnings_date, last_report_date, source, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(ticker) DO UPDATE SET
+          next_earnings_date = excluded.next_earnings_date,
+          last_report_date   = excluded.last_report_date,
+          source             = excluded.source,
+          updated_at         = excluded.updated_at
+      `).bind(
+        e.ticker,
+        e.next_earnings_date ?? null,
+        e.last_report_date ?? null,
+        e.source ?? "finnhub",
+        now,
+      ).run();
+      inserted++;
+    }
+  } catch (err) {
+    writeError = err.message;
+  }
+
+  return Response.json({
+    ok: !writeError,
+    market_rows: calArr.length,
+    upcoming: nextBySymbol.size,
+    items: items.length,
+    inserted,
+    write_error: writeError,
+    date: today,
+  });
 }

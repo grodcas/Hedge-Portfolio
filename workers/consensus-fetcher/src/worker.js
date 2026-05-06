@@ -34,7 +34,9 @@ export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     try {
-      if (url.pathname === "/build")  return Response.json(await build(env));
+      const force = url.searchParams.get("force") === "1";
+      const oneTicker = url.searchParams.get("ticker") || null;
+      if (url.pathname === "/build")  return Response.json(await build(env, { force, oneTicker }));
       if (url.pathname === "/status") return Response.json(await status(env));
       return new Response("Not found", { status: 404 });
     } catch (err) {
@@ -42,22 +44,81 @@ export default {
     }
   },
   async scheduled(_event, env, ctx) {
-    ctx.waitUntil(build(env).catch((e) => console.error(`[consensus] cron: ${e.message}`)));
+    ctx.waitUntil(build(env, {}).catch((e) => console.error(`[consensus] cron: ${e.message}`)));
   },
 };
 
-async function build(env) {
+// Event-driven gate window. Refresh consensus only when:
+//   today ≥ next_earnings_date − 7d   AND   today ≤ next_earnings_date + 2d
+// (asymmetric: more lead-in than tail-out, since revisions move pre-print).
+// Falls back to a 7-day staleness check if next_earnings_date is unknown.
+const WINDOW_PRE_DAYS = 7;
+const WINDOW_POST_DAYS = 2;
+const STALENESS_DAYS = 7;
+
+function daysBetween(a, b) {
+  // a, b: YYYY-MM-DD strings. Returns signed integer days a−b.
+  return Math.round((Date.parse(a) - Date.parse(b)) / 86400000);
+}
+
+async function build(env, opts = {}) {
   const apiKey = env.FMP_KEY;
   if (!apiKey) throw new Error("FMP_KEY secret not set");
+
+  const today = new Date().toISOString().slice(0, 10);
+  const force = opts.force === true;
 
   // Source of truth for tracked tickers — bootstrapped in MS-1c. Avoids
   // hardcoding the ticker list in yet another worker.
   const { results: peerRows } = await env.DB.prepare(
     `SELECT ticker FROM PEER_SET_config ORDER BY ticker`,
   ).all();
-  const tickers = (peerRows || []).map((r) => r.ticker);
+  let tickers = (peerRows || []).map((r) => r.ticker);
+  if (opts.oneTicker) tickers = tickers.filter(t => t === opts.oneTicker);
   if (tickers.length === 0) {
     return { ok: false, error: "PEER_SET_config is empty — run scripts/bootstrap-peer-set-config.js first" };
+  }
+
+  // Pre-load the earnings window per ticker and the latest FUND_03 write per
+  // ticker so the gate is decided in-memory (one query each, not 25).
+  const calRows = await env.DB.prepare(
+    `SELECT ticker, next_earnings_date FROM EARNINGS_CALENDAR_consensus`
+  ).all();
+  const nextByTicker = new Map();
+  for (const r of (calRows.results || [])) {
+    if (r.next_earnings_date) nextByTicker.set(r.ticker, r.next_earnings_date);
+  }
+
+  const lastRows = await env.DB.prepare(
+    `SELECT ticker, MAX(created_at) AS ts FROM FUND_03_Estimates GROUP BY ticker`
+  ).all();
+  const lastByTicker = new Map();
+  for (const r of (lastRows.results || [])) {
+    if (r.ts) lastByTicker.set(r.ticker, String(r.ts).slice(0, 10));
+  }
+
+  // Apply the gate. `skipped` is reported in the response so a sprint can
+  // confirm the gate engaged.
+  const skipped = [];
+  const eligible = [];
+  for (const t of tickers) {
+    if (force) { eligible.push(t); continue; }
+    const next = nextByTicker.get(t) || null;
+    const last = lastByTicker.get(t) || null;
+    const inWindow = next
+      && daysBetween(today, next) >= -WINDOW_PRE_DAYS
+      && daysBetween(today, next) <=  WINDOW_POST_DAYS;
+    const tooStale = !last || daysBetween(today, last) > STALENESS_DAYS;
+    if (inWindow || tooStale) {
+      eligible.push(t);
+    } else {
+      skipped.push({ ticker: t, last, next });
+      console.log(`[CONSENSUS] skip ${t} (last=${last || "never"}, next_earn=${next || "none"})`);
+    }
+  }
+
+  if (eligible.length === 0) {
+    return { ok: true, tickers: tickers.length, eligible: 0, skipped: skipped.length, inserted: 0, errors: [] };
   }
 
   const thisYear = new Date().getUTCFullYear();
@@ -68,7 +129,7 @@ async function build(env) {
 
   // FMP free tier allows ~250 req/day; 25 tickers fits cleanly.
   const settled = await Promise.allSettled(
-    tickers.map(async (ticker) => {
+    eligible.map(async (ticker) => {
       const symbol = ticker === "BRK.B" ? "BRK-B" : ticker;
       const rows = await fetchFmpEstimates(apiKey, symbol, ticker);
       const byYear = indexByYear(rows);
@@ -115,11 +176,19 @@ async function build(env) {
 
   for (let i = 0; i < settled.length; i++) {
     if (settled[i].status === "rejected") {
-      errors.push(`${tickers[i]}: ${settled[i].reason?.message || "unknown"}`);
+      errors.push(`${eligible[i]}: ${settled[i].reason?.message || "unknown"}`);
     }
   }
 
-  return { ok: true, tickers: tickers.length, inserted, errors };
+  return {
+    ok: true,
+    tickers: tickers.length,
+    eligible: eligible.length,
+    skipped: skipped.length,
+    skipped_sample: skipped.slice(0, 5),
+    inserted,
+    errors,
+  };
 }
 
 async function status(env) {

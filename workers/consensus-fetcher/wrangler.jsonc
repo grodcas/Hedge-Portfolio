@@ -9,7 +9,7 @@
     "logs": { "enabled": true, "head_sampling_rate": 1, "persist": true, "invocation_logs": true }
   },
   "triggers": {
-    "crons": ["0 13 * * *"]
+    "crons": ["0 13 * * 1-5"]
   },
   "d1_databases": [
     {
