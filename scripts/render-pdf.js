@@ -33,7 +33,7 @@ const PAGE_HTML = `<!DOCTYPE html>
 <meta charset="utf-8"/>
 <title>Hedge Portfolio System Reference</title>
 <style>
-  @page { size: A4; }
+  @page { size: A4 landscape; }
   html, body { margin: 0; padding: 0; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
@@ -52,7 +52,6 @@ const PAGE_HTML = `<!DOCTYPE html>
   h2 {
     font-size: 16pt; margin: 22pt 0 8pt 0; padding-bottom: 4pt;
     border-bottom: 1px solid #999; color: #1a1a1a;
-    page-break-after: avoid;
   }
   h3 { font-size: 13pt; margin: 16pt 0 6pt 0; color: #2a2a2a; page-break-after: avoid; }
   h4 { font-size: 11pt; margin: 12pt 0 4pt 0; color: #333; page-break-after: avoid; }
@@ -89,15 +88,13 @@ const PAGE_HTML = `<!DOCTYPE html>
     background: white; padding: 4pt; margin: 8pt auto;
     text-align: center;
     max-width: 100%;
-    /* No page-break-inside:avoid — small diagrams forced onto fresh pages
-       were leaving the cluster title alone + a blank gap before the
-       diagram. Letting them flow naturally keeps title + diagram + table
-       packed on one or two pages. */
+    page-break-inside: avoid;   /* keep each diagram on one page */
+    break-inside: avoid;
   }
   .mermaid svg {
     max-width: 100% !important;
-    max-height: 200mm !important;   /* never exceed a single A4 page */
-    width: auto !important;
+    max-height: 180mm !important;   /* A4 landscape print area, minus margins */
+    width: 100% !important;
     height: auto !important;
     display: block;
     margin: 0 auto;
@@ -152,11 +149,35 @@ const PAGE_HTML = `<!DOCTYPE html>
     window.__mermaid.initialize({
       startOnLoad: false,
       theme: "default",
-      themeVariables: { fontFamily: "Helvetica Neue, Arial, sans-serif" },
-      flowchart: { htmlLabels: true, curve: "basis", padding: 8 },
+      themeVariables: {
+        fontFamily: "Helvetica Neue, Arial, sans-serif",
+        fontSize: "18px",
+      },
+      flowchart: {
+        htmlLabels: true,
+        curve: "basis",
+        padding: 16,
+        nodeSpacing: 50,
+        rankSpacing: 70,
+        useMaxWidth: false,
+      },
       securityLevel: "loose",
     });
-    await window.__mermaid.run({ querySelector: ".mermaid" });
+    try {
+      await window.__mermaid.run({ querySelector: ".mermaid" });
+    } catch (err) {
+      window.__mermaidErr = err && (err.message || String(err));
+    }
+    // Force every rendered SVG to fill the print area. A4 landscape gives
+    // ~263mm × ~180mm of usable space — strip Mermaid's intrinsic width/
+    // height attributes and let CSS scale to fit the page width.
+    document.querySelectorAll(".mermaid svg").forEach((svg) => {
+      svg.removeAttribute("width");
+      svg.removeAttribute("height");
+      svg.style.width  = "100%";
+      svg.style.height = "auto";
+      svg.style.maxHeight = "180mm";
+    });
   } catch (err) {
     console.error("[render]", err);
     window.__renderError = String(err);
@@ -176,8 +197,14 @@ try {
   const page = await browser.newPage();
   await page.setViewport({ width: 1200, height: 1600, deviceScaleFactor: 2 });
 
-  page.on("console", (msg) => {
-    if (msg.type() === "error") console.log("[browser]", msg.text());
+  page.on("console", async (msg) => {
+    if (msg.type() === "error") {
+      // Resolve JSHandle args to readable strings
+      const args = await Promise.all(
+        msg.args().map(a => a.jsonValue().catch(() => a.toString()))
+      );
+      console.log("[browser]", ...args);
+    }
   });
 
   await page.setContent(PAGE_HTML, { waitUntil: "networkidle0", timeout: 60000 });
@@ -200,9 +227,10 @@ try {
   await page.pdf({
     path: PDF_FILE,
     format: "A4",
+    landscape: true,
     printBackground: true,
     displayHeaderFooter: false,
-    margin: { top: "18mm", right: "15mm", bottom: "18mm", left: "15mm" },
+    margin: { top: "15mm", right: "18mm", bottom: "15mm", left: "18mm" },
   });
 } finally {
   await browser.close();
