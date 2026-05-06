@@ -54,6 +54,18 @@ const AV_INDEX_LAG_DAYS = 2;
 // If a 10-Q is this old and AV still hasn't indexed it, log a warning.
 const AV_INDEX_LAG_WARN_DAYS = 14;
 
+// OVERVIEW per-ticker cooldown. PE/DMA/market cap drift slowly enough that a
+// 3-day cadence is acceptable and keeps the daily AV burn within budget once
+// consensus-fetcher (MS-6d) joins the same 25/day pool.
+const OVERVIEW_COOLDOWN_DAYS = 3;
+
+// Single canonical AV budget log line. The Validator tab (MS-7) and the
+// pipeline log greppers key on the "AV_BUDGET " prefix.
+function logAvCall(endpoint, ticker, ok) {
+  const today = new Date().toISOString().slice(0, 10);
+  console.log(`AV_BUDGET ${today} ${endpoint} ${ticker} ${ok ? "ok" : "fail"}`);
+}
+
 const SEC_USER_AGENT = "HedgePortfolio/1.0 contact@hedge-portfolio.local";
 
 function parseNum(val) {
@@ -79,12 +91,17 @@ function checkRateLimit(data, ticker, fn) {
 async function fetchOverview(ticker, apiKey) {
   const url = `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${avSymbol(ticker)}&apikey=${apiKey}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`AV OVERVIEW ${res.status} for ${ticker}`);
+  if (!res.ok) {
+    logAvCall("OVERVIEW", ticker, false);
+    throw new Error(`AV OVERVIEW ${res.status} for ${ticker}`);
+  }
   const data = await res.json();
   if (!data.Symbol && !data.PERatio) {
+    logAvCall("OVERVIEW", ticker, false);
     checkRateLimit(data, ticker, "OVERVIEW");
     throw new Error(`Empty OVERVIEW for ${ticker}`);
   }
+  logAvCall("OVERVIEW", ticker, true);
   return {
     sector: data.Sector || null,
     pe_ratio: parseNum(data.PERatio),
@@ -130,9 +147,13 @@ function pickQuarterly(reports, ticker, label) {
 async function fetchIncomeStatement(ticker, apiKey) {
   const url = `https://www.alphavantage.co/query?function=INCOME_STATEMENT&symbol=${avSymbol(ticker)}&apikey=${apiKey}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`AV INCOME_STATEMENT ${res.status} for ${ticker}`);
+  if (!res.ok) {
+    logAvCall("INCOME_STATEMENT", ticker, false);
+    throw new Error(`AV INCOME_STATEMENT ${res.status} for ${ticker}`);
+  }
   const data = await res.json();
   checkRateLimit(data, ticker, "INCOME_STATEMENT");
+  logAvCall("INCOME_STATEMENT", ticker, true);
   const { cur, yoy } = pickQuarterly(data.quarterlyReports, ticker, "IS");
   return {
     fiscal_period_ending: cur.fiscalDateEnding,
@@ -151,9 +172,13 @@ async function fetchIncomeStatement(ticker, apiKey) {
 async function fetchBalanceSheet(ticker, apiKey) {
   const url = `https://www.alphavantage.co/query?function=BALANCE_SHEET&symbol=${avSymbol(ticker)}&apikey=${apiKey}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`AV BALANCE_SHEET ${res.status} for ${ticker}`);
+  if (!res.ok) {
+    logAvCall("BALANCE_SHEET", ticker, false);
+    throw new Error(`AV BALANCE_SHEET ${res.status} for ${ticker}`);
+  }
   const data = await res.json();
   checkRateLimit(data, ticker, "BALANCE_SHEET");
+  logAvCall("BALANCE_SHEET", ticker, true);
   const { cur, yoy } = pickQuarterly(data.quarterlyReports, ticker, "BS");
   return {
     fiscal_period_ending: cur.fiscalDateEnding,
@@ -174,9 +199,13 @@ async function fetchBalanceSheet(ticker, apiKey) {
 async function fetchCashFlow(ticker, apiKey) {
   const url = `https://www.alphavantage.co/query?function=CASH_FLOW&symbol=${avSymbol(ticker)}&apikey=${apiKey}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`AV CASH_FLOW ${res.status} for ${ticker}`);
+  if (!res.ok) {
+    logAvCall("CASH_FLOW", ticker, false);
+    throw new Error(`AV CASH_FLOW ${res.status} for ${ticker}`);
+  }
   const data = await res.json();
   checkRateLimit(data, ticker, "CASH_FLOW");
+  logAvCall("CASH_FLOW", ticker, true);
   const { cur, yoy } = pickQuarterly(data.quarterlyReports, ticker, "CF");
   return {
     fiscal_period_ending: cur.fiscalDateEnding,
@@ -409,18 +438,31 @@ export async function fetchFundamentals(config, logger, results, opts = {}) {
   let secByTicker = {};
   let existingRows = [];
 
+  // OVERVIEW cooldown: skip a ticker whose last successful OVERVIEW
+  // (pe_ratio non-null) is within the last OVERVIEW_COOLDOWN_DAYS. PE/DMA
+  // change with price but the slow-moving fundamentals (margins, market cap)
+  // tolerate a 3-day cadence; this halves the daily AV burn so the consensus
+  // path can co-exist within the 25/day cap.
   try {
-    const res = await fetch(`${INGEST_BASE}/query/fundamentals?date=${today}`);
+    const res = await fetch(`${INGEST_BASE}/query/fundamentals`);
     if (res.ok) {
       const existing = await res.json();
       existingRows = Array.isArray(existing) ? existing : (existing?.results || []);
-      const overviewDoneToday = new Set(
-        existingRows.filter(r => r.pe_ratio != null).map(r => r.ticker)
-      );
-      tickersForOverview = TICKERS.filter(t => !overviewDoneToday.has(t));
+      const cutoffMs = Date.now() - OVERVIEW_COOLDOWN_DAYS * 86400000;
+      const tooFresh = new Set();
+      for (const r of existingRows) {
+        if (!r.ticker || !r.date || r.pe_ratio == null) continue;
+        const ts = Date.parse(r.date);
+        if (Number.isFinite(ts) && ts >= cutoffMs) tooFresh.add(r.ticker);
+      }
+      tickersForOverview = TICKERS.filter(t => !tooFresh.has(t));
+      const skipped = TICKERS.length - tickersForOverview.length;
+      if (skipped > 0) {
+        logger.log("FUNDAMENTALS", `skipping OVERVIEW for ${skipped} tickers (≤${OVERVIEW_COOLDOWN_DAYS}d old)`);
+      }
     }
   } catch (err) {
-    logger.log("FUNDAMENTALS", `Idempotency check failed, proceeding: ${err.message}`, "warn");
+    logger.log("FUNDAMENTALS", `Cooldown check failed, proceeding: ${err.message}`, "warn");
   }
 
   if (pass === "ALL" || pass === "IS" || pass === "BS" || pass === "CF") {
