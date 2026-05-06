@@ -36,7 +36,11 @@
 // are intentionally absent — their slide-outs surface clean 404s until a
 // post-validation fan-out MS.
 const SECTORS_BUILD_PHASE = ["Technology", "Healthcare", "Energy"];
-const TICKERS_BUILD_PHASE = ["NVDA", "UNH", "XOM"];
+// Build-phase set extended 2026-05-06 (MS-6f-mini): AAPL + JPM as smoke
+// tests for the broader fan-out. Full 22-ticker fan-out deferred — these
+// two cover Tech (calendar-year filer) and Finance (a different sector
+// agent path) and confirm the orchestrator handles non-original tickers.
+const TICKERS_BUILD_PHASE = ["NVDA", "UNH", "XOM", "AAPL", "JPM"];
 
 const AGENTS = [
   // M1 must run BEFORE M2 — the thesis consumes the news_drift verdict.
