@@ -5,30 +5,42 @@
  * sell-side consensus and upserts to FUND_03_Estimates. Drives Ticker
  * agent #3 (Estimates reading).
  *
- * Source: FMP `stable/analyst-estimates` (free tier).
- *   The runbook called for Finnhub /stock/eps-estimate but that endpoint is
- *   premium-only on Finnhub's free tier (HTTP 403). FMP's stable endpoint
- *   returns the same epsAvg / epsHigh / epsLow / revenueAvg shape on the
- *   free key already in .env, with no tier upgrade needed.
+ * Source: Alpha Vantage `EARNINGS_ESTIMATES` (free tier — 25 req/day shared
+ * across all AV callers; gated by EARNINGS_CALENDAR_consensus to keep
+ * steady-state usage to 3–8/day).
+ *
+ *   Earlier iterations tried Finnhub /stock/eps-estimate (premium-only,
+ *   HTTP 403) and FMP /stable/analyst-estimates (free tier downgraded to
+ *   HTTP 402 mid-2025). AV's EARNINGS_ESTIMATES is the only free endpoint
+ *   that returns consensus PLUS 30-day net revision counts in one call.
  *
  * Endpoints:
- *   GET /build  — pull + upsert. Returns {ok, tickers, inserted, errors}.
- *   GET /status — count + latest fiscal_year per ticker.
+ *   GET /build              — pull + upsert. Honours the gate.
+ *   GET /build?force=1      — bypass gate (for one-shot backfill).
+ *   GET /build?ticker=NVDA  — single-ticker probe (still honours gate
+ *                              unless force=1 is also set).
+ *   GET /status             — count + latest fiscal_year per ticker.
  *
- * Cron: 13:00 UTC daily.
+ * Cron: 13:00 UTC weekdays only.
  *
- * Notes on coverage:
- *   - eps_consensus, rev_consensus            → epsAvg / revenueAvg
- *   - eps_dispersion                          → (epsHigh − epsLow) as a range
- *                                               proxy; not a true stdev (no
- *                                               per-analyst estimates exposed).
- *   - eps_revisions_30d, rev_revisions_30d    → not available on either FMP
- *                                               or Finnhub free; NULL for now.
- *   Agents reading FUND_03_Estimates should treat NULL revision counts as
- *   "revision data not yet wired" rather than "no revisions occurred".
+ * Field mapping (AV → FUND_03_Estimates), per fiscal-year row:
+ *   - eps_consensus       ← eps_estimate_average
+ *   - rev_consensus       ← revenue_estimate_average
+ *   - eps_dispersion      ← (eps_estimate_high − eps_estimate_low)
+ *                            (range proxy; not a true stdev)
+ *   - eps_revisions_30d   ← (revision_up_30d − revision_down_30d)
+ *                            net integer count over trailing 30 days
+ *   - rev_revisions_30d   ← NULL (AV doesn't publish revenue revision
+ *                            counts; downstream readers should treat
+ *                            NULL as "not available", not "zero")
  */
 
-const FMP_BASE = "https://financialmodelingprep.com/stable";
+const AV_BASE = "https://www.alphavantage.co/query";
+
+// AV free tier is 25 req/day total. Sleep between calls so a burst from a
+// force=1 backfill doesn't get short-rate-limited (separate from the daily
+// cap — AV blocks rapid-fire bursts even within the daily budget).
+const AV_THROTTLE_MS = 1200;
 
 export default {
   async fetch(req, env) {
@@ -62,8 +74,8 @@ function daysBetween(a, b) {
 }
 
 async function build(env, opts = {}) {
-  const apiKey = env.FMP_KEY;
-  if (!apiKey) throw new Error("FMP_KEY secret not set");
+  const apiKey = env.ALPHAVANTAGE_KEY;
+  if (!apiKey) throw new Error("ALPHAVANTAGE_KEY secret not set");
 
   const today = new Date().toISOString().slice(0, 10);
   const force = opts.force === true;
@@ -121,34 +133,44 @@ async function build(env, opts = {}) {
     return { ok: true, tickers: tickers.length, eligible: 0, skipped: skipped.length, inserted: 0, errors: [] };
   }
 
-  const thisYear = new Date().getUTCFullYear();
-  const targetYears = [thisYear, thisYear + 1, thisYear + 2]; // FY / FY+1 / FY+2
-
   let inserted = 0;
   const errors = [];
 
-  // FMP free tier allows ~250 req/day; 25 tickers fits cleanly.
-  const settled = await Promise.allSettled(
-    eligible.map(async (ticker) => {
-      const symbol = ticker === "BRK.B" ? "BRK-B" : ticker;
-      const rows = await fetchFmpEstimates(apiKey, symbol, ticker);
-      const byYear = indexByYear(rows);
+  // AV requires sequential calls — bursts get short-rate-limited even when
+  // the per-day budget isn't exhausted.
+  for (let i = 0; i < eligible.length; i++) {
+    const ticker = eligible[i];
+    const symbol = ticker === "BRK.B" ? "BRK-B" : ticker;
+    try {
+      const estimates = await fetchAvEstimates(apiKey, symbol, ticker);
+      const fyRows = estimates.filter(r => r.horizon === "fiscal year");
 
-      for (const year of targetYears) {
-        const r = byYear.get(year);
-        if (!r) continue;
+      for (const r of fyRows) {
+        const yr = r.date ? parseInt(String(r.date).slice(0, 4), 10) : null;
+        if (!Number.isFinite(yr)) continue;
 
-        const periodLabel = `FY${year}`;
+        const periodLabel = `FY${yr}`;
         const id = await shortHash(`${ticker}|annual|${periodLabel}`);
-        const dispersion =
-          r.epsHigh != null && r.epsLow != null ? r.epsHigh - r.epsLow : null;
+
+        const epsAvg  = num(r.eps_estimate_average);
+        const epsHigh = num(r.eps_estimate_high);
+        const epsLow  = num(r.eps_estimate_low);
+        const revAvg  = num(r.revenue_estimate_average);
+
+        const epsRevUp   = num(r.eps_estimate_revision_up_trailing_30_days);
+        const epsRevDown = num(r.eps_estimate_revision_down_trailing_30_days);
+        const epsRevisions30d = (epsRevUp != null || epsRevDown != null)
+          ? Math.round((epsRevUp || 0) - (epsRevDown || 0))
+          : null;
+
+        const dispersion = (epsHigh != null && epsLow != null) ? epsHigh - epsLow : null;
 
         await env.DB.prepare(
           `INSERT INTO FUND_03_Estimates
              (id, ticker, period_label, period_kind, fiscal_year,
               eps_consensus, rev_consensus,
               eps_revisions_30d, rev_revisions_30d, eps_dispersion, source)
-           VALUES (?, ?, ?, 'annual', ?, ?, ?, ?, ?, ?, 'fmp')
+           VALUES (?, ?, ?, 'annual', ?, ?, ?, ?, ?, ?, 'av_earnings_estimates')
            ON CONFLICT(id) DO UPDATE SET
              eps_consensus      = excluded.eps_consensus,
              rev_consensus      = excluded.rev_consensus,
@@ -156,27 +178,23 @@ async function build(env, opts = {}) {
              rev_revisions_30d  = excluded.rev_revisions_30d,
              eps_dispersion     = excluded.eps_dispersion,
              source             = excluded.source`,
-        )
-          .bind(
-            id,
-            ticker,
-            periodLabel,
-            year,
-            r.epsAvg ?? null,
-            r.revenueAvg ?? null,
-            null,         // eps_revisions_30d — not available on free tier
-            null,         // rev_revisions_30d — not available on free tier
-            dispersion,   // (epsHigh − epsLow) range proxy, not a true stdev
-          )
-          .run();
+        ).bind(
+          id, ticker, periodLabel, yr,
+          epsAvg, revAvg,
+          epsRevisions30d,
+          null,           // rev_revisions_30d — AV doesn't publish revenue revision counts
+          dispersion,
+        ).run();
         inserted++;
       }
-    }),
-  );
+      console.log(`AV_BUDGET ${today} EARNINGS_ESTIMATES ${ticker} ok`);
+    } catch (err) {
+      console.log(`AV_BUDGET ${today} EARNINGS_ESTIMATES ${ticker} fail`);
+      errors.push(`${ticker}: ${err.message}`);
+    }
 
-  for (let i = 0; i < settled.length; i++) {
-    if (settled[i].status === "rejected") {
-      errors.push(`${eligible[i]}: ${settled[i].reason?.message || "unknown"}`);
+    if (i < eligible.length - 1) {
+      await new Promise(r => setTimeout(r, AV_THROTTLE_MS));
     }
   }
 
@@ -191,6 +209,12 @@ async function build(env, opts = {}) {
   };
 }
 
+function num(v) {
+  if (v == null || v === "" || v === "None") return null;
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 async function status(env) {
   const summary = await env.DB.prepare(
     `SELECT COUNT(*) AS count,
@@ -202,28 +226,21 @@ async function status(env) {
   return { ok: true, ...summary };
 }
 
-async function fetchFmpEstimates(apiKey, symbol, ticker) {
-  const url = `${FMP_BASE}/analyst-estimates?symbol=${encodeURIComponent(symbol)}&period=annual&apikey=${apiKey}`;
+async function fetchAvEstimates(apiKey, symbol, ticker) {
+  const url = `${AV_BASE}?function=EARNINGS_ESTIMATES&symbol=${encodeURIComponent(symbol)}&apikey=${apiKey}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`FMP ${ticker} → HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`AV ${ticker} → HTTP ${res.status}`);
   const j = await res.json();
-  // FMP returns either an array on success or {Error Message} on failure.
-  if (!Array.isArray(j)) {
-    throw new Error(`FMP ${ticker}: ${j?.["Error Message"] || "unexpected response"}`);
+  // AV returns rate-limit / error envelopes as { Information } / { Note } /
+  // { "Error Message" } instead of throwing — surface those as exceptions
+  // so the caller logs them under the AV_BUDGET trail.
+  if (j?.Information) throw new Error(`AV rate-limit ${ticker}: ${String(j.Information).slice(0, 160)}`);
+  if (j?.Note) throw new Error(`AV note ${ticker}: ${String(j.Note).slice(0, 160)}`);
+  if (j?.["Error Message"]) throw new Error(`AV error ${ticker}: ${String(j["Error Message"]).slice(0, 160)}`);
+  if (!Array.isArray(j?.estimates)) {
+    throw new Error(`AV ${ticker}: missing estimates[] in response`);
   }
-  return j;
-}
-
-function indexByYear(rows) {
-  // FMP returns each row keyed by `date` (YYYY-MM-DD, fiscal-period end).
-  // We treat the date's year as the fiscal year. Works for both calendar-year
-  // filers (Dec end) and off-cycle filers (e.g. AAPL: late Sept).
-  const map = new Map();
-  for (const r of rows) {
-    const y = r.date ? parseInt(String(r.date).slice(0, 4), 10) : null;
-    if (Number.isFinite(y)) map.set(y, r);
-  }
-  return map;
+  return j.estimates;
 }
 
 async function shortHash(input) {
