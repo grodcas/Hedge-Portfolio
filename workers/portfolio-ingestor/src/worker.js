@@ -554,6 +554,49 @@ export default {
           }, { headers: corsHeaders });
         }
 
+        // -------- GET /query/pipeline-runs --------
+        // Validator tab section A — returns one row per pipeline step for
+        // the given date (defaults to today). Empty array if the cron didn't
+        // run yet, which the dashboard renders as "no data yet".
+        if (path === "/query/pipeline-runs") {
+          const date = url.searchParams.get("date") || new Date().toISOString().slice(0, 10);
+          const rows = await db.prepare(
+            `SELECT run_date, step_name, status, items, started_at, completed_at,
+                    duration_ms, error, log_excerpt
+               FROM PROC_03_Pipeline_runs WHERE run_date = ?
+               ORDER BY started_at ASC, step_name ASC`,
+          ).bind(date).all();
+          return Response.json(
+            { ok: true, date, steps: rows.results || [] },
+            { headers: corsHeaders },
+          );
+        }
+
+        // -------- GET /query/api-usage --------
+        // Validator tab section B — aggregates calls + cost across the last
+        // `days` (default 1, 7 for the week view). Includes budget_cap so
+        // the dashboard can flash the headroom badge.
+        if (path === "/query/api-usage") {
+          const days = Math.max(1, parseInt(url.searchParams.get("days") || "1", 10));
+          const today = url.searchParams.get("date") || new Date().toISOString().slice(0, 10);
+          const start = new Date(Date.parse(today) - (days - 1) * 86400000)
+            .toISOString().slice(0, 10);
+          const rows = await db.prepare(
+            `SELECT run_date, api, caller, endpoint,
+                    SUM(calls)    AS calls,
+                    SUM(cost_usd) AS cost_usd,
+                    MAX(budget_cap) AS budget_cap
+               FROM PROC_04_API_usage
+              WHERE run_date BETWEEN ? AND ?
+              GROUP BY run_date, api, caller, endpoint
+              ORDER BY run_date DESC, cost_usd DESC, calls DESC`,
+          ).bind(start, today).all();
+          return Response.json(
+            { ok: true, from: start, to: today, items: rows.results || [] },
+            { headers: corsHeaders },
+          );
+        }
+
         // -------- GET /query/workflow-status --------
         if (path === "/query/workflow-status") {
           const row = await db.prepare(`
@@ -2160,6 +2203,82 @@ export default {
         inserted++;
       }
       return Response.json({ ok: true, inserted }, { headers: corsHeaders });
+    }
+
+    // -------- PROC_03_Pipeline_runs (Validator section A) --------
+    // Body: { run_date, steps: [{ step_name, status, items, started_at,
+    //                              completed_at, error, log_excerpt }] }
+    // One POST per pipeline run from src/pipeline.js cleanup path.
+    if (which === "pipeline-run") {
+      const run_date = body.run_date || new Date().toISOString().slice(0, 10);
+      const steps    = Array.isArray(body.steps) ? body.steps : [];
+      let written = 0;
+      for (const s of steps) {
+        if (!s.step_name || !s.status) continue;
+        const dur = (s.started_at && s.completed_at)
+          ? Date.parse(s.completed_at) - Date.parse(s.started_at)
+          : null;
+        await db.prepare(`
+          INSERT INTO PROC_03_Pipeline_runs
+            (run_date, step_name, status, items, started_at, completed_at,
+             duration_ms, error, log_excerpt)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(run_date, step_name) DO UPDATE SET
+            status       = excluded.status,
+            items        = excluded.items,
+            started_at   = excluded.started_at,
+            completed_at = excluded.completed_at,
+            duration_ms  = excluded.duration_ms,
+            error        = excluded.error,
+            log_excerpt  = excluded.log_excerpt
+        `).bind(
+          run_date,
+          s.step_name,
+          s.status,
+          s.items ?? null,
+          s.started_at ?? null,
+          s.completed_at ?? null,
+          Number.isFinite(dur) ? dur : null,
+          s.error ?? null,
+          s.log_excerpt ?? null,
+        ).run();
+        written++;
+      }
+      return Response.json({ ok: true, written }, { headers: corsHeaders });
+    }
+
+    // -------- PROC_04_API_usage (Validator section B) --------
+    // Body: { caller, api, endpoint?, calls, cost_usd?, budget_cap? }
+    // Used by laptop-side scripts that don't have D1 bound. Worker-side
+    // callers write directly via _shared/api-usage.js.
+    if (which === "api-usage") {
+      const items = Array.isArray(body) ? body : [body];
+      const today = new Date().toISOString().slice(0, 10);
+      let written = 0;
+      for (const u of items) {
+        if (!u?.caller || !u?.api) continue;
+        await db.prepare(`
+          INSERT INTO PROC_04_API_usage
+            (run_date, caller, api, endpoint, calls, cost_usd, budget_cap, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(run_date, caller, api, endpoint) DO UPDATE SET
+            calls       = calls + excluded.calls,
+            cost_usd    = COALESCE(cost_usd, 0) + excluded.cost_usd,
+            budget_cap  = COALESCE(budget_cap, excluded.budget_cap),
+            updated_at  = excluded.updated_at
+        `).bind(
+          u.run_date || today,
+          u.caller,
+          u.api,
+          u.endpoint || "",
+          u.calls ?? 1,
+          Number.isFinite(u.cost_usd) ? u.cost_usd : null,
+          Number.isInteger(u.budget_cap) ? u.budget_cap : null,
+          now,
+        ).run();
+        written++;
+      }
+      return Response.json({ ok: true, written }, { headers: corsHeaders });
     }
 
     // -------- EARNINGS_CALENDAR_consensus --------

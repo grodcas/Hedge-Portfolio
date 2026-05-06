@@ -1312,6 +1312,7 @@
     <a href="#map">Map</a>
     <a href="#convergence">Convergence</a>
     <a href="#hedges">Hedges</a>
+    <a href="#validator">Validator</a>
   </nav>
   <div class="right">
     <span class="freshness" title="AI lede freshness across the dashboard"><span class="dot"></span>AI fresh · 6m ago</span>
@@ -1680,6 +1681,55 @@
           </tr>
         </tbody>
       </table>
+    </div>
+  </section>
+
+  <!-- ===================== VALIDATOR ===================== -->
+  <!-- MS-7e: pipeline observability + API spend at a glance.
+       Section A reads PROC_03_Pipeline_runs (cron status per step).
+       Section B reads PROC_04_API_usage (today + last 7 days).
+       Both populate from /api/pipeline-runs and /api/api-usage. -->
+  <section class="surface" id="validator">
+    <div class="surface-head">
+      <h2>VALIDATOR · CRON STATUS · API SPEND</h2>
+      <span class="sub">Did last night's pipeline succeed end-to-end? What's today's external-API spend, and how close are we to AV's 25/day cap?</span>
+    </div>
+
+    <div class="surface-lede">
+      <div class="ai-lede compact">
+        <div class="lede-head"><span class="lede-tag">VALIDATOR</span><span class="lede-meta" id="vld-meta">loading…</span></div>
+        <div class="lede-body" id="vld-summary">Two sources of truth — last cron run and 7-day API spend. Hard alerts if any AV-style budgeted API breaches 80% headroom.</div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px; padding: 12px;">
+      <div>
+        <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:var(--text2); margin-bottom:6px;">Last cron run</div>
+        <table class="sectors" id="vld-pipeline">
+          <thead>
+            <tr>
+              <th class="left">Step</th><th class="left">Status</th>
+              <th>Items</th><th>Duration</th>
+              <th class="left">Last log</th>
+            </tr>
+          </thead>
+          <tbody><tr><td colspan="5" style="color:var(--muted); padding:12px;">loading…</td></tr></tbody>
+        </table>
+      </div>
+
+      <div>
+        <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:var(--text2); margin-bottom:6px;">API spend (last 7 days)</div>
+        <div id="vld-cost-summary" style="font-size:18px; font-weight:600; margin-bottom:6px; color:var(--text);">—</div>
+        <table class="sectors" id="vld-usage">
+          <thead>
+            <tr>
+              <th class="left">API</th><th class="left">Endpoint</th>
+              <th>Calls 7d</th><th>$ 7d</th><th class="left">Budget</th>
+            </tr>
+          </thead>
+          <tbody><tr><td colspan="5" style="color:var(--muted); padding:12px;">loading…</td></tr></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
@@ -3321,6 +3371,99 @@
         $drivers.innerHTML = "";
         $tripwires.innerHTML = "";
         console.error("[macro-thesis]", err);
+      });
+  })();
+
+  // ============ MS-7e: Validator tab ============
+  // Hydrates #validator section A (last cron run) + section B (API spend
+  // last 7 days). Both are best-effort — if the queries return empty
+  // results (no pipeline run yet today, no API usage yet), the table
+  // shows a "no data yet" row instead of erroring.
+  (function loadValidator() {
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => (
+      { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]
+    ));
+    const fmtMoney = (v) => v == null ? "—" : `$${(+v).toFixed(2)}`;
+    const fmtDur = (ms) => {
+      if (!Number.isFinite(ms)) return "—";
+      const s = Math.round(ms / 1000);
+      if (s < 60) return `${s}s`;
+      return `${Math.floor(s/60)}m ${s%60}s`;
+    };
+    const STATUS_STYLE = {
+      ok:   "background:#DCFCE7;color:#166534",
+      warn: "background:#FEF3C7;color:#92400E",
+      fail: "background:#FEE2E2;color:#991B1B",
+      skip: "background:#E5E7EB;color:#4B5563",
+    };
+
+    // Section A — pipeline runs.
+    fetch("/api/pipeline-runs")
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then(data => {
+        const tbody = document.querySelector("#vld-pipeline tbody");
+        const steps = Array.isArray(data.steps) ? data.steps : [];
+        document.getElementById("vld-meta").textContent = `${data.date || "?"} · ${steps.length} steps logged`;
+        if (steps.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="color:var(--muted); padding:12px;">No pipeline run logged for ${esc(data.date || "today")} yet — wired in MS-7b, populates after the next pipeline run.</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = steps.map(s => {
+          const style = STATUS_STYLE[s.status] || "";
+          const log = (s.log_excerpt || s.error || "").split("\n").pop().slice(0, 90);
+          return `<tr>
+            <td class="left"><strong>${esc(s.step_name)}</strong></td>
+            <td class="left"><span style="display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; ${style}">${esc(s.status)}</span></td>
+            <td>${s.items ?? "—"}</td>
+            <td>${fmtDur(s.duration_ms)}</td>
+            <td class="left" style="color:var(--text2); font-size:11px;">${esc(log) || "—"}</td>
+          </tr>`;
+        }).join("");
+      })
+      .catch(err => {
+        const tbody = document.querySelector("#vld-pipeline tbody");
+        tbody.innerHTML = `<tr><td colspan="5" style="color:var(--bad); padding:12px;">Failed to load pipeline runs: ${esc(err.message)}</td></tr>`;
+      });
+
+    // Section B — API usage last 7 days.
+    fetch("/api/api-usage?days=7")
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then(data => {
+        const tbody = document.querySelector("#vld-usage tbody");
+        const items = Array.isArray(data.items) ? data.items : [];
+        if (items.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="color:var(--muted); padding:12px;">No API usage logged yet — populates as workers (MS-7c) emit recordApiCall().</td></tr>`;
+          document.getElementById("vld-cost-summary").textContent = "$0.00 (last 7 days)";
+          return;
+        }
+        // Aggregate by api+endpoint across days.
+        const agg = new Map();
+        let total = 0;
+        for (const r of items) {
+          const k = `${r.api}|${r.endpoint || ""}`;
+          const a = agg.get(k) || { api: r.api, endpoint: r.endpoint || "", calls: 0, cost: 0, cap: r.budget_cap };
+          a.calls += +r.calls || 0;
+          a.cost  += +r.cost_usd || 0;
+          if (r.budget_cap != null) a.cap = r.budget_cap;
+          total += +r.cost_usd || 0;
+          agg.set(k, a);
+        }
+        const rows = [...agg.values()].sort((a, b) => b.cost - a.cost);
+        document.getElementById("vld-cost-summary").textContent = `${fmtMoney(total)} (last 7 days)`;
+        tbody.innerHTML = rows.map(r => {
+          const budget = r.cap ? `${r.cap}/day cap` : "—";
+          return `<tr>
+            <td class="left"><strong>${esc(r.api)}</strong></td>
+            <td class="left">${esc(r.endpoint) || "—"}</td>
+            <td>${r.calls}</td>
+            <td>${fmtMoney(r.cost)}</td>
+            <td class="left" style="color:var(--text2); font-size:11px;">${esc(budget)}</td>
+          </tr>`;
+        }).join("");
+      })
+      .catch(err => {
+        const tbody = document.querySelector("#vld-usage tbody");
+        tbody.innerHTML = `<tr><td colspan="5" style="color:var(--bad); padding:12px;">Failed to load API usage: ${esc(err.message)}</td></tr>`;
       });
   })();
 

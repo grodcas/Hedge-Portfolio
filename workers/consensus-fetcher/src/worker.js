@@ -35,6 +35,8 @@
  *                            NULL as "not available", not "zero")
  */
 
+import { recordApiCall } from "../../_shared/api-usage.js";
+
 const AV_BASE = "https://www.alphavantage.co/query";
 
 // AV free tier is 25 req/day total. Sleep between calls so a burst from a
@@ -188,8 +190,10 @@ async function build(env, opts = {}) {
         inserted++;
       }
       console.log(`AV_BUDGET ${today} EARNINGS_ESTIMATES ${ticker} ok`);
+      await recordApiCall({ env, caller: "consensus-fetcher", api: "alphavantage", endpoint: "EARNINGS_ESTIMATES", calls: 1, ok: true });
     } catch (err) {
       console.log(`AV_BUDGET ${today} EARNINGS_ESTIMATES ${ticker} fail`);
+      await recordApiCall({ env, caller: "consensus-fetcher", api: "alphavantage", endpoint: "EARNINGS_ESTIMATES", calls: 1, ok: false });
       errors.push(`${ticker}: ${err.message}`);
     }
 

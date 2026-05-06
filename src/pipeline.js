@@ -4,7 +4,7 @@
 import "dotenv/config";
 import PipelineLogger from "../validation/lib/logger.js";
 import * as calendar from "../validation/lib/calendar.js";
-import { CONFIG } from "./lib/config.js";
+import { CONFIG, INGEST_BASE } from "./lib/config.js";
 
 // Import step modules
 import { ingestPress } from "./steps/ingest-press.js";
@@ -184,6 +184,23 @@ async function main(options = {}) {
     hasErrors = true;
     results.error = err.message;
   } finally {
+    // Persist run summary for the Validator tab. One HTTP call, idempotent
+    // (UPSERT on (run_date, step_name)). Best-effort: a failure here must
+    // not mask the underlying pipeline outcome.
+    try {
+      if (typeof logger.exportSteps === "function") {
+        const steps = logger.exportSteps();
+        const run_date = calendar.todayISO?.() || new Date().toISOString().slice(0, 10);
+        const r = await fetch(`${INGEST_BASE}/ingest/pipeline-run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ run_date, steps }),
+        });
+        if (!r.ok) console.error(`Validator persist failed: HTTP ${r.status}`);
+      }
+    } catch (err) {
+      console.error("Validator persist error:", err.message);
+    }
     logger.cleanup();
   }
 

@@ -163,6 +163,7 @@ class PipelineLogger {
     this.currentStep = stepIndex;
     this.steps[stepIndex].status = "running";
     this.steps[stepIndex].progress = 0;
+    this.steps[stepIndex].started_at = new Date().toISOString();
     this.renderHeader();
   }
 
@@ -173,15 +174,47 @@ class PipelineLogger {
   }
 
   completeStep(stepIndex, items = 0, status = "done") {
+    const completedAt = new Date().toISOString();
     this.steps[stepIndex].status = status;
     this.steps[stepIndex].progress = 100;
     this.steps[stepIndex].items = items;
+    this.steps[stepIndex].completed_at = completedAt;
     this.logData.steps[this.steps[stepIndex].name] = {
       status,
       items,
-      completedAt: new Date().toISOString()
+      completedAt,
     };
     this.renderHeader();
+  }
+
+  // exportSteps — produce the structured payload the Validator tab consumes.
+  // Mapping: status "done" → "ok", "warning" → "warn", "failed" → "fail",
+  // and a 500-char tail of the per-step log lines so the dashboard can
+  // surface the last thing that happened in a click-to-expand modal.
+  exportSteps() {
+    const STATUS_MAP = { done: "ok", warning: "warn", failed: "fail", pending: "skip", running: "warn" };
+    const stepNames = new Set(this.steps.map(s => s.name));
+    const logsByStep = new Map();
+    for (const ln of this.logs) {
+      const cat = (ln.category || "").trim();
+      if (!stepNames.has(cat)) continue;
+      const arr = logsByStep.get(cat) || [];
+      arr.push(`${ln.time} ${ln.message}`);
+      logsByStep.set(cat, arr);
+    }
+    return this.steps.map(s => {
+      const tail = (logsByStep.get(s.name) || []).join("\n");
+      const error = s.status === "failed" ? (tail.split("\n").pop() || null) : null;
+      return {
+        step_name:    s.name,
+        status:       STATUS_MAP[s.status] || s.status,
+        items:        Number.isFinite(s.items) ? s.items : null,
+        started_at:   s.started_at   || null,
+        completed_at: s.completed_at || null,
+        error,
+        log_excerpt:  tail.length > 500 ? tail.slice(-500) : (tail || null),
+      };
+    });
   }
 
   log(category, message, status = "info") {

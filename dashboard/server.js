@@ -101,6 +101,28 @@ app.get("/api/dates", async (req, res) => {
   }
 });
 
+// Validator tab — pipeline-step status for a date (defaults to today).
+app.get("/api/pipeline-runs", async (req, res) => {
+  try {
+    const date = req.query.date ? `?date=${encodeURIComponent(req.query.date)}` : "";
+    const data = await fetchFromWorker(`/query/pipeline-runs${date}`);
+    res.json({ ...data, source: "D1" });
+  } catch (error) {
+    handleD1Error(res, "/api/pipeline-runs", error);
+  }
+});
+
+// Validator tab — API usage / cost for the last `days` days (default 1).
+app.get("/api/api-usage", async (req, res) => {
+  try {
+    const days = parseInt(req.query.days || "1", 10);
+    const data = await fetchFromWorker(`/query/api-usage?days=${days}`);
+    res.json({ ...data, source: "D1" });
+  } catch (error) {
+    handleD1Error(res, "/api/api-usage", error);
+  }
+});
+
 // Get validation data for a specific date
 app.get("/api/validation/:date", async (req, res) => {
   try {
