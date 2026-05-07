@@ -1360,7 +1360,7 @@
 </header>
 
 <div class="data-banner">
-  <strong>Data status:</strong> Ticker / sector / macro <strong>slide-outs</strong> (the unfoldable cards opened by clicking any row) are LIVE — they read real analysis from the LLM agents. The <strong>book grid, sector strip, cross-asset tiles, regime banner, recent macro prints, and main tape view</strong> still ship hardcoded placeholder numbers — backend wire-up is pending. Click any row to open its real slide-out.
+  <strong>Data status:</strong> The <strong>book grid, sector strip, cross-asset tiles, regime banner, recent macro prints</strong>, and all <strong>slide-outs</strong> are LIVE — they read POSITION_01_Daily / STOCK_FACTORS_daily / SECTOR_FACTORS_daily / MACRO_STATE_indicators / TICKER_TREND_long. A few book columns (margin / FCF sparklines, attention score) and the <strong>main TAPE view</strong> (news + moves grid) still ship hardcoded placeholder content — wire-up pending. Click any row to open its real slide-out.
 </div>
 
 <!-- ===================== TODAY ===================== -->
@@ -1461,9 +1461,11 @@
       </div>
     </div>
     <div style="overflow-x:auto">
-      <!-- PLACEHOLDER: ROWS array (line ~2670) is hardcoded. Click a row to
-           open the real ticker slide-out (live data from /api/ticker-*). -->
-      <table class="book is-placeholder" id="book-table">
+      <!-- LIVE: filled from /api/book-grid (POSITION_01_Daily +
+           STOCK_FACTORS_daily + FUND_01 + TICKER_TREND_long). The old
+           hardcoded ROWS array survives below as a fallback for fields we
+           haven't wired yet (margin/fcf sparklines, attention score). -->
+      <table class="book" id="book-table">
         <thead>
           <tr>
             <th class="center" data-sort="idx" style="width:30px">#</th>
@@ -1498,62 +1500,65 @@
     </div>
 
     <!-- ============ MACRO STRIP (regime + cross-asset) ============
-         PLACEHOLDER: regime label + cross-asset tile values are hardcoded.
-         Real data lives in the macro slide-out (#macropanel, /api/macro-*).
+         LIVE: regime label fetches /api/macro-thesis; tiles fetch
+         /api/macro-state-latest. The render loop is at line ~loadMacroStrip
+         (search for "data-code" hooks). NAAIM/AAII/COT/PC tiles still
+         render "—" — those come from sentiment-state-fetcher and aren't
+         in MACRO_STATE_indicators yet.
     -->
-    <div class="macro-strip is-placeholder">
+    <div class="macro-strip">
       <!-- LEFT: regime anchor — single visual focal point -->
       <div class="macro-anchor" id="open-macro-link" title="Click to open the macro thesis">
         <div class="ma-tag">REGIME</div>
-        <div class="ma-label" id="regime-label-click">Late-cycle expansion</div>
-        <div class="ma-meta">conf <strong>72%</strong> · 4 of 6 indicators consistent · tripwires <strong style="color:var(--bull)">0/4</strong></div>
+        <div class="ma-label" id="regime-label-click">loading…</div>
+        <div class="ma-meta" id="regime-meta">loading…</div>
         <div class="ma-history" title="12-month regime trajectory">
           <span class="ma-history-bars">▁▂▂▃▃▄▅▆▇▇▇▇</span>
-          <span class="ma-history-text">Mid → Late · 12m</span>
+          <span class="ma-history-text">12m</span>
         </div>
         <div class="ma-cta">open thesis →</div>
       </div>
 
       <!-- RIGHT: cross-asset grid, 4 functional groups -->
-      <div class="cross-grid">
+      <div class="cross-grid" id="cross-grid">
         <div class="cross-group">
           <div class="cg-head">RATES</div>
-          <div class="tile"><span class="tl">2Y</span><span class="tv">4.36%</span><span class="td">−0.03 1w</span></div>
-          <div class="tile"><span class="tl">10Y</span><span class="tv">4.18%</span><span class="td delta-up">+0.04 1w</span></div>
-          <div class="tile"><span class="tl">10–2</span><span class="tv">−0.18</span><span class="td">inverted</span></div>
-          <div class="tile"><span class="tl">Real 5Y</span><span class="tv">1.92%</span><span class="td delta-down">−0.06 1m</span></div>
-          <div class="tile"><span class="tl">5Y BE</span><span class="tv">2.41%</span><span class="td delta-up">+0.04 1m</span></div>
-          <div class="tile"><span class="tl">5Y5Y</span><span class="tv">2.38%</span><span class="td">flat</span></div>
+          <div class="tile" data-code="DGS2"><span class="tl">2Y</span><span class="tv">—</span><span class="td">—</span></div>
+          <div class="tile" data-code="DGS10"><span class="tl">10Y</span><span class="tv">—</span><span class="td">—</span></div>
+          <div class="tile" data-code="CURVE_10_2"><span class="tl">10–2</span><span class="tv">—</span><span class="td">—</span></div>
+          <div class="tile" data-code="REAL_5Y"><span class="tl">Real 5Y</span><span class="tv">—</span><span class="td">—</span></div>
+          <div class="tile" data-code="BREAKEVEN_5Y"><span class="tl">5Y BE</span><span class="tv">—</span><span class="td">—</span></div>
+          <div class="tile" data-code="BREAKEVEN_5Y5Y_FWD"><span class="tl">5Y5Y</span><span class="tv">—</span><span class="td">—</span></div>
         </div>
         <div class="cross-group">
           <div class="cg-head">CREDIT</div>
-          <div class="tile"><span class="tl">IG OAS</span><span class="tv">102bps</span><span class="td delta-down">−12 1m</span></div>
-          <div class="tile"><span class="tl">HY OAS</span><span class="tv">358bps</span><span class="td delta-down">−15 1m</span></div>
+          <div class="tile" data-code="OAS_IG"><span class="tl">IG OAS</span><span class="tv">—</span><span class="td">—</span></div>
+          <div class="tile" data-code="OAS_HY"><span class="tl">HY OAS</span><span class="tv">—</span><span class="td">—</span></div>
         </div>
         <div class="cross-group">
           <div class="cg-head">FX · COMMODITIES</div>
-          <div class="tile"><span class="tl">DXY</span><span class="tv">102.3</span><span class="td delta-up">+0.4 1m</span></div>
-          <div class="tile"><span class="tl">EURUSD</span><span class="tv">1.0782</span><span class="td">flat</span></div>
-          <div class="tile"><span class="tl">WTI</span><span class="tv">$78.20</span><span class="td delta-up">+3.1% 1m</span></div>
-          <div class="tile"><span class="tl">Copper</span><span class="tv">$3.95</span><span class="td delta-up">+1.2%</span></div>
-          <div class="tile"><span class="tl">Gold</span><span class="tv">$2,341</span><span class="td">flat</span></div>
+          <div class="tile" data-code="DXY_BROAD"><span class="tl">DXY</span><span class="tv">—</span><span class="td">—</span></div>
+          <div class="tile" data-code="EURUSD"><span class="tl">EURUSD</span><span class="tv">—</span><span class="td">—</span></div>
+          <div class="tile" data-code="WTI"><span class="tl">WTI</span><span class="tv">—</span><span class="td">—</span></div>
+          <div class="tile" data-code="COPPER"><span class="tl">Copper</span><span class="tv">—</span><span class="td">—</span></div>
+          <div class="tile" data-code="GOLD"><span class="tl">Gold</span><span class="tv">—</span><span class="td">—</span></div>
         </div>
         <div class="cross-group">
           <div class="cg-head">VOL · POSITIONING</div>
-          <div class="tile"><span class="tl">VIX</span><span class="tv">16.4</span><span class="td delta-down">−0.8</span></div>
-          <div class="tile"><span class="tl">VVIX</span><span class="tv">92.1</span><span class="td">flat · ^VVIX</span></div>
-          <div class="tile"><span class="tl">NAAIM</span><span class="tv">68</span><span class="td">neutral · weekly</span></div>
-          <div class="tile"><span class="tl">P/C eq</span><span class="tv">0.62</span><span class="td">CBOE · BETA_04</span></div>
-          <div class="tile"><span class="tl">AAII</span><span class="tv">+8</span><span class="td">bull−bear</span></div>
-          <div class="tile"><span class="tl">COT ES</span><span class="tv">−42k</span><span class="td">asset-mgr net</span></div>
+          <div class="tile" data-code="VIX"><span class="tl">VIX</span><span class="tv">—</span><span class="td">—</span></div>
+          <div class="tile" data-code="VVIX"><span class="tl">VVIX</span><span class="tv">—</span><span class="td">—</span></div>
+          <div class="tile" data-pending="sentiment"><span class="tl">NAAIM</span><span class="tv">—</span><span class="td">sentiment feed pending</span></div>
+          <div class="tile" data-pending="sentiment"><span class="tl">P/C eq</span><span class="tv">—</span><span class="td">sentiment feed pending</span></div>
+          <div class="tile" data-pending="sentiment"><span class="tl">AAII</span><span class="tv">—</span><span class="td">sentiment feed pending</span></div>
+          <div class="tile" data-pending="sentiment"><span class="tl">COT ES</span><span class="tv">—</span><span class="td">sentiment feed pending</span></div>
         </div>
       </div>
     </div>
 
     <!-- ============ SECTOR STRIP (book-style table, click row → slide-out) ============ -->
-    <!-- PLACEHOLDER: SECTORS_V2 array (line ~3030) is hardcoded. Click a row
-         to open the real sector slide-out (live data from /api/sector-*). -->
-    <div class="sector-strip is-placeholder">
+    <!-- LIVE: filled from /api/sector-strip — see loadSectorStrip JS. Click a
+         row to open the real sector slide-out (/api/sector-*). -->
+    <div class="sector-strip">
       <table class="sectors-v2">
         <thead><tr>
           <th class="left">Sector</th>
@@ -2453,25 +2458,14 @@
         </div>
       </div>
 
-      <!-- ============ RECENT MACRO PRINTS — PLACEHOLDER ============
-           Values are hardcoded. Each row maps to a parser already running but
-           the ingestion → render wiring is pending. The macro slide-out's
-           SIGNPOSTS panel (real /api/macro-signposts) covers similar ground. -->
-      <div class="thesis-notes is-placeholder" style="margin-top:14px">
-        <div class="sec-head">RECENT MACRO PRINTS · MACRO_STATE_indicators / BETA_03_Macro · last 8 weeks</div>
+      <!-- ============ RECENT MACRO PRINTS — LIVE ============
+           Filled from /api/macro-state-recent (latest values per indicator
+           from MACRO_STATE_indicators). Js loader is ~loadMacroPrints. -->
+      <div class="thesis-notes" style="margin-top:14px">
+        <div class="sec-head">RECENT MACRO PRINTS · MACRO_STATE_indicators · last release per code</div>
         <table class="impl-table" style="margin-top:6px">
-          <thead><tr><th class="left">Indicator</th><th class="left">Period</th><th>Value</th><th>Prior</th><th>Δ</th><th class="left">Source</th></tr></thead>
-          <tbody>
-            <tr><td class="left">CPI Headline</td><td class="left">2026-03</td><td>330.213</td><td>326.785</td><td class="delta-up">+1.05%</td><td class="left">BLS · CUUR0000SA0</td></tr>
-            <tr><td class="left">Core CPI</td><td class="left">2026-03</td><td>334.391</td><td>333.242</td><td class="delta-up">+0.34%</td><td class="left">BLS · CUUR0000SA0L1E</td></tr>
-            <tr><td class="left">PPI Final Demand</td><td class="left">2026-03</td><td>146.8</td><td>146.1</td><td class="delta-up">+0.48%</td><td class="left">BLS · WPSFD4</td></tr>
-            <tr><td class="left">Nonfarm Payrolls</td><td class="left">2026-03</td><td>158,637k</td><td>158,459k</td><td class="delta-up">+178k</td><td class="left">BLS · CES0000000001</td></tr>
-            <tr><td class="left">Unemployment Rate</td><td class="left">2026-03</td><td>4.3%</td><td>4.4%</td><td class="delta-up">−0.1pp</td><td class="left">BLS · LNS14000000</td></tr>
-            <tr><td class="left">UMich Consumer Sentiment</td><td class="left">2026-04</td><td>69.1</td><td>71.4</td><td class="delta-down">−2.3</td><td class="left">UMich · ICS</td></tr>
-            <tr><td class="left">Inflation Expectations 1Y</td><td class="left">2026-04</td><td>3.2%</td><td>3.0%</td><td class="delta-up">+0.2pp</td><td class="left">UMich · 1Y</td></tr>
-            <tr><td class="left">Inflation Expectations 5Y</td><td class="left">2026-04</td><td>2.8%</td><td>2.7%</td><td class="delta-up">+0.1pp</td><td class="left">UMich · 5Y</td></tr>
-            <tr><td class="left">Bank Reserves (WRESBAL)</td><td class="left">2026-04-23</td><td>$3.42T</td><td>$3.39T</td><td class="delta-up">+$28B w/w</td><td class="left">FRED · WRESBAL</td></tr>
-          </tbody>
+          <thead><tr><th class="left">Indicator</th><th class="left">Release</th><th>Value</th><th>Prior</th><th>Δ 1m</th><th>Z 24m</th><th class="left">Source</th></tr></thead>
+          <tbody id="macro-prints-tbody"><tr><td colspan="7" style="color:var(--muted); padding:10px;">loading…</td></tr></tbody>
         </table>
       </div>
 
@@ -2670,8 +2664,10 @@
       </div>
     </div>
 
-    <!-- PLACEHOLDER: TAPE_NEWS / TAPE_MOVES / TAPE_UNEXPLAINED arrays (~line 3080)
-         are hardcoded. The "Today" tape-agent-card below uses LIVE /api/tape-annotations. -->
+    <!-- PLACEHOLDER (only one left): TAPE_NEWS / TAPE_MOVES / TAPE_UNEXPLAINED
+         arrays at ~line 3080 are still hardcoded. Wire-up is bigger than tonight's
+         scope (theme-tag vocabulary + scope filters + sector mapping). The
+         "Today" tape-agent-card below DOES use LIVE /api/tape-annotations. -->
     <div class="tape-grid is-placeholder">
       <!-- ============ LEFT: NEWS ============ -->
       <div class="tape-col">
@@ -2847,10 +2843,56 @@
   let SORT_KEY = "att";
   let SORT_DIR = -1; // descending
   let FILTER = "all";
+  let LIVE_BOOK_ROWS = null; // populated by /api/book-grid; null = use ROWS fallback
+
+  // Fetch live book rows once on load. Maps the API row schema onto the
+  // shape renderBook() expects. Sparklines (marg, fcf) + attention score
+  // are not yet in the API, so we leave them as nulls and render "—".
+  fetch("/api/book-grid")
+    .then(r => r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)))
+    .then(data => {
+      const apiRows = (data.rows || []);
+      // Map API row → table row shape. Verdicts: thesis_score → INTACT/DRIFT/WEAK/BROKEN.
+      const verdictFromScore = (s) => {
+        if (s == null) return "INTACT";
+        if (s >= 0.20) return "INTACT";
+        if (s >= 0)    return "DRIFT";
+        if (s >= -0.20) return "WEAK";
+        return "BROKEN";
+      };
+      LIVE_BOOK_ROWS = apiRows.map(r => ({
+        tk:     r.ticker,
+        nm:     r.ticker, // company name not in API yet — show ticker as fallback
+        sec:    r.sec_tag || "—",
+        side:   r.side,
+        wt:     r.wt_pct ?? 0,
+        tgt:    r.tgt_pct ?? 0,
+        mtd:    r.day_pnl_pct ?? 0,  // day_pnl_pct (1d) used as proxy until MTD wired
+        conv:   r.thesis_score == null ? 0 : Math.round(r.thesis_score * 100),
+        thesis: verdictFromScore(r.thesis_score),
+        att:    null,                 // attention score not yet computed
+        fwdpe:  r.fwd_pe ?? null,
+        fwdpez: r.rel_pe_sigma ?? 0,
+        eveb:   r.ev_ebitda ?? 0,
+        evebz:  0,
+        marg:   null,                 // 8q margin sparkline not yet in API
+        fcf:    null,                 // 8q fcf sparkline not yet in API
+        epsrev: r.eps_rev_4w == null ? "—" : `${r.eps_rev_4w >= 0 ? "+" : ""}${(r.eps_rev_4w * 100).toFixed(1)}%`,
+        drift:  r.drift_score ?? 0,
+        dtc:    r.days_to_catalyst ?? 0,
+        locked: false,
+        market_price: r.market_price,
+      }));
+      renderBook();
+    })
+    .catch(err => {
+      console.warn("[book-grid] fetch failed, falling back to mockup ROWS:", err.message);
+      // Fall through — renderBook() will use ROWS_UNIQ when LIVE_BOOK_ROWS is null.
+    });
 
   function renderBook() {
     const tbody = document.getElementById("book-body");
-    let rows = ROWS_UNIQ.slice();
+    let rows = (LIVE_BOOK_ROWS || ROWS_UNIQ).slice();
 
     if (FILTER === "L") rows = rows.filter(r => r.side === "L");
     if (FILTER === "S") rows = rows.filter(r => r.side === "S");
@@ -2879,22 +2921,24 @@
       const pxYoy = (pxNow / px[0] - 1) * 100;
       const pxClass = pxYoy > 0 ? "delta-up" : pxYoy < 0 ? "delta-down" : "delta-flat";
 
+      // Null-safe formatters — many fields are pending real data wiring.
+      const _n = (v, fn) => (v == null || (typeof v === "number" && !Number.isFinite(v))) ? "—" : fn(v);
       return `<tr data-tk="${r.tk}">
         <td class="num" style="text-align:center">${i+1}</td>
         <td class="tk">${r.tk}<span class="sub">${r.nm}</span></td>
         <td class="sec"><span class="sec-tag">${r.sec}</span></td>
-        <td class="sec"><span class="side ${r.side}">${r.side}</span> <span class="num" style="margin-left:4px;font-weight:600">${r.wt.toFixed(1)}%</span><span class="tgt num">tgt ${r.tgt.toFixed(1)}%</span></td>
-        <td class="num"><span class="${dwtClass}">${fmtSign(dwt)}pp</span> <span class="${mtdClass}" style="margin-left:6px">${fmtPct(r.mtd)}</span></td>
-        <td class="conv num" style="${convBg(r.conv)};border-radius:3px">${r.conv > 0 ? "+" : ""}${r.conv}</td>
+        <td class="sec"><span class="side ${r.side}">${r.side}</span> <span class="num" style="margin-left:4px;font-weight:600">${_n(r.wt, v => v.toFixed(1) + "%")}</span><span class="tgt num">tgt ${_n(r.tgt, v => v.toFixed(1) + "%")}</span></td>
+        <td class="num"><span class="${dwtClass}">${dwt == null || !Number.isFinite(dwt) ? "—" : fmtSign(dwt) + "pp"}</span> <span class="${mtdClass}" style="margin-left:6px">${_n(r.mtd, v => fmtPct(v))}</span></td>
+        <td class="conv num" style="${convBg(r.conv)};border-radius:3px">${r.conv == null ? "—" : (r.conv > 0 ? "+" : "") + r.conv}</td>
         <td class="thesis-cell"><span class="thesis-tag ${r.thesis}">${r.thesis}</span>${lockMark}</td>
-        <td class="attn num" style="${attBg(r.att)};border-radius:3px">${r.att}</td>
-        <td class="z-cell num"><span class="z-num" style="background:${zBg(r.fwdpez)}">${r.fwdpe.toFixed(1)}<span class="zsup">z ${fmtSign(r.fwdpez)}</span></span></td>
-        <td class="z-cell num"><span class="z-num" style="background:${zBg(r.evebz)}">${r.eveb > 0 ? r.eveb.toFixed(1) : "—"}${r.eveb > 0 ? `<span class="zsup">z ${fmtSign(r.evebz)}</span>` : ""}</span></td>
+        <td class="attn num" style="${r.att == null ? "" : attBg(r.att)};border-radius:3px">${r.att == null ? "—" : r.att}</td>
+        <td class="z-cell num"><span class="z-num" style="background:${zBg(r.fwdpez)}">${_n(r.fwdpe, v => v.toFixed(1))}<span class="zsup">z ${fmtSign(r.fwdpez || 0)}</span></span></td>
+        <td class="z-cell num"><span class="z-num" style="background:${zBg(r.evebz)}">${(r.eveb && r.eveb > 0) ? r.eveb.toFixed(1) : "—"}${(r.eveb && r.eveb > 0) ? `<span class="zsup">z ${fmtSign(r.evebz)}</span>` : ""}</span></td>
         <td class="spark" title="1y price · PRICE_01_Daily">${sparkline(px, "#0F172A")}<span class="num" style="display:block;font-size:10px;color:var(--text2);text-align:right;margin-top:1px">$${pxNow.toFixed(0)} <span class="${pxClass}">${fmtSign(pxYoy, 0)}%</span></span></td>
-        <td class="spark">${sparkline(r.marg)}</td>
-        <td class="spark">${sparkline(r.fcf)}</td>
-        <td class="${driftClass} num">${fmtSign(r.drift)}</td>
-        <td class="${dtcClass} num">${r.dtc}d</td>
+        <td class="spark">${(r.marg && r.marg.length) ? sparkline(r.marg) : '<span style="color:var(--muted);font-size:10px">—</span>'}</td>
+        <td class="spark">${(r.fcf && r.fcf.length) ? sparkline(r.fcf) : '<span style="color:var(--muted);font-size:10px">—</span>'}</td>
+        <td class="${driftClass} num">${fmtSign(r.drift || 0)}</td>
+        <td class="${dtcClass} num">${r.dtc == null ? "—" : r.dtc + "d"}</td>
       </tr>`;
     }).join("");
 
@@ -3085,22 +3129,41 @@
   function renderSectorsV2() {
     const tbody = document.getElementById("sectors-v2-body");
     if (!tbody) return;
-    tbody.innerHTML = SECTORS_V2.map(s => `
-      <tr class="clickable" data-sector="${s.sec}">
-        <td class="sec-name"><span class="etf">${s.sec}</span>${s.name}</td>
-        <td class="${deltaCls(s.d1)}">${fmtPct(s.d1)}</td>
-        <td class="${deltaCls(s.d5)}">${fmtPct(s.d5)}</td>
-        <td class="${deltaCls(s.m1)}">${fmtPct(s.m1)}</td>
-        <td class="${deltaCls(s.rs)}">${(s.rs >= 0 ? "+" : "") + s.rs.toFixed(1)}</td>
-        <td class="${breadthCls(s.breadth)}">${s.breadth}%</td>
-        <td class="left spark">${sparkline(s.hist, "#475569")}</td>
-        <td class="left top-mover"><strong>${s.topMover}</strong> <span class="${deltaCls(s.topMoverPct)}">${fmtPct(s.topMoverPct)}</span></td>
-        <td class="left holdings">${s.holdings}</td>
-      </tr>
-    `).join("");
-    tbody.querySelectorAll("tr.clickable").forEach(tr => {
-      tr.addEventListener("click", () => openSector(tr.dataset.sector));
-    });
+    tbody.innerHTML = `<tr><td colspan="9" style="color:var(--muted); padding:10px;">loading…</td></tr>`;
+    fetch("/api/sector-strip")
+      .then(r => r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)))
+      .then(data => {
+        const sectors = (data.sectors || []).filter(s => s.d1 != null);
+        if (!sectors.length) {
+          tbody.innerHTML = `<tr><td colspan="9" style="color:var(--muted); padding:10px;">no sector data</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = sectors.map(s => {
+          const breadthPct = s.breadth_above_200dma == null ? null : Math.round(s.breadth_above_200dma * 100);
+          const rs = s.rel_strength_13w == null ? null : s.rel_strength_13w * 100;
+          const fmtRs = rs == null ? "—" : (rs >= 0 ? "+" : "") + rs.toFixed(1);
+          const fmtBreadth = breadthPct == null ? "—" : `${breadthPct}%`;
+          return `
+            <tr class="clickable" data-sector="${s.sector}">
+              <td class="sec-name"><span class="etf">${s.etf}</span>${s.sector}</td>
+              <td class="${deltaCls(s.d1)}">${s.d1 == null ? "—" : fmtPct(s.d1)}</td>
+              <td class="${deltaCls(s.d5)}">${s.d5 == null ? "—" : fmtPct(s.d5)}</td>
+              <td class="${deltaCls(s.m1)}">${s.m1 == null ? "—" : fmtPct(s.m1)}</td>
+              <td class="${rs == null ? "" : deltaCls(rs)}">${fmtRs}</td>
+              <td class="${breadthPct == null ? "" : breadthCls(breadthPct)}">${fmtBreadth}</td>
+              <td class="left spark">${(s.spark && s.spark.length) ? sparkline(s.spark, "#475569") : ""}</td>
+              <td class="left top-mover">${s.stance ? `<strong>${s.stance}</strong>` : "—"}</td>
+              <td class="left holdings">${s.fwd_pe_sector ? `fwd P/E ${s.fwd_pe_sector.toFixed(1)}` : "—"}</td>
+            </tr>
+          `;
+        }).join("");
+        tbody.querySelectorAll("tr.clickable").forEach(tr => {
+          tr.addEventListener("click", () => openSector(tr.dataset.sector));
+        });
+      })
+      .catch(err => {
+        tbody.innerHTML = `<tr><td colspan="9" style="color:var(--bad); padding:10px;">load failed: ${err.message}</td></tr>`;
+      });
   }
   renderSectorsV2();
 
@@ -3956,6 +4019,176 @@
         document.getElementById("ticker-earn-card").querySelector("[data-tearn-meta]").textContent = "ERROR";
       });
   }
+
+  // ============ live cross-asset tiles + regime banner ============
+  // Replaces the previously-hardcoded values in .macro-strip. Tiles are
+  // matched by data-code → indicator_code from /api/macro-state-latest.
+  // Regime label + tripwires count come from /api/macro-thesis.
+  (function loadMacroStrip() {
+    // Per-indicator formatters. Keys mirror MACRO_STATE_indicators.indicator_code.
+    const FMT = {
+      DGS2:               (v) => `${v.toFixed(2)}%`,
+      DGS10:              (v) => `${v.toFixed(2)}%`,
+      REAL_5Y:            (v) => `${v.toFixed(2)}%`,
+      BREAKEVEN_5Y:       (v) => `${v.toFixed(2)}%`,
+      BREAKEVEN_5Y5Y_FWD: (v) => `${v.toFixed(2)}%`,
+      OAS_IG:             (v) => `${(v * 100).toFixed(0)}bps`,
+      OAS_HY:             (v) => `${(v * 100).toFixed(0)}bps`,
+      DXY_BROAD:          (v) => v.toFixed(2),
+      EURUSD:             (v) => v.toFixed(4),
+      WTI:                (v) => `$${v.toFixed(2)}`,
+      COPPER:             (v) => `$${v.toFixed(2)}`,
+      GOLD:               (v) => `$${v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`,
+      VIX:                (v) => v.toFixed(2),
+      VVIX:               (v) => v.toFixed(1),
+    };
+    const fmtDelta = (v, code) => {
+      if (v == null || !Number.isFinite(v)) return "—";
+      const sign = v > 0 ? "+" : "";
+      // OAS deltas in bps; FX/rates in absolute.
+      if (code === "OAS_IG" || code === "OAS_HY") return `${sign}${(v * 100).toFixed(0)}bps 1m`;
+      if (code === "DGS2" || code === "DGS10" || code === "REAL_5Y" || code === "BREAKEVEN_5Y" || code === "BREAKEVEN_5Y5Y_FWD") {
+        return `${sign}${v.toFixed(2)} 1m`;
+      }
+      return `${sign}${v.toFixed(2)} 1m`;
+    };
+    const deltaCls = (v) => v == null || !Number.isFinite(v) ? "" : (v > 0 ? "delta-up" : v < 0 ? "delta-down" : "");
+
+    fetch("/api/macro-state-latest")
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)))
+      .then((data) => {
+        const byCode = {};
+        for (const it of (data.items || [])) byCode[it.indicator_code] = it;
+        // Compute synthetic 10y-2y curve.
+        if (byCode.DGS10 && byCode.DGS2) {
+          const v = byCode.DGS10.value - byCode.DGS2.value;
+          byCode.CURVE_10_2 = {
+            indicator_code: "CURVE_10_2",
+            value: v,
+            unit: "pp",
+            release_date: byCode.DGS10.release_date,
+            delta_1m: null,
+            z_vs_24m: null,
+          };
+        }
+        document.querySelectorAll("#cross-grid .tile[data-code]").forEach((tile) => {
+          const code = tile.dataset.code;
+          const row  = byCode[code];
+          if (!row) return;
+          const v = Number(row.value);
+          const tv = tile.querySelector(".tv");
+          const td = tile.querySelector(".td");
+          const fmt = FMT[code] || ((x) => x.toFixed(2));
+          tv.textContent = code === "CURVE_10_2"
+            ? `${v >= 0 ? "+" : ""}${v.toFixed(2)}`
+            : fmt(v);
+          if (code === "CURVE_10_2") {
+            td.textContent = v >= 0 ? "steep" : "inverted";
+            td.className = "td";
+          } else {
+            const d = row.delta_1m;
+            td.textContent = fmtDelta(d, code);
+            td.className = `td ${deltaCls(d)}`;
+          }
+        });
+      })
+      .catch((err) => {
+        document.querySelectorAll("#cross-grid .td").forEach((el) => {
+          el.textContent = "load failed";
+          el.style.color = "var(--bad)";
+        });
+        console.error("[cross-asset]", err);
+      });
+
+    // Regime banner — pull from /api/macro-thesis.
+    fetch("/api/macro-thesis")
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)))
+      .then((data) => {
+        const t = data.thesis || {};
+        const tripwires = Array.isArray(t.tripwires) ? t.tripwires : [];
+        const fired = tripwires.filter((tw) => /fired|breach|above|exceeded/i.test(String(tw.currently || ""))).length;
+        const pill = document.getElementById("regime-pill");
+        const label = document.getElementById("regime-label-click");
+        const meta  = document.getElementById("regime-meta");
+        const regimeName = data.regime || t.drift_verdict_at_write || "intact";
+        const niceRegime = regimeName.replace(/_/g, " ");
+        if (label) label.textContent = niceRegime;
+        if (meta) meta.innerHTML =
+          `tripwires <strong style="color:var(--bull)">${fired}/${tripwires.length}</strong> · ${tripwires.length} drivers tracked`;
+        if (pill) pill.textContent = niceRegime;
+      })
+      .catch((err) => {
+        const label = document.getElementById("regime-label-click");
+        const meta  = document.getElementById("regime-meta");
+        if (label) label.textContent = "—";
+        if (meta) meta.textContent = "macro thesis unavailable";
+        console.error("[regime-banner]", err);
+      });
+  })();
+
+  // ============ live recent macro prints table ============
+  // Fills #macro-prints-tbody with the highlighted indicator set's latest
+  // values from /api/macro-state-latest (one row per indicator_code).
+  (function loadMacroPrints() {
+    const PRINTS = [
+      { code: "CPI_HEADLINE",       label: "CPI Headline",            unit: "index", src: "BLS · CUUR0000SA0" },
+      { code: "CPI_CORE",           label: "Core CPI",                unit: "index", src: "BLS · CUUR0000SA0L1E" },
+      { code: "PPI_FINAL_DEMAND",   label: "PPI Final Demand",        unit: "index", src: "BLS · WPSFD4" },
+      { code: "NFP",                label: "Nonfarm Payrolls",        unit: "k",     src: "BLS · CES0000000001" },
+      { code: "UNEMP",              label: "Unemployment Rate",       unit: "%",     src: "BLS · LNS14000000" },
+      { code: "INITIAL_CLAIMS",     label: "Initial Claims (weekly)", unit: "claims",src: "FRED · ICSA" },
+      { code: "UMICH_SENT",         label: "UMich Consumer Sentiment",unit: "index", src: "FRED · UMCSENT" },
+      { code: "INFL_EXP_1Y",        label: "Inflation Expectations 1Y", unit: "%",   src: "FRED · MICH" },
+      { code: "INDPRO",             label: "Industrial Production",   unit: "index", src: "FRED · INDPRO" },
+      { code: "HOUST",              label: "Housing Starts (SAAR)",   unit: "k",     src: "FRED · HOUST" },
+      { code: "JOLTS",              label: "Job Openings (JOLTS)",    unit: "k",     src: "FRED · JTSJOL" },
+      { code: "BANK_RESERVES",      label: "Bank Reserves",           unit: "$M",    src: "FRED · WRESBAL" },
+    ];
+    const codes = PRINTS.map(p => p.code).join(",");
+    const fmt = (v, unit) => {
+      if (v == null || !Number.isFinite(v)) return "—";
+      if (unit === "$M") return v >= 1e6 ? `$${(v/1e6).toFixed(2)}T` : v >= 1e3 ? `$${(v/1e3).toFixed(1)}B` : `$${v.toFixed(0)}M`;
+      if (unit === "k" || unit === "claims") return `${Math.round(v).toLocaleString("en-US")}`;
+      if (unit === "%") return `${v.toFixed(2)}%`;
+      return v.toFixed(3);
+    };
+    const fmtDelta = (v, unit) => {
+      if (v == null || !Number.isFinite(v)) return "—";
+      const sign = v > 0 ? "+" : "";
+      if (unit === "$M") return `${sign}$${(Math.abs(v)/1e3).toFixed(1)}B`;
+      if (unit === "k" || unit === "claims") return `${sign}${Math.round(v).toLocaleString("en-US")}`;
+      if (unit === "%") return `${sign}${v.toFixed(2)}pp`;
+      return `${sign}${v.toFixed(3)}`;
+    };
+    const fmtZ = (z) => z == null || !Number.isFinite(z) ? "—" : (z > 0 ? "+" : "") + z.toFixed(2) + "σ";
+    const cls = (v) => v == null || !Number.isFinite(v) ? "" : (v > 0 ? "delta-up" : v < 0 ? "delta-down" : "");
+    fetch(`/api/macro-state-latest?codes=${codes}`)
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)))
+      .then((data) => {
+        const byCode = {};
+        for (const it of (data.items || [])) byCode[it.indicator_code] = it;
+        const tbody = document.getElementById("macro-prints-tbody");
+        if (!tbody) return;
+        tbody.innerHTML = PRINTS.filter(p => byCode[p.code]).map((p) => {
+          const r = byCode[p.code];
+          const v = Number(r.value);
+          const prior = r.prior == null ? null : Number(r.prior);
+          return `<tr>
+            <td class="left">${p.label}</td>
+            <td class="left">${r.release_date}</td>
+            <td>${fmt(v, p.unit)}</td>
+            <td>${prior != null && Number.isFinite(prior) ? fmt(prior, p.unit) : "—"}</td>
+            <td class="${cls(r.delta_1m)}">${fmtDelta(r.delta_1m, p.unit)}</td>
+            <td class="${cls(r.z_vs_24m)}">${fmtZ(r.z_vs_24m)}</td>
+            <td class="left">${p.src}</td>
+          </tr>`;
+        }).join("") || `<tr><td colspan="7" style="color:var(--muted); padding:10px;">no rows in MACRO_STATE_indicators</td></tr>`;
+      })
+      .catch((err) => {
+        const tbody = document.getElementById("macro-prints-tbody");
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="color:var(--bad); padding:10px;">load failed: ${err.message}</td></tr>`;
+      });
+  })();
 
   // ============ MS-3b: live macro Read (M6) ============
   __mFetchRender({

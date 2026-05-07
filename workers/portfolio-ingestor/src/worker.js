@@ -490,6 +490,210 @@ export default {
           return Response.json({ date: dateParam, summary: null, validations: null, logs: [] }, { headers: corsHeaders });
         }
 
+        // -------- GET /query/book-grid --------
+        // One-shot bundle for the book table: per-ticker name + sector + L/S
+        // (from POSITION_01_Daily) merged with PORTFOLIO_TARGET (target weight),
+        // STOCK_FACTORS_daily (fwd_pe, rel_pe_sigma, momentum, days_to_catalyst),
+        // FUND_01_Fundamentals (ev_ebitda, profit_margin), TICKER_TREND_long
+        // (thesis verdict + score, news_drift verdict). Replaces the old
+        // hardcoded ROWS array.
+        if (path === "/query/book-grid") {
+          const SECTOR_TAG = {
+            "Technology": "TEC", "Energy": "ENE", "Healthcare": "HCR",
+            "Financials": "FIN", "Industrials": "IND",
+            "Consumer Staples": "STA", "Consumer Discretionary": "DIS",
+            "Communication Services": "COM", "Materials": "MAT",
+            "Utilities": "UTL", "Real Estate": "RES",
+          };
+          const [posRes, factorsRes, fundRes, trendRes] = await Promise.all([
+            db.prepare(
+              `SELECT p.* FROM POSITION_01_Daily p
+                INNER JOIN (SELECT ticker, MAX(date) AS d FROM POSITION_01_Daily GROUP BY ticker) g
+                ON p.ticker = g.ticker AND p.date = g.d`
+            ).all(),
+            db.prepare(
+              `SELECT s.* FROM STOCK_FACTORS_daily s
+                INNER JOIN (SELECT ticker, MAX(date) AS d FROM STOCK_FACTORS_daily GROUP BY ticker) g
+                ON s.ticker = g.ticker AND s.date = g.d`
+            ).all(),
+            db.prepare(
+              `SELECT f.ticker, f.sector, f.ev_ebitda, f.profit_margin, f.operating_margin
+                 FROM FUND_01_Fundamentals f
+                INNER JOIN (SELECT ticker, MAX(date) AS d FROM FUND_01_Fundamentals GROUP BY ticker) g
+                ON f.ticker = g.ticker AND f.date = g.d`
+            ).all(),
+            db.prepare(
+              `SELECT ticker, regime, score, thesis_json, news_drift_json
+                 FROM TICKER_TREND_long`
+            ).all(),
+          ]);
+
+          const positions = (posRes.results || []);
+          // Targets come from the static config bundled into the worker.
+          const targets = {};
+          for (const [t, v] of Object.entries(portfolioTargets || {})) {
+            targets[t] = v?.target_pct ?? null;
+          }
+          const factors = {};
+          for (const r of (factorsRes.results || [])) factors[r.ticker] = r;
+          const funds = {};
+          for (const r of (fundRes.results || [])) funds[r.ticker] = r;
+          const trends = {};
+          for (const r of (trendRes.results || [])) trends[r.ticker] = r;
+
+          const safeJson = (s) => { try { return JSON.parse(s); } catch { return null; } };
+          const rows = positions.map((p) => {
+            const f  = factors[p.ticker] || {};
+            const fu = funds[p.ticker] || {};
+            const tr = trends[p.ticker] || {};
+            const drift = safeJson(tr.news_drift_json);
+            const wt = p.weight_pct ?? null;
+            const tgt = targets[p.ticker] ?? null;
+            const drift_score = drift?.driver_drift
+              ? Object.values(drift.driver_drift).reduce((a, b) => a + Number(b || 0), 0)
+              : null;
+            // STOCK_FACTORS_daily carries a clean sector classification per
+            // ticker; FUND_01_Fundamentals.sector is often null because AV's
+            // OVERVIEW doesn't always populate it. Prefer factors → fundamentals.
+            const sectorName = f.sector || fu.sector || null;
+            return {
+              ticker: p.ticker,
+              sector: sectorName,
+              sec_tag: SECTOR_TAG[sectorName] || (sectorName || "").slice(0, 3).toUpperCase(),
+              side: (p.qty || 0) >= 0 ? "L" : "S",
+              wt_pct:  wt,
+              tgt_pct: tgt,
+              dwt_pct: (wt != null && tgt != null) ? wt - tgt : null,
+              day_pnl_pct: p.day_pnl_pct ?? null,
+              market_price: p.market_price ?? null,
+              fwd_pe: f.fwd_pe ?? null,
+              rel_pe_sigma: f.rel_pe_sigma ?? null,
+              ev_ebitda: fu.ev_ebitda ?? null,
+              mom_12_1: f.mom_12_1 ?? null,
+              days_to_catalyst: f.days_to_catalyst ?? null,
+              thesis_regime: tr.regime || null,
+              thesis_score:  tr.score ?? null,
+              drift_verdict: drift?.verdict || null,
+              drift_score,
+              eps_rev_4w: f.eps_rev_4w ?? null,
+              sue: f.sue ?? null,
+            };
+          });
+          return Response.json({ date: positions[0]?.date || null, rows }, { headers: corsHeaders });
+        }
+
+        // -------- GET /query/sector-strip --------
+        // One-shot bundle for the sector strip: per-sector ETF, latest
+        // SECTOR_FACTORS_daily fields, plus d1/d5/m1 returns + 30-day
+        // price sparkline computed from PRICE_01_Daily for the sector ETF.
+        // Replaces the dashboard's hardcoded SECTORS_V2 array.
+        if (path === "/query/sector-strip") {
+          const ETF_BY_SECTOR = {
+            "Technology": "XLK", "Energy": "XLE", "Finance": "XLF",
+            "Healthcare": "XLV", "Industrial": "XLI", "Consumer": "XLP",
+            "Materials": "XLB", "Utilities": "XLU", "Real Estate": "XLRE",
+            "Consumer Discretionary": "XLY", "Communication": "XLC",
+          };
+          const factorsRes = await db.prepare(
+            `SELECT s.* FROM SECTOR_FACTORS_daily s
+              INNER JOIN (SELECT sector, MAX(date) AS d FROM SECTOR_FACTORS_daily GROUP BY sector) g
+              ON s.sector = g.sector AND s.date = g.d`
+          ).all();
+          const factors = {};
+          for (const r of (factorsRes.results || [])) factors[r.sector] = r;
+
+          // Pull last 35 days of prices for each ETF (covers 30-day spark + buffers).
+          const etfs = Object.values(ETF_BY_SECTOR);
+          const placeholders = etfs.map(() => "?").join(",");
+          const priceRes = await db.prepare(
+            `SELECT ticker, date, close FROM PRICE_01_Daily
+              WHERE ticker IN (${placeholders}) AND date >= date('now', '-35 days')
+              ORDER BY ticker, date`
+          ).bind(...etfs).all();
+          const pricesByEtf = {};
+          for (const r of (priceRes.results || [])) {
+            (pricesByEtf[r.ticker] ||= []).push({ date: r.date, close: r.close });
+          }
+          const pctChange = (rows, lookback) => {
+            if (!rows || rows.length < 2) return null;
+            const last = rows[rows.length - 1].close;
+            const prev = rows[Math.max(0, rows.length - 1 - lookback)].close;
+            if (!prev || !last) return null;
+            return ((last / prev) - 1) * 100;
+          };
+
+          const out = [];
+          for (const [sector, etf] of Object.entries(ETF_BY_SECTOR)) {
+            const f = factors[sector] || null;
+            const px = pricesByEtf[etf] || [];
+            const spark = px.slice(-30).map(r => r.close);
+            out.push({
+              sector,
+              etf,
+              d1: pctChange(px, 1),
+              d5: pctChange(px, 5),
+              m1: pctChange(px, 21),
+              breadth_above_200dma: f?.breadth_above_200dma ?? null,
+              rel_strength_13w:     f?.rel_strength_13w ?? null,
+              rs_ratio:             f?.rs_ratio ?? null,
+              rs_momentum:          f?.rs_momentum ?? null,
+              stance:               f?.stance ?? null,
+              fwd_pe_sector:        f?.fwd_pe_sector ?? null,
+              spark,
+              factors_date:         f?.date ?? null,
+            });
+          }
+          return Response.json({ sectors: out }, { headers: corsHeaders });
+        }
+
+        // -------- GET /query/macro-state-latest --------
+        // Latest value per indicator_code in MACRO_STATE_indicators, plus
+        // delta_1m and z_vs_24m. Powers the dashboard's cross-asset tiles
+        // + regime banner + recent macro prints (replacing the old
+        // hardcoded mockup arrays). Optional ?codes=A,B,C filter.
+        if (path === "/query/macro-state-latest") {
+          const codesParam = url.searchParams.get("codes");
+          const codes = codesParam ? codesParam.split(",").map(s => s.trim()).filter(Boolean) : null;
+          const where = codes && codes.length
+            ? `WHERE i.indicator_code IN (${codes.map(() => "?").join(",")})`
+            : "";
+          const sql = `
+            SELECT i.indicator_code, i.indicator_name, i.value, i.prior, i.unit,
+                   i.release_date, i.delta_1m, i.z_vs_24m, i.source
+              FROM MACRO_STATE_indicators i
+              INNER JOIN (
+                SELECT indicator_code, MAX(release_date) AS d
+                  FROM MACRO_STATE_indicators
+                 GROUP BY indicator_code
+              ) g ON g.indicator_code = i.indicator_code AND g.d = i.release_date
+              ${where}
+             ORDER BY i.indicator_code`;
+          const stmt = codes && codes.length ? db.prepare(sql).bind(...codes) : db.prepare(sql);
+          const { results } = await stmt.all();
+          return Response.json({ count: (results || []).length, items: results || [] }, { headers: corsHeaders });
+        }
+
+        // -------- GET /query/macro-state-recent --------
+        // Recent prints across indicator codes for the "Recent Macro Prints"
+        // table. Returns the N most recent rows globally, joined to indicator
+        // metadata. Default N = 12.
+        if (path === "/query/macro-state-recent") {
+          const limit = Math.max(1, Math.min(50, parseInt(url.searchParams.get("limit") || "12", 10)));
+          const codesParam = url.searchParams.get("codes");
+          const codes = codesParam ? codesParam.split(",").map(s => s.trim()).filter(Boolean) : null;
+          const where = codes && codes.length
+            ? `WHERE indicator_code IN (${codes.map(() => "?").join(",")})`
+            : "";
+          const sql = `SELECT indicator_code, indicator_name, value, prior, unit,
+                              release_date, period, delta_1m, z_vs_24m, source
+                         FROM MACRO_STATE_indicators
+                         ${where}
+                        ORDER BY release_date DESC LIMIT ?`;
+          const args = codes && codes.length ? [...codes, limit] : [limit];
+          const { results } = await db.prepare(sql).bind(...args).all();
+          return Response.json({ count: (results || []).length, items: results || [] }, { headers: corsHeaders });
+        }
+
         // -------- GET /query/earnings-calendar-consensus --------
         // Real Finnhub-sourced next-earnings dates (written by earnings-fetcher).
         // Distinct from /query/earnings-calendar above, which estimates the
