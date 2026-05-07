@@ -936,7 +936,8 @@ async function shouldFireTickerNewsDrift(db, ticker) {
 async function shouldFireTickerThesis(db, ticker) {
   const trendRow = await db.prepare(
     `SELECT thesis_json, thesis_updated_at,
-            fundamentals_json, news_drift_json
+            fundamentals_json, fundamentals_updated_at,
+            news_drift_json,   news_drift_updated_at
        FROM TICKER_TREND_long WHERE ticker = ?`,
   ).bind(ticker).first();
   if (!trendRow) return { fire: false, reason: `no TICKER_TREND_long row for ${ticker}` };
@@ -958,10 +959,15 @@ async function shouldFireTickerThesis(db, ticker) {
   if (driftVerdict && driftVerdict !== driftAtWrite) {
     return { fire: true, reason: `drift: ${driftAtWrite || "(none)"} → ${driftVerdict}` };
   }
-  if (Array.isArray(drift?.tripwires_fired) && drift.tripwires_fired.length > 0) {
-    return { fire: true, reason: `tripwires fired: ${drift.tripwires_fired.join(",")}` };
+  // Tripwire / drift change is detectable by news_drift_updated_at advancing past
+  // thesis_updated_at — any rewrite of news_drift (including new tripwires_fired)
+  // bumps that timestamp. Comparing timestamps avoids re-firing every cron tick
+  // for as long as a tripwire stays armed (the bare-array check did that and
+  // burned LLM budget unnecessarily).
+  if (trendRow.news_drift_updated_at && trendRow.news_drift_updated_at > trendRow.thesis_updated_at) {
+    return { fire: true, reason: "news_drift newer than thesis" };
   }
-  return { fire: false, reason: "fund + drift verdicts unchanged, no tripwires fired" };
+  return { fire: false, reason: "fund + drift verdicts unchanged, no fresh drift rewrite" };
 }
 function safeJsonGate(s) { try { return JSON.parse(s); } catch { return null; } }
 
@@ -1013,12 +1019,10 @@ async function shouldFireTickerRecommendation(db, ticker) {
   if (trendRow.news_drift_updated_at && trendRow.news_drift_updated_at > trendRow.recommendation_updated_at) {
     return { fire: true, reason: "ticker news_drift newer than recommendation" };
   }
-  // Tripwire-fired check: even if drift wasn't rewritten, if it currently
-  // shows fired tripwires the rec must respect that.
-  const drift = safeJsonGate(trendRow.news_drift_json);
-  if (Array.isArray(drift?.tripwires_fired) && drift.tripwires_fired.length > 0) {
-    return { fire: true, reason: `tripwires fired: ${drift.tripwires_fired.join(",")}` };
-  }
+  // Note: a separate "tripwires currently fired" check used to live here. It
+  // re-fired every cron tick as long as a tripwire stayed armed, burning LLM
+  // budget. The timestamp comparison above already catches it: any tripwire
+  // rewrite bumps news_drift_updated_at past recommendation_updated_at.
   const since = trendRow.recommendation_updated_at.slice(0, 10);
   const [latestFactors, latestPos] = await Promise.all([
     db.prepare(
