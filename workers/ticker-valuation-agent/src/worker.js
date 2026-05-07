@@ -186,7 +186,7 @@ function buildPrompt({ ticker, sector, factorsRow, fundRow, sectorRow, drivers, 
   pe_ratio (trailing): ${fmtNum(fundRow.pe_ratio)}
   forward_pe:          ${fmtNum(fundRow.forward_pe)}
   market_cap:          ${fmtMoney(fundRow.market_cap)}
-  dividend_yield:      ${fmtPct(fundRow.dividend_yield)}
+  dividend_yield:      ${fmtDividendYield(fundRow.dividend_yield)}
   beta:                ${fmtNum(fundRow.beta)}
   profit_margin:       ${fmtPct(fundRow.profit_margin)}
   operating_margin:    ${fmtPct(fundRow.operating_margin)}
@@ -266,6 +266,19 @@ function fmtPct(v) {
   const n = Number(v);
   if (!Number.isFinite(n)) return "(unavailable)";
   return `${(n * 100).toFixed(2)}%`;
+}
+
+// FUND_01_Fundamentals.dividend_yield ships in mixed formats depending
+// on which writer landed the row: AV's DividendYield is a decimal (0.0002 = 0.02%),
+// while Finnhub's currentDividendYieldTTM (used by migration 0035 backfill
+// from raw_json) is already-in-percent units (0.0201 = 0.0201%, not 2.01%).
+// The two ranges overlap below 0.10, so we can't reliably distinguish at
+// read time. Until the source is normalized at ingest (TODO), suppress
+// the field rather than risk a 100× error like NVDA's "2.01% dividend"
+// (real yield 0.02%). The valuation agent uses dividend_yield as a minor
+// quality signal — losing it doesn't change verdicts.
+function fmtDividendYield(_v) {
+  return "(omitted — source format ambiguous; see fmtDividendYield in src/worker.js)";
 }
 
 function safeJson(s) { try { return JSON.parse(s); } catch { return null; } }

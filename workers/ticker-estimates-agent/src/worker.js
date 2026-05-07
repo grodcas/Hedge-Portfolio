@@ -51,7 +51,7 @@ export default {
 };
 
 async function build(db, apiKey, ticker, force) {
-  const [trendRow, estRes, factorsRow] = await Promise.all([
+  const [trendRow, estRes, factorsRow, lastQuarterlyRow] = await Promise.all([
     db.prepare(
       `SELECT thesis_json, estimates_json, estimates_updated_at
          FROM TICKER_TREND_long WHERE ticker = ?`,
@@ -68,11 +68,30 @@ async function build(db, apiKey, ticker, force) {
          FROM STOCK_FACTORS_daily WHERE ticker = ?
         ORDER BY date DESC LIMIT 1`,
     ).bind(ticker).first(),
+    // Latest reported fiscal_period_ending lets us drop FUND_03 estimate
+    // rows whose fiscal year has already been fully reported. AV's
+    // EARNINGS_ESTIMATES response keeps the most-recent reported FY in
+    // the response; without this filter the agent describes "FY2026 EPS
+    // 4.694" for NVDA as a forward consensus even though FY26 is already
+    // closed and the actual was 4.90.
+    db.prepare(
+      `SELECT fiscal_period_ending FROM FUND_01_Quarterly
+        WHERE ticker = ? ORDER BY fiscal_period_ending DESC LIMIT 1`,
+    ).bind(ticker).first(),
   ]);
   if (!trendRow) throw new Error(`no TICKER_TREND_long row for ${ticker}`);
-  const estimates = estRes?.results || [];
+  const allEstimates = estRes?.results || [];
+  // Drop estimate rows whose fiscal_year <= the most recently reported
+  // fiscal year. For NVDA, latest_quarterly = 2026-01-25 → fiscal_year 2026
+  // is closed, so the agent only sees 2027 (FY), 2028 (FY+1), 2029 (FY+2).
+  const lastReportedFY = lastQuarterlyRow?.fiscal_period_ending
+    ? parseInt(String(lastQuarterlyRow.fiscal_period_ending).slice(0, 4), 10)
+    : null;
+  const estimates = lastReportedFY
+    ? allEstimates.filter(e => e.fiscal_year > lastReportedFY)
+    : allEstimates;
   if (estimates.length === 0) {
-    throw new Error(`no FUND_03_Estimates rows for ${ticker} — run consensus-fetcher first`);
+    throw new Error(`no forward FUND_03_Estimates rows for ${ticker} — run consensus-fetcher first`);
   }
 
   const thesis  = trendRow.thesis_json ? safeJson(trendRow.thesis_json) : null;

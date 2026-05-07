@@ -490,6 +490,19 @@ export default {
           return Response.json({ date: dateParam, summary: null, validations: null, logs: [] }, { headers: corsHeaders });
         }
 
+        // -------- GET /query/earnings-calendar-consensus --------
+        // Real Finnhub-sourced next-earnings dates (written by earnings-fetcher).
+        // Distinct from /query/earnings-calendar above, which estimates the
+        // next date as last_filing + 90 days from ALPHA_01_Reports.
+        if (path === "/query/earnings-calendar-consensus") {
+          const { results } = await db.prepare(
+            `SELECT ticker, next_earnings_date, last_report_date, source, updated_at
+               FROM EARNINGS_CALENDAR_consensus
+              ORDER BY ticker`
+          ).all();
+          return Response.json(results || [], { headers: corsHeaders });
+        }
+
         // -------- GET /query/earnings-calendar --------
         if (path === "/query/earnings-calendar") {
           const { results } = await db.prepare(`

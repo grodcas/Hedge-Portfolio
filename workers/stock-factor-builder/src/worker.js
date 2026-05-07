@@ -106,7 +106,7 @@ export default {
 
     // ---------- LOAD INPUTS ----------
     // Prices: 300 days covers 252 + 21 momentum window. Includes sector ETFs + SPY.
-    const [priceRows, fundRows, earningsRows, recsRows] = await Promise.all([
+    const [priceRows, fundRows, earningsRows, recsRows, calRows] = await Promise.all([
       db.prepare(`SELECT ticker, date, close FROM PRICE_01_Daily WHERE date >= date('now', '-400 days') ORDER BY ticker, date`).all(),
       db.prepare(`SELECT f.* FROM FUND_01_Fundamentals f INNER JOIN (SELECT ticker, MAX(date) as md FROM FUND_01_Fundamentals GROUP BY ticker) g ON f.ticker=g.ticker AND f.date=g.md`).all(),
       // Last 8 quarters per ticker for SUE volatility estimate
@@ -115,12 +115,19 @@ export default {
       // guarantees we capture the latest + at least one prior bucket
       // for the 4-week delta computation.
       db.prepare(`SELECT ticker, date, strong_buy, buy, hold, sell, strong_sell FROM FUND_03_Recommendations WHERE date >= date('now', '-75 days') ORDER BY ticker, date`).all(),
+      // Finnhub-sourced next-earnings dates from earnings-fetcher. Used for
+      // days_to_catalyst when present — far more accurate than the
+      // 91-day-since-last-report heuristic, which is wrong for any ticker
+      // whose calendar shifted (NVDA's May-20 Q1 FY27 vs heuristic-projected
+      // late June was 5+ weeks off).
+      db.prepare(`SELECT ticker, next_earnings_date FROM EARNINGS_CALENDAR_consensus WHERE next_earnings_date IS NOT NULL`).all(),
     ]);
 
     const pricesByTicker = groupBy(priceRows.results, "ticker");
     const funds = indexBy(fundRows.results, "ticker");
     const earningsByTicker = groupBy(earningsRows.results, "ticker"); // already DESC by period
     const recsByTicker = groupBy(recsRows.results, "ticker");         // ASC by date
+    const nextEarningsByTicker = indexBy(calRows.results, "ticker");  // from Finnhub calendar
 
     // Portfolio in-sector P/E stats for rel_pe_sigma
     const sectorFwdPEs = {};
@@ -186,8 +193,16 @@ export default {
       // 8. Piotroski F
       const piotroski_f = computePiotroski(f);
 
-      // 9. days_to_catalyst: 91 − (days since last report), clamped
-      const days_to_catalyst = computeDaysToCatalyst(earnings, today);
+      // 9. days_to_catalyst: prefer the actual Finnhub next-earnings date
+      // when available; fall back to a fiscal_period_ending + ~110-day
+      // heuristic (better than report_date + 91 because FUND_02.report_date
+      // is the calendar-quarter-end, not the true filing date — the 91-day
+      // version pushed NVDA's catalyst to 54 days when reality was 13).
+      const calRow = nextEarningsByTicker[ticker];
+      const days_to_catalyst =
+        computeDaysToCatalystFromCalendar(calRow?.next_earnings_date, today)
+        ?? computeDaysToCatalystFromFiscalEnd(f?.fiscal_period_ending, today)
+        ?? computeDaysToCatalyst(earnings, today);
 
       rows.push({
         ticker,
@@ -342,6 +357,38 @@ function computePiotroski(f) {
   if (f.asset_turnover > f.asset_turnover_prev) score++;
 
   return score;
+}
+
+// Use the actual published next-earnings date (from Finnhub via
+// earnings-fetcher → EARNINGS_CALENDAR_consensus). Returns null if the
+// date is missing or already in the past — caller falls back to the
+// 91-day heuristic in that case.
+// Fallback when Finnhub didn't have an upcoming date. Uses
+// FUND_01_Fundamentals.fiscal_period_ending (the actual fiscal-quarter end
+// the company last reported) + ~110 days = next quarter end (~91 days)
+// + typical filing lag (~3 weeks). For NVDA this gives 2026-01-31 + 110
+// = 2026-05-21, which is within ~1 day of the actual May-20 print.
+// Returns null if fiscal_period_ending is missing or the projected date
+// is in the past — caller falls back to the legacy report_date heuristic.
+function computeDaysToCatalystFromFiscalEnd(fiscalPeriodEnding, todayStr) {
+  if (!fiscalPeriodEnding) return null;
+  const today = new Date(todayStr);
+  const fpe   = new Date(fiscalPeriodEnding);
+  if (Number.isNaN(fpe.getTime())) return null;
+  const projected = new Date(fpe.getTime() + 110 * 86400000);
+  const days = Math.round((projected - today) / 86400000);
+  if (days < 0) return null;
+  return Math.min(180, days);
+}
+
+function computeDaysToCatalystFromCalendar(nextEarningsDate, todayStr) {
+  if (!nextEarningsDate) return null;
+  const today = new Date(todayStr);
+  const next  = new Date(nextEarningsDate);
+  if (Number.isNaN(next.getTime())) return null;
+  const days = Math.round((next - today) / 86400000);
+  if (days < 0) return null;
+  return Math.min(180, days);
 }
 
 function computeDaysToCatalyst(earnings, todayStr) {
