@@ -1300,12 +1300,49 @@
     #namepanel, #macropanel, #sectorpanel, #tapepanel { width: 100%; }
     .tape-grid { grid-template-columns: 1fr; }
   }
+
+  /* ============ PLACEHOLDER MARKERS ============
+     Sections marked .is-placeholder ship hardcoded display values that have not
+     yet been wired to live data. Slide-outs (the unfoldable cards opened by
+     clicking a row) ARE live and read from /api/* endpoints. Visual treatment
+     keeps layout intact but flags the section so readers don't trust numbers.
+  */
+  .is-placeholder { position: relative; }
+  .is-placeholder::after {
+    content: "PLACEHOLDER · backend wire-up pending — click a row to open the LIVE slide-out";
+    position: absolute;
+    top: 0; right: 0;
+    background: #FEF3C7;
+    color: #92400E;
+    border: 1px solid #FDE68A;
+    border-top: none; border-right: none;
+    border-radius: 0 0 0 4px;
+    padding: 3px 8px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    z-index: 10;
+    pointer-events: none;
+    text-transform: uppercase;
+  }
+  .is-placeholder > * { opacity: 0.78; }
+  .data-banner {
+    background: #FFFBEB;
+    border: 1px solid #FDE68A;
+    color: #78350F;
+    padding: 8px 16px;
+    margin: 0 16px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .data-banner strong { color: #92400E; }
 </style>
 </head>
 <body>
 
 <header class="topnav">
-  <div class="brand">Hedge Portfolio <span class="tag">MOCKUP · v2 · BALANCED · free-source-honest + price</span></div>
+  <div class="brand">Hedge Portfolio <span class="tag">v2 · BALANCED — slide-outs LIVE; grids placeholder</span></div>
   <nav>
     <a href="#today">Today</a>
     <a href="#book">Book</a>
@@ -1321,6 +1358,10 @@
     <span>Tue 26 Apr 2026</span>
   </div>
 </header>
+
+<div class="data-banner">
+  <strong>Data status:</strong> Ticker / sector / macro <strong>slide-outs</strong> (the unfoldable cards opened by clicking any row) are LIVE — they read real analysis from the LLM agents. The <strong>book grid, sector strip, cross-asset tiles, regime banner, recent macro prints, and main tape view</strong> still ship hardcoded placeholder numbers — backend wire-up is pending. Click any row to open its real slide-out.
+</div>
 
 <!-- ===================== TODAY ===================== -->
 <!--
@@ -1420,7 +1461,9 @@
       </div>
     </div>
     <div style="overflow-x:auto">
-      <table class="book" id="book-table">
+      <!-- PLACEHOLDER: ROWS array (line ~2670) is hardcoded. Click a row to
+           open the real ticker slide-out (live data from /api/ticker-*). -->
+      <table class="book is-placeholder" id="book-table">
         <thead>
           <tr>
             <th class="center" data-sort="idx" style="width:30px">#</th>
@@ -1454,8 +1497,11 @@
       <span class="sub">Click the regime anchor to open the macro thesis. Click any sector row for the sector thesis.</span>
     </div>
 
-    <!-- ============ MACRO STRIP (regime + cross-asset) ============ -->
-    <div class="macro-strip">
+    <!-- ============ MACRO STRIP (regime + cross-asset) ============
+         PLACEHOLDER: regime label + cross-asset tile values are hardcoded.
+         Real data lives in the macro slide-out (#macropanel, /api/macro-*).
+    -->
+    <div class="macro-strip is-placeholder">
       <!-- LEFT: regime anchor — single visual focal point -->
       <div class="macro-anchor" id="open-macro-link" title="Click to open the macro thesis">
         <div class="ma-tag">REGIME</div>
@@ -1505,7 +1551,9 @@
     </div>
 
     <!-- ============ SECTOR STRIP (book-style table, click row → slide-out) ============ -->
-    <div class="sector-strip">
+    <!-- PLACEHOLDER: SECTORS_V2 array (line ~3030) is hardcoded. Click a row
+         to open the real sector slide-out (live data from /api/sector-*). -->
+    <div class="sector-strip is-placeholder">
       <table class="sectors-v2">
         <thead><tr>
           <th class="left">Sector</th>
@@ -2391,11 +2439,11 @@
         </div>
       </div>
 
-      <!-- ============ RECENT MACRO PRINTS — UNUSED → SURFACE ============
-           Every row below maps to a parser already running today (BLS / FRED / UMich
-           csv). Ingestion paths verified against macro/scraper.js + macro/index.js.
-           ICSA + ISM Mfg deliberately not included — we don't ingest them yet. -->
-      <div class="thesis-notes" style="margin-top:14px">
+      <!-- ============ RECENT MACRO PRINTS — PLACEHOLDER ============
+           Values are hardcoded. Each row maps to a parser already running but
+           the ingestion → render wiring is pending. The macro slide-out's
+           SIGNPOSTS panel (real /api/macro-signposts) covers similar ground. -->
+      <div class="thesis-notes is-placeholder" style="margin-top:14px">
         <div class="sec-head">RECENT MACRO PRINTS · MACRO_STATE_indicators / BETA_03_Macro · last 8 weeks</div>
         <table class="impl-table" style="margin-top:6px">
           <thead><tr><th class="left">Indicator</th><th class="left">Period</th><th>Value</th><th>Prior</th><th>Δ</th><th class="left">Source</th></tr></thead>
@@ -2608,7 +2656,9 @@
       </div>
     </div>
 
-    <div class="tape-grid">
+    <!-- PLACEHOLDER: TAPE_NEWS / TAPE_MOVES / TAPE_UNEXPLAINED arrays (~line 3080)
+         are hardcoded. The "Today" tape-agent-card below uses LIVE /api/tape-annotations. -->
+    <div class="tape-grid is-placeholder">
       <!-- ============ LEFT: NEWS ============ -->
       <div class="tape-col">
         <h3>NEWS · LAST 14D <span class="meta"><span id="tape-news-ct" class="ct">11</span> items · scored by relevance to portfolio sectors</span></h3>

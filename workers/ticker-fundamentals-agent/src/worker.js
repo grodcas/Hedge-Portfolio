@@ -186,7 +186,7 @@ Top deltas: ${(prevFund.top_3_deltas || []).map(d => `${d.metric} ${d.direction}
 Prose: ${prevFund.prose}`
     : "(no prior fundamentals reading)";
 
-  return `You are a senior equity analyst writing the fundamentals reading for ${ticker}. One short paragraph on whether the operating story is EXPANDING, HOLDING, or CONTRACTING on the drivers that matter, plus the three most material YoY deltas.
+  return `You are a senior equity analyst writing the fundamentals reading for ${ticker}. One short paragraph on whether the operating story is EXPANDING, HOLDING, or CONTRACTING on the drivers that matter, plus the three most material deltas.
 
 PRIOR THESIS DRIVERS (the operating story to read against)
 ${driversBlock}
@@ -207,20 +207,25 @@ TASK
 Output EXACTLY this JSON (no surrounding prose, no markdown fences):
 
 {
-  "prose": "<one short paragraph, 3-5 sentences. Reference SPECIFIC YoY or QoQ deltas with the actual values. Tie back to the named drivers.>",
+  "prose": "<one short paragraph, 3-5 sentences. Reference SPECIFIC deltas with actual values. Tie back to the named drivers.>",
   "verdict": "expanding" | "holding" | "contracting",
   "top_3_deltas": [
     {
-      "metric":    "<name as it appears above, e.g. 'revenue_annual', 'cfo', 'operating_margin'>",
-      "value":     "<short string with the magnitude, e.g. '+78% YoY', '+540bps', '$36.2B vs $16.6B'>",
-      "direction": "up" | "flat" | "down"
+      "metric":     "<exact field name as it appears above, e.g. 'revenue_annual', 'cfo', 'operating_margin'>",
+      "source":     "annual" | "quarterly",
+      "from_value": <number — the prior-period value as it appears in the snapshot>,
+      "to_value":   <number — the current-period value as it appears in the snapshot>,
+      "value":      "<human-readable summary, e.g. '+78% YoY', '+540bps', '$36.2B vs $16.6B'>",
+      "direction":  "up" | "flat" | "down"
     }
   ]
 }
 
 RULES
 - top_3_deltas MUST contain exactly 3 items. Pick the deltas that most touch the named drivers — not the largest in absolute terms.
-- Every delta cited must come from the snapshot above. Do NOT invent numbers; do NOT cite a field marked "(unavailable)".
+- For each delta, from_value and to_value MUST be the literal numbers shown in the snapshot above (decimals, not formatted strings — e.g. 18.53 not "18.53%"). Do NOT cite a field marked "(unavailable)".
+- direction MUST match the sign of (to_value − from_value): "up" if to > from, "down" if to < from, "flat" if relative change is below 0.5%. Mismatches will be rejected by the validator.
+- WHEN ANNUAL AND QUARTERLY DISAGREE: the annual snapshot may be MONTHS stale relative to the most recent FUND_01_Quarterly row. If a quarterly row exists with fiscal_period_ending newer than the annual, prefer the quarterly direction and cite source="quarterly". Do NOT describe a margin or earnings trend from the annual snapshot if the latest quarterly contradicts it. Note the source for every delta.
 - "expanding" requires ≥2 deltas in the up direction on driver-aligned metrics. "contracting" requires ≥2 down. Otherwise "holding".
 - If FUND_01_Quarterly is empty, base the verdict on the YoY annual snapshot alone — do not fabricate quarters.
 - Do not hedge — pick one verdict.`;
@@ -272,6 +277,31 @@ function validate(blob) {
     }
     if (!VALID_DIRECTIONS.has(d.direction)) {
       throw new Error(`invalid delta direction: ${d.direction}`);
+    }
+    if (d.source !== "annual" && d.source !== "quarterly") {
+      throw new Error(`invalid delta source for ${d.metric}: must be "annual" or "quarterly", got ${JSON.stringify(d.source)}`);
+    }
+    const from = Number(d.from_value);
+    const to   = Number(d.to_value);
+    if (!Number.isFinite(from)) {
+      throw new Error(`invalid delta for ${d.metric}: from_value must be a finite number, got ${JSON.stringify(d.from_value)}`);
+    }
+    if (!Number.isFinite(to)) {
+      throw new Error(`invalid delta for ${d.metric}: to_value must be a finite number, got ${JSON.stringify(d.to_value)}`);
+    }
+    // Sign check: claimed direction must match the actual numerical change.
+    // Tolerance: 0.5% relative or absolute when from is near zero. This catches
+    // sign-flips like "compressed" when the data shows expansion.
+    const diff = to - from;
+    const rel  = Math.abs(from) > 1e-9 ? Math.abs(diff) / Math.abs(from) : Math.abs(diff);
+    let actualDir;
+    if (rel < 0.005) actualDir = "flat";
+    else             actualDir = diff > 0 ? "up" : "down";
+    if (actualDir !== d.direction) {
+      throw new Error(
+        `direction sign mismatch for ${d.metric}: claimed "${d.direction}" but ` +
+        `to_value=${to} vs from_value=${from} (diff=${diff.toFixed(4)}) → actual "${actualDir}"`
+      );
     }
   }
 }
