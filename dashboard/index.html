@@ -3942,10 +3942,16 @@
     cardId: "macro-signposts-card",
     render: (el, data) => {
       const t = data.payload || {};
-      const events = Array.isArray(t.events) ? t.events : [];
-      el.querySelector("[data-ms-meta]").textContent =
-        `· next 21 days · v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+      const allEvents = Array.isArray(t.events) ? t.events : [];
       const today = new Date().toISOString().slice(0, 10);
+      // Filter out events whose date has already passed — the agent only
+      // re-emits forward signposts on its next run, so past events linger
+      // until then. Hiding them here is a frontend safety net.
+      const events = allEvents.filter((e) => e.date >= today);
+      const droppedCount = allEvents.length - events.length;
+      el.querySelector("[data-ms-meta]").textContent =
+        `· next 21 days · v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}` +
+        (droppedCount > 0 ? ` · (${droppedCount} past event${droppedCount === 1 ? "" : "s"} resolved)` : "");
       const daysUntil = (yyyy_mm_dd) => {
         const a = new Date(today + "T00:00:00Z");
         const b = new Date(yyyy_mm_dd + "T00:00:00Z");
