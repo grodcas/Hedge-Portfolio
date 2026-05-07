@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "hedge-server",
+  "main": "src/worker.js",
+  "compatibility_date": "2024-09-23",
+  "assets": {
+    "directory": "../../dashboard",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "services": [
+    { "binding": "PORTFOLIO_INGESTOR", "service": "portfolio-ingestor" }
+  ],
+  "observability": { "enabled": true }
+}
