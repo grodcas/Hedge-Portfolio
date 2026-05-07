@@ -599,10 +599,14 @@ const SECTOR_TOPIC_SCOPES_GATE = {
 // label changed, the sector's latest SECTOR_FACTORS_daily landed since the
 // last sector thesis write, or the sector news_drift verdict flipped.
 async function shouldFireSectorThesis(db, sector) {
-  const [sectorRow, macroRow, latestFactors] = await Promise.all([
+  // Tightened: dropped the SECTOR_FACTORS_daily date-newer trigger (sector
+  // factors are mathematical and refresh daily — they shouldn't fire the LLM
+  // thesis on their own). Sector thesis re-fires on macro thesis rewrite,
+  // macro regime change, or sector news-drift verdict flip — all of which
+  // genuinely change the analytical picture.
+  const [sectorRow, macroRow] = await Promise.all([
     db.prepare(`SELECT thesis_json, thesis_updated_at, news_drift_json FROM SECTOR_TREND_long WHERE sector = ?`).bind(sector).first(),
     db.prepare(`SELECT regime, thesis_updated_at FROM BETA_10_Daily_macro ORDER BY creation_date DESC LIMIT 1`).first(),
-    db.prepare(`SELECT date FROM SECTOR_FACTORS_daily WHERE sector = ? ORDER BY date DESC LIMIT 1`).bind(sector).first(),
   ]);
   if (!sectorRow)     return { fire: false, reason: `no SECTOR_TREND_long row for ${sector}` };
   if (!macroRow?.thesis_updated_at) return { fire: false, reason: "no macro thesis yet" };
@@ -619,10 +623,6 @@ async function shouldFireSectorThesis(db, sector) {
   }
   if (macroRow.regime && priorRegime === null) {
     return { fire: true, reason: `macro regime now classified: ${macroRow.regime}` };
-  }
-
-  if (latestFactors?.date && latestFactors.date > sectorRow.thesis_updated_at.slice(0, 10)) {
-    return { fire: true, reason: `new SECTOR_FACTORS_daily row on ${latestFactors.date}` };
   }
 
   // S1 News drift verdict change since last sector thesis write (MS-3e).
@@ -744,16 +744,19 @@ async function shouldFireSectorRead(db, sector) {
 // story), or a fresh STOCK_FACTORS_daily / FUND_01_Fundamentals row landed
 // since the last write.
 async function shouldFireTickerValuation(db, ticker) {
-  const [trendRow, latestFactors, latestFund] = await Promise.all([
+  // Tightened: fire only on first run, thesis rewrite, or a new earnings
+  // filing (FUND_01_Quarterly new fiscal_period_ending). Daily mathematical
+  // refresh of STOCK_FACTORS_daily / FUND_01_Fundamentals point-in-time is
+  // dropped — multiples don't move materially day-over-day, and re-firing
+  // the LLM agent on every fresh row was the main quota burner.
+  const [trendRow, latestQ] = await Promise.all([
     db.prepare(
       `SELECT thesis_updated_at, valuation_updated_at
          FROM TICKER_TREND_long WHERE ticker = ?`,
     ).bind(ticker).first(),
     db.prepare(
-      `SELECT date FROM STOCK_FACTORS_daily WHERE ticker = ? ORDER BY date DESC LIMIT 1`,
-    ).bind(ticker).first(),
-    db.prepare(
-      `SELECT date FROM FUND_01_Fundamentals WHERE ticker = ? ORDER BY date DESC LIMIT 1`,
+      `SELECT fiscal_period_ending FROM FUND_01_Quarterly WHERE ticker = ?
+        ORDER BY fiscal_period_ending DESC LIMIT 1`,
     ).bind(ticker).first(),
   ]);
   if (!trendRow) return { fire: false, reason: `no TICKER_TREND_long row for ${ticker}` };
@@ -763,13 +766,10 @@ async function shouldFireTickerValuation(db, ticker) {
     return { fire: true, reason: `ticker thesis newer than valuation` };
   }
   const since = trendRow.valuation_updated_at.slice(0, 10);
-  if (latestFactors?.date && latestFactors.date > since) {
-    return { fire: true, reason: `new STOCK_FACTORS_daily on ${latestFactors.date}` };
+  if (latestQ?.fiscal_period_ending && latestQ.fiscal_period_ending > since) {
+    return { fire: true, reason: `new earnings filing ${latestQ.fiscal_period_ending}` };
   }
-  if (latestFund?.date && latestFund.date > since) {
-    return { fire: true, reason: `new FUND_01_Fundamentals on ${latestFund.date}` };
-  }
-  return { fire: false, reason: `valuation fresh: no new factors / fundamentals for ${ticker}` };
+  return { fire: false, reason: `valuation fresh: no thesis rewrite, no new earnings for ${ticker}` };
 }
 
 // Ticker Fundamentals epsilon: re-fire if no prior reading, the ticker
@@ -777,13 +777,14 @@ async function shouldFireTickerValuation(db, ticker) {
 // or a fresh FUND_01_Fundamentals / FUND_01_Quarterly row landed since last
 // write.
 async function shouldFireTickerFundamentals(db, ticker) {
-  const [trendRow, latestFund, latestQ] = await Promise.all([
+  // Tightened: fire only on first run, thesis rewrite, or a new earnings
+  // filing (FUND_01_Quarterly). Drop the FUND_01_Fundamentals daily-snapshot
+  // trigger — that table is refreshed every daily_update with the same TTM
+  // numbers between earnings and was burning LLM budget.
+  const [trendRow, latestQ] = await Promise.all([
     db.prepare(
       `SELECT thesis_updated_at, fundamentals_updated_at
          FROM TICKER_TREND_long WHERE ticker = ?`,
-    ).bind(ticker).first(),
-    db.prepare(
-      `SELECT date FROM FUND_01_Fundamentals WHERE ticker = ? ORDER BY date DESC LIMIT 1`,
     ).bind(ticker).first(),
     db.prepare(
       `SELECT fiscal_period_ending FROM FUND_01_Quarterly WHERE ticker = ?
@@ -797,19 +798,21 @@ async function shouldFireTickerFundamentals(db, ticker) {
     return { fire: true, reason: `ticker thesis newer than fundamentals` };
   }
   const since = trendRow.fundamentals_updated_at.slice(0, 10);
-  if (latestFund?.date && latestFund.date > since) {
-    return { fire: true, reason: `new FUND_01_Fundamentals on ${latestFund.date}` };
-  }
   if (latestQ?.fiscal_period_ending && latestQ.fiscal_period_ending > since) {
-    return { fire: true, reason: `new FUND_01_Quarterly on ${latestQ.fiscal_period_ending}` };
+    return { fire: true, reason: `new earnings filing ${latestQ.fiscal_period_ending}` };
   }
-  return { fire: false, reason: `fundamentals fresh: no new prints for ${ticker}` };
+  return { fire: false, reason: `fundamentals fresh: no new earnings for ${ticker}` };
 }
 
 // Ticker Estimates epsilon: re-fire if no prior reading, ticker thesis was
 // rewritten, or any FUND_03_Estimates row for this ticker has a created_at
 // newer than the last estimates write.
 async function shouldFireTickerEstimates(db, ticker) {
+  // Tightened: fire only on first run or thesis rewrite. consensus-fetcher
+  // writes a fresh FUND_03_Estimates row every weekday — using created_at
+  // as a trigger fired the LLM agent daily even when consensus didn't move.
+  // Material consensus drift typically shows up via news_drift, which
+  // re-fires thesis, which then cascades here through the thesis check.
   const trendRow = await db.prepare(
     `SELECT thesis_updated_at, estimates_updated_at
        FROM TICKER_TREND_long WHERE ticker = ?`,
@@ -820,13 +823,7 @@ async function shouldFireTickerEstimates(db, ticker) {
   if (trendRow.thesis_updated_at && trendRow.thesis_updated_at > trendRow.estimates_updated_at) {
     return { fire: true, reason: `ticker thesis newer than estimates` };
   }
-  const fresh = await db.prepare(
-    `SELECT MAX(created_at) AS latest FROM FUND_03_Estimates WHERE ticker = ?`,
-  ).bind(ticker).first();
-  if (fresh?.latest && fresh.latest > trendRow.estimates_updated_at) {
-    return { fire: true, reason: `new FUND_03_Estimates row at ${fresh.latest}` };
-  }
-  return { fire: false, reason: `estimates fresh: no new consensus rows for ${ticker}` };
+  return { fire: false, reason: `estimates fresh: thesis stable for ${ticker}` };
 }
 
 // Ticker Peers epsilon: re-fire if no prior reading, the PEER_SET_config
@@ -834,15 +831,16 @@ async function shouldFireTickerEstimates(db, ticker) {
 // row landed since last write. Self-contained reading per spec — does NOT
 // fire on thesis change.
 async function shouldFireTickerPeers(db, ticker) {
-  const [trendRow, peerCfg, latestFactors] = await Promise.all([
+  // Tightened: peer sets are structural — only fire on first run or when the
+  // PEER_SET_config row is rewritten. Dropping the STOCK_FACTORS_daily daily
+  // trigger; relative-multiple drift from price action is reflected via
+  // valuation/thesis cascades, not peer-set re-evaluation.
+  const [trendRow, peerCfg] = await Promise.all([
     db.prepare(
       `SELECT peers_updated_at FROM TICKER_TREND_long WHERE ticker = ?`,
     ).bind(ticker).first(),
     db.prepare(
       `SELECT updated_at FROM PEER_SET_config WHERE ticker = ?`,
-    ).bind(ticker).first(),
-    db.prepare(
-      `SELECT date FROM STOCK_FACTORS_daily WHERE ticker = ? ORDER BY date DESC LIMIT 1`,
     ).bind(ticker).first(),
   ]);
   if (!trendRow) return { fire: false, reason: `no TICKER_TREND_long row for ${ticker}` };
@@ -852,11 +850,7 @@ async function shouldFireTickerPeers(db, ticker) {
   if (peerCfg.updated_at && peerCfg.updated_at > trendRow.peers_updated_at) {
     return { fire: true, reason: `PEER_SET_config rewritten at ${peerCfg.updated_at}` };
   }
-  const since = trendRow.peers_updated_at.slice(0, 10);
-  if (latestFactors?.date && latestFactors.date > since) {
-    return { fire: true, reason: `new STOCK_FACTORS_daily on ${latestFactors.date}` };
-  }
-  return { fire: false, reason: `peers fresh: no new factors / config for ${ticker}` };
+  return { fire: false, reason: `peers fresh: peer set unchanged for ${ticker}` };
 }
 
 // Ticker Context epsilon: re-fire if no prior reading, ticker thesis was
@@ -1019,26 +1013,11 @@ async function shouldFireTickerRecommendation(db, ticker) {
   if (trendRow.news_drift_updated_at && trendRow.news_drift_updated_at > trendRow.recommendation_updated_at) {
     return { fire: true, reason: "ticker news_drift newer than recommendation" };
   }
-  // Note: a separate "tripwires currently fired" check used to live here. It
-  // re-fired every cron tick as long as a tripwire stayed armed, burning LLM
-  // budget. The timestamp comparison above already catches it: any tripwire
-  // rewrite bumps news_drift_updated_at past recommendation_updated_at.
-  const since = trendRow.recommendation_updated_at.slice(0, 10);
-  const [latestFactors, latestPos] = await Promise.all([
-    db.prepare(
-      `SELECT date FROM STOCK_FACTORS_daily WHERE ticker = ? ORDER BY date DESC LIMIT 1`,
-    ).bind(ticker).first(),
-    db.prepare(
-      `SELECT date FROM POSITION_01_Daily WHERE ticker = ? ORDER BY date DESC LIMIT 1`,
-    ).bind(ticker).first(),
-  ]);
-  if (latestFactors?.date && latestFactors.date > since) {
-    return { fire: true, reason: `new STOCK_FACTORS_daily on ${latestFactors.date}` };
-  }
-  if (latestPos?.date && latestPos.date > since) {
-    return { fire: true, reason: `new POSITION_01_Daily on ${latestPos.date}` };
-  }
-  return { fire: false, reason: `recommendation fresh for ${ticker}` };
+  // Tightened: dropped the STOCK_FACTORS_daily / POSITION_01_Daily date-newer
+  // triggers. Recommendation is derivative of thesis + drift; mathematical
+  // factor / position refresh shouldn't fire the LLM. Bare tripwires_fired
+  // check also removed (timestamp comparison above catches drift rewrites).
+  return { fire: false, reason: `recommendation fresh: thesis + drift stable for ${ticker}` };
 }
 
 // Ticker Read epsilon: re-fire whenever any of {thesis, recommendation,
