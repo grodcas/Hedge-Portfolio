@@ -23,10 +23,16 @@
 const WINDOW_DAYS = 56;
 
 // Tuple: [yahoo_symbol, indicator_code, indicator_name, unit].
+// WTI added 2026-05-07: FRED's DCOILWTICO publishes with a 2-4 day lag, so
+// during fast-moving moves (Iran/Hormuz de-escalation -9% on 2026-05-06)
+// the macro thesis cited stale crude. Yahoo CL=F gives same-day futures —
+// macro-intelligence-builder reads MAX(release_date) per indicator_code, so
+// the fresher yfinance row wins over the FRED row when both are present.
 const SYMBOLS = [
   ["EURUSD=X", "EURUSD", "EUR/USD spot",                     "rate"],
   ["HG=F",     "COPPER", "Copper Front-Month Futures",       "$/lb"],
   ["GC=F",     "GOLD",   "Gold Front-Month Futures",         "$/oz"],
+  ["CL=F",     "WTI",    "WTI Crude Front-Month Futures",    "$/bbl"],
   ["^VVIX",    "VVIX",   "CBOE VVIX (vol of vol)",           "index"],
 ];
 
