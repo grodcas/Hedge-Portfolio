@@ -1,0 +1,130 @@
+{
+  "audits": [
+    {
+      "id": "2026-05-07-macro-validated",
+      "date": "2026-05-07",
+      "scope": "macro",
+      "title": "Macro tab — analyst-grade against primary sources",
+      "verdict": "ready",
+      "summary": "All 5 macro panels (M2 thesis, M4 positioning, M5 signposts, M6 read, M7 FOMC) cross-checked against published reality. Refreshed 2026-05-07 after WTI lag fix.",
+      "findings": [
+        { "metric": "Initial claims", "ours": "200k", "real": "200k (May-7 release)", "delta": "exact" },
+        { "metric": "5y breakeven", "ours": "2.58%", "real": "2.58% (FRED)", "delta": "exact" },
+        { "metric": "HY OAS", "ours": "275bps", "real": "277bps (ICE BofA)", "delta": "2bps" },
+        { "metric": "HOUST", "ours": "1,502k", "real": "1,502k (March release)", "delta": "exact" },
+        { "metric": "Copper", "ours": "$6.161/lb", "real": "$6.14/lb", "delta": "$0.02" },
+        { "metric": "10y / 2y", "ours": "4.36 / 3.87", "real": "4.35 / 3.86", "delta": "1bp each" },
+        { "metric": "WTI", "ours": "$95.68", "real": "$93.54", "delta": "$2.14" },
+        { "metric": "Apr-29 FOMC + 4 dissents", "ours": "Miran/Hammack/Kashkari/Logan", "real": "confirmed", "delta": "exact" }
+      ],
+      "sources": [
+        "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260429a.htm",
+        "https://fred.stlouisfed.org/series/T5YIE",
+        "https://www.bls.gov/news.release/jolts.nr0.htm",
+        "https://www.bloomberg.com/news/articles/2026-05-07/us-initial-jobless-claims-rebound-slightly-but-remain-low"
+      ]
+    },
+    {
+      "id": "2026-05-07-nvda-validated",
+      "date": "2026-05-07",
+      "scope": "NVDA",
+      "title": "NVDA slide-out — 6 of 11 panels validated post-fix",
+      "verdict": "partial-ready",
+      "summary": "Thesis, fundamentals, valuation, estimates, peers, earnings-summary verified analyst-grade. The 5 cascade panels (read, recommendation, context, news-drift, notes) auto-refresh tonight at 22:00 UTC inheriting today's clean thesis + the fixed days-to-catalyst.",
+      "findings": [
+        { "metric": "Q4 FY26 revenue", "ours": "$68.13B", "real": "$68.1B (NVDA IR)", "delta": "exact" },
+        { "metric": "Q4 FY26 op margin", "ours": "60.38%", "real": "60.4%", "delta": "0.02pp" },
+        { "metric": "Q4 FY26 EPS", "ours": "$1.62 vs $1.5634 est (3.62%)", "real": "$1.62 vs $1.50 cons (~8%)", "delta": "diff baselines" },
+        { "metric": "Forward P/E", "ours": "23.90x", "real": "25.07x (May-7)", "delta": "1.17x (5%)" },
+        { "metric": "FY27 EPS / Rev consensus", "ours": "8.340 / $370.86B", "real": "$8.34 / $370.54B", "delta": "exact" },
+        { "metric": "Peer set + margins", "ours": "AVGO/MU/AMD/INTC/TXN/ADI; AMD 10.7%/12.5%, INTC 6.9%/-5.9%", "real": "confirmed", "delta": "exact" }
+      ],
+      "sources": [
+        "https://nvidianews.nvidia.com/news/nvidia-announces-financial-results-for-fourth-quarter-and-fiscal-2026",
+        "https://www.marketbeat.com/earnings/reports/2026-5-20-nvidia-co-stock/",
+        "https://www.gurufocus.com/term/forward-pe-ratio/NVDA"
+      ]
+    },
+    {
+      "id": "2026-05-07-data-feed-fixes",
+      "date": "2026-05-07",
+      "scope": "data-feeds",
+      "title": "3 data-feed bugs fixed",
+      "verdict": "fixed",
+      "summary": "Surfaced by NVDA analyst audit. All 3 patches deployed and verified. Commit fd77d15.",
+      "findings": [
+        { "metric": "Dividend yield prose", "ours": "showed 2.01% (off by 100×)", "real": "NVDA yield 0.02%", "fix": "Suppress dividend in valuation prompt — Finnhub vs AV unit conflict can't be resolved at read time" },
+        { "metric": "Days-to-catalyst", "ours": "54 (heuristic projected June 30)", "real": "13 (May-20 NVDA Q1 FY27)", "fix": "3-tier path: Finnhub date → fiscal_period_ending+110d → legacy. Now 14 days for NVDA, within 1 day of reality" },
+        { "metric": "Estimates lead-FY", "ours": "FY2026 EPS 4.694 (stale, already reported)", "real": "actual FY26 was 4.90", "fix": "Filter FUND_03_Estimates rows where fiscal_year ≤ latest reported fiscal year. Now leads with FY27 8.340" }
+      ],
+      "commits": ["fd77d15"]
+    },
+    {
+      "id": "2026-05-07-wti-feed-fix",
+      "date": "2026-05-07",
+      "scope": "data-feeds",
+      "title": "WTI same-day futures via yfinance CL=F",
+      "verdict": "fixed",
+      "summary": "FRED's DCOILWTICO publishes with a 2-4 day lag. During the May-6 Iran/Hormuz de-escalation (-9% intraday), our macro thesis kept citing $109/bbl from the prior week's peak. Adding Yahoo CL=F gives same-day futures.",
+      "findings": [
+        { "metric": "WTI before fix", "ours": "$109.76", "real": "$93.54 (May-7)", "fix": "$16/bbl error" },
+        { "metric": "WTI after fix", "ours": "$95.68", "real": "$93.54", "fix": "$2 within reality" }
+      ],
+      "commits": ["eba9cf4"]
+    },
+    {
+      "id": "2026-05-07-orchestrator-cron-tightened",
+      "date": "2026-05-07",
+      "scope": "orchestrator",
+      "title": "agent-orchestrator gates tightened — daily math no longer fires LLMs",
+      "verdict": "fixed",
+      "summary": "Six gates were re-firing LLM agents on every daily mathematical factor refresh (STOCK_FACTORS_daily / SECTOR_FACTORS_daily / etc.) — pure-math worker writes a row → LLM agent re-runs → repeats every day. Estimated steady-state drop from ~130 to ~10-25 LLM calls/day.",
+      "findings": [
+        { "metric": "Cron schedule", "before": "0 14-22 * * 1-5 (9× per weekday)", "after": "0 22 * * 1-5 (1× per weekday)" },
+        { "metric": "Tightened gates", "list": "valuation, fundamentals, estimates, peers, recommendation, sector-thesis" }
+      ],
+      "commits": ["fb8651b", "f1bab55"]
+    },
+    {
+      "id": "2026-05-07-tape-validated",
+      "date": "2026-05-07",
+      "scope": "tape",
+      "title": "Today's tape run + cross-checked",
+      "verdict": "ready",
+      "summary": "Fired big-movers-why + tape-annotation-agent for date 2026-05-06. 6 movers annotated with cautious phrasing. Top 3 cross-checked: TSLA + AMD annotations match reality, NVDA links to Apr-24 record-close topic (within 14d window but stale catalyst).",
+      "findings": [
+        { "ticker": "TSLA +3.23%", "annotation": "Q1 beat, AI milestone", "verdict": "matches reality (Q1 EPS beat, $25B AI capex commit)" },
+        { "ticker": "AMD +2.91%", "annotation": "analyst target resets, AI demand", "verdict": "matches reality (KeyBanc $530, Bernstein $525, GS upgrade)" },
+        { "ticker": "NVDA +3.97%", "annotation": "$5T market cap topic", "verdict": "real Apr-24 event, stale as a same-day catalyst" }
+      ]
+    },
+    {
+      "id": "2026-05-07-placeholder-grids-flagged",
+      "date": "2026-05-07",
+      "scope": "dashboard",
+      "title": "Mockup grids visibly flagged",
+      "verdict": "flagged",
+      "summary": "Book grid (ROWS), sector strip (SECTORS_V2), cross-asset tiles, regime banner, recent macro prints, and main tape view ship hardcoded numbers. .is-placeholder CSS class + corner badges added so users don't read fake values as real. Slide-outs (the unfoldable cards) remain LIVE — they read /api/* endpoints with real data.",
+      "findings": [
+        { "section": "book grid (25 tickers)", "lines": "dashboard/index.html:2635-2660", "status": "PLACEHOLDER" },
+        { "section": "sector strip (11 sectors)", "lines": "dashboard/index.html:3001-3013", "status": "PLACEHOLDER" },
+        { "section": "cross-asset tiles", "lines": "dashboard/index.html:1475-1502", "status": "PLACEHOLDER" },
+        { "section": "regime banner", "lines": "dashboard/index.html:1462-1467", "status": "PLACEHOLDER" },
+        { "section": "recent macro prints", "lines": "dashboard/index.html:2400-2414", "status": "PLACEHOLDER" },
+        { "section": "main tape view (TAPE_NEWS/MOVES/UNEXPLAINED)", "lines": "dashboard/index.html:3051-3083", "status": "PLACEHOLDER" }
+      ],
+      "commits": ["7683ec3"]
+    },
+    {
+      "id": "2026-05-07-xle-pending",
+      "date": "2026-05-07",
+      "scope": "XLE",
+      "title": "XLE Energy slide-out — auto-refresh pending",
+      "verdict": "pending-cron",
+      "summary": "All 4 panels still anchored on stale 'WTI $99.89, tight crude near $100'. Auto-refresh scheduled at 22:00 UTC tonight when orchestrator's gate fires (macro thesis is now newer than sector thesis). Cost: ~4 LLM calls.",
+      "findings": [
+        { "panel": "thesis / read / implementation / hedges", "issue": "cites WTI $99.89 — reality $93.54 post-Hormuz" }
+      ]
+    }
+  ]
+}

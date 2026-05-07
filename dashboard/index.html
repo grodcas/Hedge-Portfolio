@@ -1779,6 +1779,20 @@
         </table>
       </div>
     </div>
+
+    <!-- ============ ANALYST AUDIT LOG ============
+         Persistent record of every analyst-grade validation we run, with cross-checks
+         against primary sources and the bug fixes that came out of each. Fetched from
+         dashboard/audits.json — append new entries there to log future audits. -->
+    <div style="padding: 12px;">
+      <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:var(--text2); margin-bottom:6px; display:flex; justify-content:space-between;">
+        <span>Analyst audit log</span>
+        <span id="vld-audit-meta" style="font-weight:400; color:var(--muted); text-transform:none; letter-spacing:0;">loading…</span>
+      </div>
+      <div id="vld-audit-list" style="display:flex; flex-direction:column; gap:10px;">
+        <div style="color:var(--muted); padding:12px;">loading…</div>
+      </div>
+    </div>
   </section>
 
 </main>
@@ -3514,6 +3528,59 @@
       .catch(err => {
         const tbody = document.querySelector("#vld-usage tbody");
         tbody.innerHTML = `<tr><td colspan="5" style="color:var(--bad); padding:12px;">Failed to load API usage: ${esc(err.message)}</td></tr>`;
+      });
+
+    // Section C — analyst audit log (persistent record of validations).
+    const VERDICT_STYLE = {
+      "ready":         "background:#DCFCE7;color:#166534",
+      "partial-ready": "background:#FEF3C7;color:#92400E",
+      "fixed":         "background:#DBEAFE;color:#1E40AF",
+      "flagged":       "background:#FEF3C7;color:#92400E",
+      "pending-cron":  "background:#E5E7EB;color:#4B5563",
+    };
+    fetch("/audits.json")
+      .then(r => r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)))
+      .then(data => {
+        const audits = (data.audits || []).slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+        document.getElementById("vld-audit-meta").textContent =
+          `${audits.length} audit${audits.length === 1 ? "" : "s"} on file · latest ${audits[0]?.date || "?"}`;
+        const list = document.getElementById("vld-audit-list");
+        list.innerHTML = audits.map((a) => {
+          const verdict = a.verdict || "ready";
+          const style = VERDICT_STYLE[verdict] || VERDICT_STYLE["ready"];
+          const findingsRows = (a.findings || []).map(f => {
+            const cells = Object.entries(f).map(([k, v]) => {
+              const val = Array.isArray(v) ? v.join(", ") : v;
+              return `<span style="display:inline-block; margin-right:14px"><span style="color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.04em; margin-right:4px">${esc(k)}</span><span style="font-variant-numeric:tabular-nums">${esc(val)}</span></span>`;
+            }).join("");
+            return `<div style="padding:6px 8px; border-left:2px solid var(--border); font-size:11px; line-height:1.6">${cells}</div>`;
+          }).join("");
+          const sourceLinks = (a.sources || []).map(s =>
+            `<a href="${esc(s)}" target="_blank" style="font-size:10px; color:var(--info); margin-right:8px">${esc(s.replace(/^https?:\/\/(www\.)?/, "").slice(0, 60))}↗</a>`
+          ).join("");
+          const commits = (a.commits || []).map(c =>
+            `<code style="font-size:10px; padding:1px 5px; background:var(--hover); border-radius:3px">${esc(c)}</code>`
+          ).join(" ");
+          return `<div style="border:1px solid var(--border); border-radius:4px; background:var(--card); padding:10px 12px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+              <span style="font-size:10px; padding:2px 6px; border-radius:3px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; ${style}">${esc(verdict)}</span>
+              <span style="font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em">${esc(a.scope || "")}</span>
+              <span style="font-size:10px; color:var(--muted); margin-left:auto">${esc(a.date || "")}</span>
+            </div>
+            <div style="font-size:13px; font-weight:600; margin-bottom:4px">${esc(a.title || "")}</div>
+            <div style="font-size:11px; color:var(--text2); margin-bottom:6px; line-height:1.5">${esc(a.summary || "")}</div>
+            ${findingsRows ? `<div style="margin-top:6px">${findingsRows}</div>` : ""}
+            ${(sourceLinks || commits) ? `<div style="margin-top:8px; display:flex; gap:12px; flex-wrap:wrap">
+              ${sourceLinks ? `<div><span style="font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin-right:4px">sources</span>${sourceLinks}</div>` : ""}
+              ${commits ? `<div><span style="font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin-right:4px">commits</span>${commits}</div>` : ""}
+            </div>` : ""}
+          </div>`;
+        }).join("") || `<div style="color:var(--muted); padding:12px;">No audits logged yet.</div>`;
+      })
+      .catch(err => {
+        document.getElementById("vld-audit-meta").textContent = "ERROR";
+        document.getElementById("vld-audit-list").innerHTML =
+          `<div style="color:var(--bad); padding:12px;">Failed to load audit log: ${esc(err.message)}</div>`;
       });
   })();
 
