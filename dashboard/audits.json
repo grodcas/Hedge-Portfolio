@@ -125,6 +125,35 @@
       "findings": [
         { "panel": "thesis / read / implementation / hedges", "issue": "cites WTI $99.89 — reality $93.54 post-Hormuz" }
       ]
+    },
+    {
+      "id": "2026-05-08-polishing-sprint",
+      "date": "2026-05-08",
+      "scope": "all",
+      "title": "Final polishing sprint — structural cleanup + hardening",
+      "verdict": "ready",
+      "summary": "Five-phase pass: dead-code excision, data-parsing hardening, AI-agent prompt hardening, cross-checked NVDA / Macro / XLE against primary sources, documented architecture. The capex bug from May-7 was symptomatic of a class — this sprint addressed the class.",
+      "findings": [
+        { "scope": "workers", "what": "Deleted 5 dead worker dirs (ism-fetcher, llm-smoke, naaim-fetcher, narrator, ticker-trend-long); deleted scripts/backfill-fundamentals.js (superseded by src/steps/fetch-fundamentals.js --force-all). Removed .is-placeholder CSS and replaced hardcoded \"Late-cycle 72%\" placeholders with /api/macro-thesis hooks.", "verdict": "fixed" },
+        { "scope": "ingest", "what": "/ingest/fundamentals UPSERT now COALESCEs every field — a partial vendor response can no longer overwrite previously-good values with NULL (same shape as the capex bug, applied uniformly).", "verdict": "fixed" },
+        { "scope": "queries", "what": "Catalysts query in /query/stock-profile + /query/sector-profile was reading FUND_02_Earnings.report_date (always-historical fiscal_period_ending) and filtering >today, returning 0 rows always. Switched to EARNINGS_CALENDAR_consensus.next_earnings_date (Finnhub /calendar/earnings).", "verdict": "fixed" },
+        { "scope": "schema", "what": "Dropped ALPHA_04_Trends (migration 0050). Orphan table with 6 legacy rows, no consumers.", "verdict": "fixed" },
+        { "scope": "ingest", "what": "earnings-fetcher + scripts/backfill-earnings.js now reject Finnhub rows where every numeric field is NULL — silent partial-row writes prevented.", "verdict": "fixed" },
+        { "scope": "agents", "what": "big-movers-why now sign-checks prose direction vs actual move sign. ticker-valuation-agent enforces vs_what enum vs prose. macro-news-drift-agent enforces verdict-mapping rule structurally. ticker-thesis-agent tripwires now carry {currently_value, threshold_value, currently_text} with sign-check; ticker-thesis + macro-thesis default drift verdict to \"unknown\" instead of silently \"intact\". Shared validators in workers/_shared/agent-validators.js.", "verdict": "fixed" },
+        { "metric": "WTI cross-check", "ours": "$95.68 (May-7 anchor)", "real": "$94.12-$94.80 (May-8)", "delta": "$1 within normal day drift; refreshes tonight 22 UTC" },
+        { "metric": "NVDA Q1 FY27 catalyst", "ours": "days_to_catalyst=13 (= May-20 from May-7)", "real": "Wed May-20-2026 5pm ET (NVIDIA IR)", "delta": "exact" },
+        { "metric": "Macro thesis prose", "ours": "Initial claims 200k, 70k below 270k tripwire", "real": "claims 200k confirmed (May-7 BLS release)", "delta": "exact" }
+      ],
+      "commits": ["5343aee","c844fbd"],
+      "sources": [
+        "https://www.oilpriceapi.com/live/wti-crude-oil-price",
+        "https://investor.nvidia.com/events-and-presentations/events-and-presentations/event-details/2026/NVIDIA-1st-Quarter-FY27-Financial-Results",
+        "https://www.bls.gov/news.release/empsit.nr0.htm"
+      ],
+      "pending": [
+        "Run `node src/steps/fetch-fundamentals.js --pass=CF --force-all` after AV daily-limit reset (~09:34 UTC 2026-05-09) to fill capex on AAPL/HD/INTC/NVDA — last 4 stragglers for the Quality 8q sparkline.",
+        "Tonight's 22:00 UTC orchestrator cron will exercise all 5 hardened agent validators on first run; watch logs for any rejected outputs."
+      ]
     }
   ]
 }
