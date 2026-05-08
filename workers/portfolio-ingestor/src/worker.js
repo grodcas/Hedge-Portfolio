@@ -263,6 +263,106 @@ export default {
           return Response.json({ date, count: annotations.length, annotations }, { headers: corsHeaders });
         }
 
+        // -------- GET /query/tape-window?days=14 --------
+        // Aggregates the last N days into the three tape columns:
+        //   news:        BETA_12_News_digest rows tagged by category + keywords
+        //   moves:       MOVER_EXPLANATIONS_daily rows where annotation matched a topic
+        //   unexplained: MOVER_EXPLANATIONS_daily rows where annotation had no topic match
+        // Default 14d, clamped [7,30]. Replaces the hardcoded TAPE_NEWS/MOVES/UNEXPLAINED arrays.
+        if (path === "/query/tape-window") {
+          const days = Math.max(7, Math.min(30, parseInt(url.searchParams.get("days") || "14", 10)));
+          const cutoff = new Date();
+          cutoff.setUTCDate(cutoff.getUTCDate() - days);
+          const cutoffIso = cutoff.toISOString().slice(0, 10);
+
+          const newsLimit = Math.max(20, Math.min(120, parseInt(url.searchParams.get("news_limit") || "60", 10)));
+          const [newsRes, moversRes] = await Promise.all([
+            db.prepare(
+              `SELECT date, type, ticker, category, title, summary, source, sentiment, magnitude, rank
+                 FROM BETA_12_News_digest
+                WHERE date >= ?
+                ORDER BY date DESC, ABS(COALESCE(magnitude, 0)) DESC, rank ASC
+                LIMIT ?`
+            ).bind(cutoffIso, newsLimit).all(),
+            db.prepare(
+              `SELECT date, ticker, direction, move_pct, rank, annotation_json
+                 FROM MOVER_EXPLANATIONS_daily
+                WHERE date >= ?
+                ORDER BY date DESC, ABS(move_pct) DESC`
+            ).bind(cutoffIso).all(),
+          ]);
+
+          // Theme vocabulary mirrors the dashboard's CSS classes:
+          //   tariffs · oil · ai-capex · rates · earnings · china · untagged
+          const CAT_TO_THEME = {
+            "energy": "oil",
+            "trade": "tariffs",
+            "central_banks": "rates",
+            "tariffs": "tariffs",
+          };
+          function deriveThemes(row) {
+            const tags = new Set();
+            const cat = (row.category || "").toLowerCase();
+            if (CAT_TO_THEME[cat]) tags.add(CAT_TO_THEME[cat]);
+            const txt = `${(row.title || "")} ${(row.summary || "")}`.toLowerCase();
+            if (/\b(oil|crude|opec|wti|brent|hormuz|barrel)\b/.test(txt))            tags.add("oil");
+            if (/\btariff|trade war|export control/.test(txt))                       tags.add("tariffs");
+            if (/\b(fed|fomc|powell|rate cut|rate hike|terminal rate|yields|treasury)\b/.test(txt)) tags.add("rates");
+            if (/\bchina\b/.test(txt))                                               tags.add("china");
+            if (/\b(ai|gpu|datacenter|capex|nvidia|hyperscaler)\b/.test(txt))        tags.add("ai-capex");
+            if (/\b(earning|guidance|beat|miss|results|q[1-4]\b)/.test(txt))         tags.add("earnings");
+            return [...tags];
+          }
+          function deriveThemesFromText(txt) {
+            return deriveThemes({ title: txt, summary: "" });
+          }
+
+          const news = (newsRes.results || []).map(r => {
+            const tags = deriveThemes(r);
+            return {
+              d: r.date.slice(5),                          // MM-DD for display
+              date: r.date,
+              src: ((r.source || "") + "").toUpperCase().slice(0, 8),
+              tags,
+              tickers: r.ticker ? [r.ticker] : [],
+              type: r.type,
+              hed: r.title || r.summary || "",
+            };
+          });
+
+          const moves = [];
+          const unexplained = [];
+          for (const r of (moversRes.results || [])) {
+            let payload = null;
+            try { payload = JSON.parse(r.annotation_json || ""); } catch {}
+            const matched = !!(payload && payload.topic_id);
+            const sentence = payload?.sentence || null;
+            const desc = sentence || (matched ? "matched topic" : "no theme match · move > 2σ · investigate");
+            const themes = sentence ? deriveThemesFromText(sentence) : [];
+            const out = {
+              d: r.date.slice(5),
+              date: r.date,
+              tk: r.ticker,
+              mv: r.move_pct,
+              tags: matched ? (themes.length ? themes : ["matched"]) : ["untagged"],
+              desc,
+            };
+            if (matched) moves.push(out);
+            else         unexplained.push(out);
+          }
+
+          return Response.json({
+            days,
+            cutoff: cutoffIso,
+            news_count:        news.length,
+            move_count:        moves.length,
+            unexplained_count: unexplained.length,
+            news,
+            moves,
+            unexplained,
+          }, { headers: corsHeaders });
+        }
+
         // -------- GET /query/macro-trend --------
         if (path === "/query/macro-trend") {
           const row = await db.prepare(`

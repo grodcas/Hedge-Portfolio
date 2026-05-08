@@ -1342,7 +1342,7 @@
 <body>
 
 <header class="topnav">
-  <div class="brand">Hedge Portfolio <span class="tag">v2 · BALANCED — slide-outs LIVE; grids placeholder</span></div>
+  <div class="brand">Hedge Portfolio <span class="tag">v2 · BALANCED — all grids + slide-outs LIVE</span></div>
   <nav>
     <a href="#today">Today</a>
     <a href="#book">Book</a>
@@ -1360,7 +1360,7 @@
 </header>
 
 <div class="data-banner">
-  <strong>Data status:</strong> The <strong>book grid, sector strip, cross-asset tiles, regime banner, recent macro prints</strong>, and all <strong>slide-outs</strong> are LIVE — they read POSITION_01_Daily / STOCK_FACTORS_daily / SECTOR_FACTORS_daily / MACRO_STATE_indicators / TICKER_TREND_long. A few book columns (margin / FCF sparklines, attention score) and the <strong>main TAPE view</strong> (news + moves grid) still ship hardcoded placeholder content — wire-up pending. Click any row to open its real slide-out.
+  <strong>Data status:</strong> All grids are LIVE — book grid, sector strip, cross-asset tiles, regime banner, recent macro prints, and the <strong>main TAPE view</strong> (news + moves) read POSITION_01_Daily / STOCK_FACTORS_daily / SECTOR_FACTORS_daily / MACRO_STATE_indicators / BETA_12_News_digest / MOVER_EXPLANATIONS_daily / TICKER_TREND_long. A few book columns (margin / FCF sparklines, attention score) still render — until the underlying time-series aggregation lands. Click any row to open its real slide-out.
 </div>
 
 <!-- ===================== TODAY ===================== -->
@@ -2664,11 +2664,8 @@
       </div>
     </div>
 
-    <!-- PLACEHOLDER (only one left): TAPE_NEWS / TAPE_MOVES / TAPE_UNEXPLAINED
-         arrays at ~line 3080 are still hardcoded. Wire-up is bigger than tonight's
-         scope (theme-tag vocabulary + scope filters + sector mapping). The
-         "Today" tape-agent-card below DOES use LIVE /api/tape-annotations. -->
-    <div class="tape-grid is-placeholder">
+    <!-- LIVE: hydrated from /api/tape-window on first open. -->
+    <div class="tape-grid">
       <!-- ============ LEFT: NEWS ============ -->
       <div class="tape-col">
         <h3>NEWS · LAST 14D <span class="meta"><span id="tape-news-ct" class="ct">11</span> items · scored by relevance to portfolio sectors</span></h3>
@@ -3175,39 +3172,15 @@
   // A news item or move can carry multiple themes — comma-listed in tags[].
   // tickers[] = which book names this item touches (for "held names" filter).
 
-  const TAPE_NEWS = [
-    { d:"04-26", src:"TRADE", tags:["ai-capex"],            tickers:["NVDA","INTC"], hed:"AMD adds <em>cautious-on-inventory</em> language to MD&A — first time this cycle" },
-    { d:"04-25", src:"REUTERS", tags:["ai-capex"],          tickers:["NVDA","MSFT","GOOG","META","AMZN"], hed:"Top-3 hyperscaler capex Q1 prints <strong>+28% YoY</strong> — pace of buildout intact" },
-    { d:"04-24", src:"BLOOM", tags:["oil"],                 tickers:["XOM","CVX","OXY"], hed:"OPEC+ extends production cuts through Q3 — Saudi reaffirms discipline" },
-    { d:"04-23", src:"WSJ",  tags:["tariffs","china"],      tickers:[], hed:"White House signals <strong>new tariff round</strong> on EV components and semis — list expected within 2 weeks" },
-    { d:"04-22", src:"PRESS", tags:["ai-capex","earnings"], tickers:["NVDA"], hed:"NVDA datacenter Q1 guide <strong>+5% above whisper</strong> — sell-side responds with +12 upward revisions" },
-    { d:"04-22", src:"FILING", tags:["china","ai-capex"],   tickers:["NVDA"], hed:"NVDA 10-K adds China export controls as <em>material disclosed risk</em> for first time" },
-    { d:"04-19", src:"TRADE", tags:["ai-capex"],            tickers:["NVDA","MSFT","META"], hed:"Hyperscaler capex pause headline circulates — denied within hours by reporting" },
-    { d:"04-18", src:"REUTERS", tags:["rates"],             tickers:[], hed:"Fed speakers (Bostic, Mester) more hawkish on inflation — terminal-rate path lifts 8bp" },
-    { d:"04-17", src:"BLS",  tags:["rates"],                tickers:[], hed:"Initial claims 4w avg rises to <strong>222k</strong> — highest since January, third consecutive uptick" },
-    { d:"04-16", src:"ISM",  tags:["rates"],                tickers:[], hed:"ISM Manufacturing prints <strong>49.8</strong> — second consecutive sub-50 reading" },
-    { d:"04-15", src:"BLOOM", tags:["rates"],               tickers:[], hed:"Treasury 10Y auction soft — yields back up to 4.18%, real 5Y −6bp on the month" },
-    { d:"04-14", src:"WH",   tags:["tariffs"],              tickers:["AMZN","TSLA","HD"], hed:"Trade rep escalates rhetoric on EU/Mexico autos — automotive sector specifically named" },
-  ];
-
-  // Moves carry the same theme tags (when there's a candidate match).
-  // Untagged moves go to the UNEXPLAINED column — surfaced, not hidden.
-  const TAPE_MOVES = [
-    { d:"04-26", tk:"NVDA", mv:-2.1, tags:["ai-capex"],  desc:"post AMD-MD&A inventory line" },
-    { d:"04-25", tk:"XOM",  mv:+1.8, tags:["oil"],       desc:"post OPEC+ extension" },
-    { d:"04-24", tk:"OXY",  mv:+2.4, tags:["oil"],       desc:"oil tailwind continues" },
-    { d:"04-22", tk:"INTC", mv:-3.5, tags:["ai-capex"],  desc:"NVDA-relative on guide" },
-    { d:"04-19", tk:"NVDA", mv:+1.2, tags:["ai-capex"],  desc:"capex-pause story digested as noise" },
-    { d:"04-18", tk:"LLY",  mv:-2.1, tags:["rates"],     desc:"long-duration high-multiple sensitivity" },
-    { d:"04-16", tk:"META", mv:-1.6, tags:["rates"],     desc:"duration trade pressure" },
-    { d:"04-15", tk:"SPY",  mv:-0.9, tags:["rates"],     desc:"index move post auction" },
-  ];
-
-  const TAPE_UNEXPLAINED = [
-    { d:"04-23", tk:"BA",   mv:-2.8, tags:["untagged"], desc:"no theme match · move &gt; 2σ · investigate (possible flow / leak / supply-chain leak)" },
-    { d:"04-21", tk:"AMT",  mv:-3.4, tags:["untagged"], desc:"no theme match · move &gt; 2σ · investigate (possible analyst action pre-print)" },
-    { d:"04-14", tk:"TSLA", mv:+4.2, tags:["untagged"], desc:"no theme match · move &gt; 2σ · investigate (China-tariff news adjacent but TSLA not directly named)" },
-  ];
+  // LIVE: hydrated from /api/tape-window on first openTape() (or refresh).
+  // Each row shape matches what renderTape() consumes:
+  //   news: { d, date, src, tags[], tickers[], hed }
+  //   moves / unexplained: { d, date, tk, mv, tags[], desc }
+  let TAPE_NEWS = [];
+  let TAPE_MOVES = [];
+  let TAPE_UNEXPLAINED = [];
+  let TAPE_LOADED = false;
+  let TAPE_LOADING = null;
 
   // Currently held tickers — used by the "held names only" filter.
   const HELD_TICKERS = new Set(ROWS_UNIQ.map(r => r.tk));
@@ -3305,8 +3278,35 @@
     document.getElementById("tp-scope-label").textContent = label;
   }
 
+  function loadTapeWindow() {
+    // First open kicks off the fetch; subsequent opens reuse the in-memory arrays.
+    // While loading, we render whatever we have (empty arrays show the empty-state
+    // strings) and re-render once data lands.
+    if (TAPE_LOADED || TAPE_LOADING) return TAPE_LOADING;
+    TAPE_LOADING = fetch("/api/tape-window?days=14")
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then(data => {
+        TAPE_NEWS = Array.isArray(data.news) ? data.news : [];
+        TAPE_MOVES = Array.isArray(data.moves) ? data.moves : [];
+        TAPE_UNEXPLAINED = Array.isArray(data.unexplained) ? data.unexplained : [];
+        TAPE_LOADED = true;
+        // Re-render whatever scope is currently active so the columns hydrate.
+        const active = document.querySelector(".tape-filter.active");
+        const scope = active?.dataset.tapeFilter || "all";
+        renderTape(scope);
+      })
+      .catch(err => {
+        console.error("[tape-window]", err);
+        const newsEl = document.getElementById("tape-news");
+        if (newsEl) newsEl.innerHTML = `<div style="font-size:11px;color:var(--bad);padding:14px 0">tape-window load failed: ${err.message}</div>`;
+      })
+      .finally(() => { TAPE_LOADING = null; });
+    return TAPE_LOADING;
+  }
+
   function openTape(scope) {
-    renderTape(scope || "all");
+    renderTape(scope || "all");                // immediate render with whatever we have
+    loadTapeWindow();                          // fetch fresh data; re-renders on completion
     if (typeof loadTapeAnnotations === "function") loadTapeAnnotations();
     document.getElementById("tapepanel").classList.add("open");
     document.getElementById("panel-backdrop").classList.add("open");
