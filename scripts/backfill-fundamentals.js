@@ -92,18 +92,14 @@ function toRow(ticker, entry) {
     short_term_debt: null,
     long_term_debt:  v(bs, "long_term_debt"),
     shares_outstanding: null,
-    // Cash flow. Polygon DOES expose capex in the cash_flow_statement block
-    // under the GAAP-aligned `payments_for_property_plant_and_equipment` key
-    // (with a couple of historical alternates). The original backfill set
-    // capex=null and added a comment about an "AV fallback" that was never
-    // built — so FCF (cfo - capex) was unfillable for ~half the rows. Pull
-    // it here. Sign convention: Polygon emits payments as a positive number,
-    // so FCF math is `cfo - capex` (consumers don't need to flip signs).
+    // Cash flow. Polygon's free-tier financials block exposes only the
+    // aggregate net_cash_flow_from_investing_activities — capex is NOT
+    // broken out (verified against the live response: only the 4 standard
+    // net_cash_flow_* aggregates appear). Capex is patched by a separate
+    // pass: scripts/backfill-capex-av.js uses Alpha Vantage's CASH_FLOW
+    // function which exposes capitalExpenditures directly.
     cfo:             v(cf, "net_cash_flow_from_operating_activities"),
-    capex:           v(cf,
-                       "payments_for_property_plant_and_equipment",
-                       "payments_to_acquire_property_plant_and_equipment",
-                       "capital_expenditure"),
+    capex:           null,
     cfi:             v(cf, "net_cash_flow_from_investing_activities"),
     cff:             v(cf, "net_cash_flow_from_financing_activities"),
     dividends_paid:  null,
