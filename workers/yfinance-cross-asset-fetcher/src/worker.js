@@ -34,6 +34,10 @@ const SYMBOLS = [
   ["GC=F",     "GOLD",   "Gold Front-Month Futures",         "$/oz"],
   ["CL=F",     "WTI",    "WTI Crude Front-Month Futures",    "$/bbl"],
   ["^VVIX",    "VVIX",   "CBOE VVIX (vol of vol)",           "index"],
+  // SPX added 2026-05-08: the macro-thesis prose cites the index level but
+  // it was missing from MACRO_STATE_indicators, leaving the cross-asset tile
+  // empty. Yahoo ^GSPC is the S&P 500 cash index level (closes 4pm ET daily).
+  ["^GSPC",    "SPX",    "S&P 500 Index",                    "level"],
 ];
 
 export default {

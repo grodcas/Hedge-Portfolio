@@ -68,9 +68,60 @@ export default {
             return Response.json({ error: "thesis_json failed to parse" }, { status: 500, headers: corsHeaders });
           }
 
+          // Derived regime classifier — runs at read-time, no LLM cost. Reads
+          // the latest values of the same indicators the macro-thesis-agent
+          // already ingests, applies a thresholded rule, surfaces a label like
+          // "soft-landing" / "late-cycle" / "risk-off" / "mixed". BETA_10's
+          // own `regime` column stays as written (or null), but if it's null
+          // we override with the derived label so the UI never shows "—".
+          let derivedRegime = null;
+          try {
+            const indRows = await db.prepare(`
+              SELECT i.indicator_code, i.value
+                FROM MACRO_STATE_indicators i
+                INNER JOIN (
+                  SELECT indicator_code, MAX(release_date) AS d
+                    FROM MACRO_STATE_indicators
+                   WHERE indicator_code IN ('INITIAL_CLAIMS','OAS_HY','VIX','INDPRO')
+                   GROUP BY indicator_code
+                ) g ON g.indicator_code = i.indicator_code AND g.d = i.release_date
+            `).all();
+            const ind = {};
+            for (const r of (indRows.results || [])) ind[r.indicator_code] = r.value;
+            const claims = ind.INITIAL_CLAIMS;
+            const oas    = ind.OAS_HY;
+            const vix    = ind.VIX;
+            const indpro = ind.INDPRO;
+            // Risk-off: any of the three stress signals firing hard
+            if ((claims != null && claims > 320000) ||
+                (oas    != null && oas    > 6.0) ||
+                (vix    != null && vix    > 30)) {
+              derivedRegime = "risk-off";
+            }
+            // Soft-landing: stress low + activity holding up
+            else if (claims != null && claims < 240000 &&
+                     oas    != null && oas    < 4.0 &&
+                     vix    != null && vix    < 20 &&
+                     indpro != null && indpro >= 100) {
+              derivedRegime = "soft-landing";
+            }
+            // Late-cycle expansion: looser bands, still benign
+            else if (claims != null && claims < 270000 &&
+                     oas    != null && oas    < 5.0 &&
+                     vix    != null && vix    < 25) {
+              derivedRegime = "late-cycle";
+            }
+            else {
+              derivedRegime = "mixed";
+            }
+          } catch {
+            derivedRegime = null;
+          }
+
           return Response.json({
             id: row.id,
-            regime: row.regime,
+            regime: row.regime || derivedRegime,
+            regime_source: row.regime ? "agent" : (derivedRegime ? "derived" : null),
             confidence: row.confidence,
             creation_date: row.creation_date,
             thesis_updated_at: row.thesis_updated_at,
@@ -728,11 +779,21 @@ export default {
         // price sparkline computed from PRICE_01_Daily for the sector ETF.
         // Replaces the dashboard's hardcoded SECTORS_V2 array.
         if (path === "/query/sector-strip") {
+          // 8-sector universe — must match workers/sector-factor-builder/src/worker.js
+          // SECTOR_ETF (line 38). Prior 11-entry map silently dropped breadth +
+          // stance because 7 of the keys never matched any SECTOR_FACTORS_daily
+          // row (sector-factor-builder only writes these 8). Materials/XLB,
+          // Utilities/XLU, RealEstate/XLRE intentionally excluded — no AI agent
+          // and no factor row exists for them today.
           const ETF_BY_SECTOR = {
-            "Technology": "XLK", "Energy": "XLE", "Finance": "XLF",
-            "Healthcare": "XLV", "Industrial": "XLI", "Consumer": "XLP",
-            "Materials": "XLB", "Utilities": "XLU", "Real Estate": "XLRE",
-            "Consumer Discretionary": "XLY", "Communication": "XLC",
+            Technology:    "XLK",
+            ConsDisc:      "XLY",
+            Communication: "XLC",
+            Finance:       "XLF",
+            Energy:        "XLE",
+            Healthcare:    "XLV",
+            Staples:       "XLP",
+            Industrial:    "XLI",
           };
           const factorsRes = await db.prepare(
             `SELECT s.* FROM SECTOR_FACTORS_daily s

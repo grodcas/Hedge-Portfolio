@@ -279,7 +279,8 @@ RULES
 - If the panel shows |Z| > 1.5 on a series that anchors a driver, REFLECT that in magnitude (e.g. fresh hot inflation print → larger UW long-duration tilt).
 - Honor the soft cap: do not stack > +5 across all sector OWs. Cash is the residual.
 - If prior positioning is unchanged in spirit, KEEP the tilts (same name + stance), only adjust magnitude / window. New tilts only when a new driver or tripwire breach justifies one.
-- Prose must take a position; no hedging language.`;
+- Prose must take a position; no hedging language.
+- TERMINOLOGY: When citing the broad-dollar indicator (indicator_code DXY_BROAD, currently 117–120 range), ALWAYS label it "Broad USD" or "Trade-Weighted USD". DO NOT write "DXY" — that's the ICE 6-currency index trading near 98, a DIFFERENT number. Mixing the two confuses readers.`;
 }
 
 function fmtNum(v) {

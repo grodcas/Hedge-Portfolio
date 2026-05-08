@@ -269,7 +269,8 @@ RULES
 - Drivers are interpretive frames the market is using right now (sell-side / Fed-speak language). Tripwires are MEASURABLE conditions that, if breached, would break the thesis.
 - Ground every claim in the indicator values above. If a number isn't in the panel or cross-asset state, do not cite it.
 - If the previous thesis still holds (drivers / tripwires unchanged in spirit), keep them — only swap when the data demands. Edit prose to reflect fresh values.
-- Prose must take a position. Avoid hedging language ("may", "could go either way", "we'll watch"). Land on whether the regime is intact, weakening, or breaking.`;
+- Prose must take a position. Avoid hedging language ("may", "could go either way", "we'll watch"). Land on whether the regime is intact, weakening, or breaking.
+- TERMINOLOGY: When citing the broad-dollar indicator (indicator_code DXY_BROAD, currently in the high-110s/low-120s range), ALWAYS label it "Broad USD" or "Trade-Weighted USD". DO NOT write "DXY" — that conventionally refers to the ICE 6-currency Dollar Index, which is a DIFFERENT index trading near 98 right now. Mixing the two confuses the reader.`;
 }
 
 function fmtIndicatorLine(r) {

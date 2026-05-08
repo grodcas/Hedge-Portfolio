@@ -3165,8 +3165,10 @@
           const rs = s.rel_strength_13w == null ? null : s.rel_strength_13w * 100;
           const fmtRs = rs == null ? "—" : (rs >= 0 ? "+" : "") + rs.toFixed(1);
           const fmtBreadth = breadthPct == null ? "—" : `${breadthPct}%`;
+          // data-sector is the ETF ticker — openSector() expects ETF and looks
+          // up ETF_TO_SECTOR for the canonical sector name passed to the agents.
           return `
-            <tr class="clickable" data-sector="${s.sector}">
+            <tr class="clickable" data-sector="${s.etf}">
               <td class="sec-name"><span class="etf">${s.etf}</span>${s.sector}</td>
               <td class="${deltaCls(s.d1)}">${s.d1 == null ? "—" : fmtPct(s.d1)}</td>
               <td class="${deltaCls(s.d5)}">${s.d5 == null ? "—" : fmtPct(s.d5)}</td>
@@ -3452,6 +3454,24 @@
     { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]
   ));
   const __mFmtTs = (iso) => iso ? new Date(iso).toUTCString().replace("GMT","UTC") : "?";
+  // Relative-age formatter. Surfaces freshness on per-panel meta lines so the
+  // analyst can see at a glance which slide-out cards are current vs gated-stale
+  // by a few days (cascade gates only re-fire on meaningful trigger changes).
+  const __mFmtTsAgo = (iso) => {
+    if (!iso) return "?";
+    const updated = new Date(iso);
+    if (isNaN(updated.getTime())) return "?";
+    const dateStr = iso.slice(0, 10);
+    const diffMs = Date.now() - updated.getTime();
+    const days = Math.floor(diffMs / 86400000);
+    let rel;
+    if (days <= 0) {
+      const hours = Math.floor(diffMs / 3600000);
+      rel = hours <= 0 ? "just now" : (hours === 1 ? "1h ago" : `${hours}h ago`);
+    } else if (days === 1) rel = "1d ago";
+    else                   rel = `${days}d ago`;
+    return `${dateStr} · ${rel}`;
+  };
   const __mFmtDate = (yyyy_mm_dd) => {
     if (!yyyy_mm_dd || !/^\d{4}-\d{2}-\d{2}/.test(yyyy_mm_dd)) return "?";
     const [, mm, dd] = yyyy_mm_dd.match(/^\d{4}-(\d{2})-(\d{2})/);
@@ -3688,7 +3708,7 @@
         const tripwires = Array.isArray(t.tripwires) ? t.tripwires : [];
         const card = document.getElementById("sector-thesis-card");
         card.querySelector("[data-st-meta]").textContent =
-          `S2 · ${__mEsc(sectorName)} · v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+          `S2 · ${__mEsc(sectorName)} · v${t.version ?? "?"} · updated ${__mFmtTsAgo(data.updated_at)} · ${__mEsc(data.model || "?")}`;
         card.querySelector("[data-st-sources]").textContent =
           `Sources: SECTOR_TREND_long.thesis_json · SECTOR_FACTORS_daily · sector-specific MACRO_STATE_indicators · macro-sector-thesis-agent (${data.model || "?"})`;
         card.querySelector("[data-st-prose]").textContent = t.prose || "(no prose)";
@@ -3722,7 +3742,7 @@
         const actions = Array.isArray(t.actions) ? t.actions : [];
         const card = document.getElementById("sector-impl-card");
         card.querySelector("[data-si-meta]").textContent =
-          `· S4 v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+          `· S4 v${t.version ?? "?"} · updated ${__mFmtTsAgo(data.updated_at)} · ${__mEsc(data.model || "?")}`;
         card.querySelector("[data-si-prose]").textContent = t.prose || "(no prose)";
         const actColor = (a) => a === "OW" || a === "initiate" ? "var(--bull)" :
                                 a === "UW" || a === "exit"     ? "var(--bear)" : "var(--text2)";
@@ -3752,7 +3772,7 @@
         const hedges = Array.isArray(t.hedges) ? t.hedges : [];
         const card = document.getElementById("sector-hedges-card");
         card.querySelector("[data-sh-meta]").textContent =
-          `· S5 v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+          `· S5 v${t.version ?? "?"} · updated ${__mFmtTsAgo(data.updated_at)} · ${__mEsc(data.model || "?")}`;
         card.querySelector("[data-sh-prose]").textContent = t.prose || "(no prose)";
         card.querySelector("[data-sh-list]").innerHTML = hedges.map(h => `
           <li>
@@ -3777,7 +3797,7 @@
         const t = data.payload || {};
         const card = document.getElementById("sector-read-card");
         card.querySelector("[data-sr-meta]").textContent =
-          `S6 · ${__mEsc(sectorName)} · v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+          `S6 · ${__mEsc(sectorName)} · v${t.version ?? "?"} · updated ${__mFmtTsAgo(data.updated_at)} · ${__mEsc(data.model || "?")}`;
         card.querySelector("[data-sr-prose]").textContent = t.prose || "(no prose)";
       })
       .catch(err => {
@@ -3806,7 +3826,7 @@
         const card = document.getElementById("ticker-read-card");
         card.querySelector("[data-tr-tk]").textContent = ticker;
         card.querySelector("[data-tr-meta]").textContent =
-          `#10 v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+          `#10 v${t.version ?? "?"} · updated ${__mFmtTsAgo(data.updated_at)} · ${__mEsc(data.model || "?")}`;
         card.querySelector("[data-tr-prose]").textContent = t.prose || "(no prose)";
       })
       .catch(err => {
@@ -3827,7 +3847,7 @@
         const card = document.getElementById("ticker-thesis-card");
         card.querySelector("[data-tt-tk]").textContent = ticker;
         card.querySelector("[data-tt-meta]").textContent =
-          `#7 v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+          `#7 v${t.version ?? "?"} · updated ${__mFmtTsAgo(data.updated_at)} · ${__mEsc(data.model || "?")}`;
         card.querySelector("[data-tt-prose]").textContent = t.prose || "(no prose)";
         card.querySelector("[data-tt-drivers-head]").textContent = `DRIVERS (${drivers.length})`;
         card.querySelector("[data-tt-tripwires-head]").textContent = `TRIPWIRES (${tripwires.length})`;
@@ -3861,7 +3881,7 @@
                             t.stance === "trim" ? "var(--warn)" :
                             t.stance === "exit" ? "var(--bear)" : "var(--text2)";
         card.querySelector("[data-trec-meta]").textContent =
-          `#9 v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+          `#9 v${t.version ?? "?"} · updated ${__mFmtTsAgo(data.updated_at)} · ${__mEsc(data.model || "?")}`;
         const stanceEl = card.querySelector("[data-trec-stance]");
         stanceEl.textContent = (t.stance || "?").toUpperCase();
         stanceEl.style.color = stanceColor;
@@ -3885,7 +3905,7 @@
         const t = data.payload || {};
         const card = document.getElementById("ticker-val-card");
         card.querySelector("[data-tval-meta]").textContent =
-          `#1 v${t.version ?? "?"} · ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+          `#1 v${t.version ?? "?"} · ${__mFmtTsAgo(data.updated_at)} · ${__mEsc(data.model || "?")}`;
         card.querySelector("[data-tval-verdict]").textContent = t.verdict || "—";
         card.querySelector("[data-tval-vswhat]").textContent = t.vs_what || "—";
         card.querySelector("[data-tval-prose]").textContent = t.prose || "(no prose)";
@@ -3903,7 +3923,7 @@
         const deltas = Array.isArray(t.top_3_deltas) ? t.top_3_deltas : [];
         const card = document.getElementById("ticker-fund-card");
         card.querySelector("[data-tfund-meta]").textContent =
-          `#2 v${t.version ?? "?"} · ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+          `#2 v${t.version ?? "?"} · ${__mFmtTsAgo(data.updated_at)} · ${__mEsc(data.model || "?")}`;
         card.querySelector("[data-tfund-verdict]").textContent = t.verdict || "—";
         card.querySelector("[data-tfund-prose]").textContent = t.prose || "(no prose)";
         card.querySelector("[data-tfund-deltas]").innerHTML = deltas.length
@@ -3922,7 +3942,7 @@
         const t = data.payload || {};
         const card = document.getElementById("ticker-est-card");
         card.querySelector("[data-test-meta]").textContent =
-          `#3 v${t.version ?? "?"} · ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+          `#3 v${t.version ?? "?"} · ${__mFmtTsAgo(data.updated_at)} · ${__mEsc(data.model || "?")}`;
         card.querySelector("[data-test-verdict]").textContent = t.verdict || "—";
         card.querySelector("[data-test-fade]").textContent = t.fade_year || "—";
         card.querySelector("[data-test-prose]").textContent = t.prose || "(no prose)";
@@ -3939,7 +3959,7 @@
         const t = data.payload || {};
         const card = document.getElementById("ticker-peers-card");
         card.querySelector("[data-tpeers-meta]").textContent =
-          `#4 v${t.version ?? "?"} · ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+          `#4 v${t.version ?? "?"} · ${__mFmtTsAgo(data.updated_at)} · ${__mEsc(data.model || "?")}`;
         card.querySelector("[data-tpeers-pos]").textContent = t.relative_position || "—";
         card.querySelector("[data-tpeers-prem]").textContent = t.premium_status || "—";
         card.querySelector("[data-tpeers-count]").textContent = t.peer_count ?? "—";
@@ -3957,7 +3977,7 @@
         const t = data.payload || {};
         const card = document.getElementById("ticker-context-card");
         card.querySelector("[data-tctx-meta]").textContent =
-          `#6 v${t.version ?? "?"} · ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+          `#6 v${t.version ?? "?"} · ${__mFmtTsAgo(data.updated_at)} · ${__mEsc(data.model || "?")}`;
         card.querySelector("[data-tctx-verdict]").textContent = t.verdict || "—";
         card.querySelector("[data-tctx-events]").textContent = t.event_count ?? "—";
         card.querySelector("[data-tctx-prose]").textContent = t.prose || "(no prose)";
@@ -3975,7 +3995,7 @@
         const fired = Array.isArray(t.tripwires_fired) ? t.tripwires_fired : [];
         const card = document.getElementById("ticker-drift-card");
         card.querySelector("[data-tdr-meta]").textContent =
-          `#5 v${t.version ?? "?"} · ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+          `#5 v${t.version ?? "?"} · ${__mFmtTsAgo(data.updated_at)} · ${__mEsc(data.model || "?")}`;
         card.querySelector("[data-tdr-verdict]").textContent = t.verdict || "—";
         card.querySelector("[data-tdr-topics]").textContent = t.topic_count ?? "—";
         card.querySelector("[data-tdr-fired]").textContent = fired.length ? fired.join(", ") : "(none)";
@@ -3994,7 +4014,7 @@
         const bullets = Array.isArray(t.bullets) ? t.bullets : [];
         const card = document.getElementById("ticker-notes-card");
         card.querySelector("[data-tn-meta]").textContent =
-          `#8 v${t.version ?? "?"} · ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")} · ${bullets.length} bullets`;
+          `#8 v${t.version ?? "?"} · ${__mFmtTsAgo(data.updated_at)} · ${__mEsc(data.model || "?")} · ${bullets.length} bullets`;
         card.querySelector("[data-tn-list]").innerHTML = bullets.length
           ? bullets.map(b => {
               const tags = [
@@ -4023,7 +4043,7 @@
         const card = document.getElementById("ticker-earn-card");
         card.querySelector("[data-tearn-period]").textContent = t.period || "—";
         card.querySelector("[data-tearn-meta]").textContent =
-          `#11 v${t.version ?? "?"} · ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+          `#11 v${t.version ?? "?"} · ${__mFmtTsAgo(data.updated_at)} · ${__mEsc(data.model || "?")}`;
         card.querySelector("[data-tearn-surprise]").textContent =
           (typeof t.surprise_pct === "number") ? t.surprise_pct.toFixed(2) : "—";
         card.querySelector("[data-tearn-bullets]").innerHTML = bullets.length
@@ -4235,7 +4255,7 @@
     render: (el, data) => {
       const t = data.payload || {};
       el.querySelector("[data-mr-meta]").textContent =
-        `M6 · v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+        `M6 · v${t.version ?? "?"} · updated ${__mFmtTsAgo(data.updated_at)} · ${__mEsc(data.model || "?")}`;
       el.querySelector("[data-mr-prose]").textContent = t.prose || "(no prose)";
     },
     fallback: (el, err) => {
@@ -4288,7 +4308,7 @@
       const events = allEvents.filter((e) => e.date >= today);
       const droppedCount = allEvents.length - events.length;
       el.querySelector("[data-ms-meta]").textContent =
-        `· next 21 days · v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}` +
+        `· next 21 days · v${t.version ?? "?"} · updated ${__mFmtTsAgo(data.updated_at)} · ${__mEsc(data.model || "?")}` +
         (droppedCount > 0 ? ` · (${droppedCount} past event${droppedCount === 1 ? "" : "s"} resolved)` : "");
       const daysUntil = (yyyy_mm_dd) => {
         const a = new Date(today + "T00:00:00Z");
@@ -4323,7 +4343,7 @@
       const tilts = Array.isArray(t.tilts) ? t.tilts : [];
       tilts.sort((a, b) => (b.magnitude || 0) - (a.magnitude || 0));
       el.querySelector("[data-mp-meta]").textContent =
-        `M4 · v${t.version ?? "?"} · updated ${__mFmtTs(data.updated_at)} · ${__mEsc(data.model || "?")}`;
+        `M4 · v${t.version ?? "?"} · updated ${__mFmtTsAgo(data.updated_at)} · ${__mEsc(data.model || "?")}`;
       el.querySelector("[data-mp-prose]").textContent = t.prose || "(no prose)";
       el.querySelector("[data-mp-tilts]").innerHTML = tilts.map((tilt) => {
         const stanceColor = tilt.stance === "OW" ? "var(--good)" : tilt.stance === "UW" ? "var(--bad)" : "var(--muted)";
