@@ -9,6 +9,8 @@
  *   GET /build?date=YYYY-MM-DD&n=5   — defaults to today, top 5 each direction
  */
 
+import { assertProseMatchesMoveSign } from "../../_shared/agent-validators.js";
+
 const TRACKED_TICKERS = new Set([
   "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK.B",
   "JPM", "GS", "BAC", "MS", "XOM", "CVX", "UNH", "LLY", "JNJ",
@@ -156,6 +158,10 @@ RULES
 - DO NOT invent events that are not in the input.`;
 
   const blob = await callGPT5(apiKey, prompt);
+
+  // Direction-sanity check: prose must not contradict the actual move sign.
+  // Catches LLM howlers like "rose on strong earnings" written for a -3% day.
+  assertProseMatchesMoveSign(blob.thesis, pct, `big-movers-why ${ticker} ${date}`);
 
   const id = await shortHash(`mover|${date}|${ticker}`);
   await db

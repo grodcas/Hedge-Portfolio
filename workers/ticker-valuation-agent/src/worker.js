@@ -28,6 +28,7 @@
  */
 
 import { callLLM } from "../../_shared/llm.js";
+import { assertVsWhatConsistent } from "../../_shared/agent-validators.js";
 
 const MODEL = "gpt-5";
 const VALID_VERDICTS = new Set(["cheap", "fair", "rich"]);
@@ -294,6 +295,10 @@ function validate(blob) {
   if (!VALID_VS_WHAT.has(blob.vs_what)) {
     throw new Error(`invalid vs_what: ${blob.vs_what}`);
   }
+  // Prose must not contradict the structural vs_what enum (e.g. vs_what=
+  // "own_history" while prose says "vs sector peers"). The two-sentence
+  // limit on prose makes this a reliable check.
+  assertVsWhatConsistent(blob.vs_what, blob.prose, "ticker-valuation");
 }
 
 async function sha256(input) {

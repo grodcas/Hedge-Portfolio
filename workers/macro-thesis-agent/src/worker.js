@@ -118,9 +118,11 @@ async function build(db, apiKey, force) {
   const crossAsset = indicators.filter(r => CROSS_ASSET_CODES.has(r.indicator_code));
   const panel      = indicators.filter(r => !CROSS_ASSET_CODES.has(r.indicator_code));
 
-  // ---------- News drift verdict (M1, MS-3e). Defaults to "intact" until
-  //            M1 has run for the first time. ----------
-  let driftVerdict = "intact";
+  // ---------- News drift verdict (M1, MS-3e). Defaults to "unknown" until
+  //            M1 has run for the first time — NOT "intact". A silent intact
+  //            default would mistake "no signal yet" for "all clear" and give
+  //            users a false-positive green light. ----------
+  let driftVerdict = "unknown";
   let driftStructured = null;
   if (macroRow.news_drift_json) {
     try {

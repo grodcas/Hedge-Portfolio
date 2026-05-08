@@ -109,8 +109,12 @@ async function build(db, apiKey, ticker, force) {
   const prevThesis  = trendRow.thesis_json ? safeJson(trendRow.thesis_json) : null;
   const prevVersion = Number.isInteger(prevThesis?.version) ? prevThesis.version : 0;
 
-  const fundVerdict  = fundamentals.verdict || "(unknown)";
-  const driftVerdict = drift?.verdict || "intact";
+  const fundVerdict  = fundamentals.verdict || "unknown";
+  // Drift defaults to "unknown" rather than silently "intact" so the prompt
+  // (and downstream consumers) cannot mistake "no upstream signal yet" for
+  // "all clear". Prior behavior gave a false-positive green light on first-run
+  // tickers where #5 hadn't fired yet.
+  const driftVerdict = drift?.verdict || "unknown";
 
   const fingerprint = await sha256(JSON.stringify({
     ticker,
@@ -182,7 +186,7 @@ function buildPrompt({ ticker, sector, fundamentals, drift, macroRow, macroThesi
   driver_drift:   ${JSON.stringify(drift.driver_drift || {})}
   tripwires_fired: ${JSON.stringify(drift.tripwires_fired || [])}
   topic_count:    ${drift.topic_count ?? "?"}`
-    : "  (no news_drift run yet — assume intact)";
+    : "  (no news_drift run yet — verdict UNKNOWN, do NOT assume intact; flag the absence in prose)";
 
   const macroBlock = macroThesis?.drivers?.length
     ? macroThesis.drivers.map(d => `  - ${d.name}`).join("\n")
@@ -235,9 +239,11 @@ Output EXACTLY this JSON (no surrounding prose, no markdown fences):
   ],
   "tripwires": [
     {
-      "id":        "<short slug, e.g. 'gross_margin_below_70', 'rev_growth_below_30', 'eps_rev_negative_2q'>",
-      "condition": "<measurable, e.g. 'gross margin < 70% for 2 quarters', 'revenue growth < 30% YoY', '2 consecutive negative EPS revisions'>",
-      "currently": "<one short clause: where we are vs the threshold, with the actual number from the inputs>"
+      "id":              "<short slug, e.g. 'gross_margin_below_70', 'rev_growth_below_30', 'eps_rev_negative_2q'>",
+      "condition":       "<measurable, e.g. 'gross margin < 70% for 2 quarters', 'revenue growth < 30% YoY', '2 consecutive negative EPS revisions'>",
+      "currently_value": <number — the actual current reading from fundamentals_json deltas, NO units in the value>,
+      "threshold_value": <number — the threshold from condition above, same scale as currently_value>,
+      "currently_text":  "<one short clause stating direction: 'gross margin 73.4% — above 70% threshold' or 'revenue growth 22% — below 30% threshold'>"
     }
   ]
 }
@@ -246,6 +252,7 @@ RULES
 - 3-5 drivers. 3-5 tripwires. Quality over quantity.
 - Drivers must be NAME-SPECIFIC. Not "macro tailwind" — say "datacenter capex cycle" or "auto-replacement cycle bottoming".
 - Tripwires MUST be MEASURABLE thresholds with a current reading drawn from the fundamentals_json deltas above.
+- currently_value and threshold_value MUST be plain numbers on the SAME SCALE (both in % or both in $ or both as ratios). currently_text MUST use direction words ("above"/"below"/"at"/"exceeded") that match the actual sign of (currently_value − threshold_value).
 - If the previous thesis still holds in spirit (same drivers / tripwires), KEEP them — only edit prose to reflect fresh values.
 - Prose must take a position. No hedging language. Land on intact / weakening / breaking.
 - If fundamentals verdict is "contracting" AND drift verdict is "drifting" or "breaking", the prose MUST land on weakening or breaking.`;
@@ -270,8 +277,26 @@ function validateThesis(blob) {
     throw new Error(`invalid tripwires: must be 3-5, got ${blob.tripwires?.length ?? "?"}`);
   }
   for (const t of blob.tripwires) {
-    if (!t || typeof t.id !== "string" || typeof t.condition !== "string" || typeof t.currently !== "string") {
-      throw new Error("invalid tripwire: needs {id, condition, currently}");
+    if (!t || typeof t.id !== "string" || typeof t.condition !== "string") {
+      throw new Error("invalid tripwire: needs {id, condition, currently_value, threshold_value, currently_text}");
+    }
+    if (!Number.isFinite(t.currently_value) || !Number.isFinite(t.threshold_value)) {
+      throw new Error(`invalid tripwire ${t.id}: currently_value/threshold_value must be finite numbers`);
+    }
+    if (typeof t.currently_text !== "string" || t.currently_text.length < 5) {
+      throw new Error(`invalid tripwire ${t.id}: currently_text missing or too short`);
+    }
+    // Direction words in currently_text must match the sign of (currently - threshold).
+    // Catches the LLM contradicting its own numeric claim.
+    const above = /\b(above|exceeded|over|breached|fired|crossed)\b/i.test(t.currently_text);
+    const below = /\b(below|under|short of)\b/i.test(t.currently_text);
+    const diff  = t.currently_value - t.threshold_value;
+    const tol   = Math.abs(t.threshold_value) * 0.005 + 1e-9;   // 0.5% relative tolerance
+    if (above && !below && diff < -tol) {
+      throw new Error(`tripwire ${t.id}: text says 'above' but currently_value (${t.currently_value}) < threshold_value (${t.threshold_value})`);
+    }
+    if (below && !above && diff > tol) {
+      throw new Error(`tripwire ${t.id}: text says 'below' but currently_value (${t.currently_value}) > threshold_value (${t.threshold_value})`);
     }
   }
 }

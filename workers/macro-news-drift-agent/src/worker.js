@@ -285,6 +285,28 @@ function validateDrift(blob, drivers, tripwires) {
       throw new Error(`invalid tripwire id in tripwires_fired: '${id}'`);
     }
   }
+
+  // Verdict-mapping enforcement (the prompt RULES section line 244):
+  //   "intact":   |max driver_drift| ≤ 1 AND no tripwires fired
+  //   "drifting": majority of drivers ≤ -1 OR a single driver = -2 OR ≥ 1 tripwire fired
+  //   "breaking": (a driver = -2 AND ≥ 1 tripwire) OR ≥ 2 tripwires fired
+  // Without enforcement here, the LLM could ship verdict="intact" when the drift
+  // dict shows -2 across the board. Reject that contradiction.
+  const scores = Object.values(blob.driver_drift).map(Number).filter(Number.isFinite);
+  const tripCount = blob.tripwires_fired.length;
+  const minScore  = scores.length ? Math.min(...scores) : 0;
+  const negCount  = scores.filter(s => s <= -1).length;
+  const negShare  = scores.length ? negCount / scores.length : 0;
+  let expected;
+  if ((minScore === -2 && tripCount >= 1) || tripCount >= 2)         expected = "breaking";
+  else if (minScore === -2 || negShare > 0.5 || tripCount >= 1)      expected = "drifting";
+  else                                                               expected = "intact";
+  if (blob.verdict !== expected) {
+    throw new Error(
+      `verdict mismatch: claimed "${blob.verdict}" but mapping rule says "${expected}" ` +
+      `(min driver=${minScore}, neg share=${(negShare*100).toFixed(0)}%, tripwires fired=${tripCount})`
+    );
+  }
 }
 
 async function sha256(input) {
