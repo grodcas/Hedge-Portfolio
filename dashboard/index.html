@@ -1301,31 +1301,6 @@
     .tape-grid { grid-template-columns: 1fr; }
   }
 
-  /* ============ PLACEHOLDER MARKERS ============
-     Sections marked .is-placeholder ship hardcoded display values that have not
-     yet been wired to live data. Slide-outs (the unfoldable cards opened by
-     clicking a row) ARE live and read from /api/* endpoints. Visual treatment
-     keeps layout intact but flags the section so readers don't trust numbers.
-  */
-  .is-placeholder { position: relative; }
-  .is-placeholder::after {
-    content: "PLACEHOLDER · backend wire-up pending — click a row to open the LIVE slide-out";
-    position: absolute;
-    top: 0; right: 0;
-    background: #FEF3C7;
-    color: #92400E;
-    border: 1px solid #FDE68A;
-    border-top: none; border-right: none;
-    border-radius: 0 0 0 4px;
-    padding: 3px 8px;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    z-index: 10;
-    pointer-events: none;
-    text-transform: uppercase;
-  }
-  .is-placeholder > * { opacity: 0.78; }
   .data-banner {
     background: #FFFBEB;
     border: 1px solid #FDE68A;
@@ -1353,7 +1328,7 @@
   </nav>
   <div class="right">
     <span class="freshness" title="AI lede freshness across the dashboard"><span class="dot"></span>AI fresh · 6m ago</span>
-    <span class="pill regime" id="regime-pill" title="Click to open the macro thesis">Late-cycle 72%</span>
+    <span class="pill regime" id="regime-pill" title="Click to open the macro thesis">—</span>
     <span class="pill spy-up">SPY o/n +0.3%</span>
     <span>Tue 26 Apr 2026</span>
   </div>
@@ -1375,7 +1350,7 @@
     <span class="sep">·</span>
     <span>Tue 26 Apr 2026</span>
     <span class="sep">·</span>
-    <span>Regime <strong>Late-cycle</strong> · 0/4 tripwires</span>
+    <span>Regime <strong data-today-regime>—</strong> · <span data-today-tripwires>—</span></span>
     <span class="sep">·</span>
     <span>SPY o/n <strong style="color:var(--bull)">+0.3%</strong></span>
     <span class="sep">·</span>
@@ -2360,7 +2335,7 @@
       <h3>CONTEXT · sector + regime backdrop</h3>
       <div class="ctx-strip">
         <div class="row"><strong>SECTOR</strong> · Tech (XLK) stance <strong style="color:var(--bull)">+0.42</strong> favorable · 1m sector RS vs SPY <strong style="color:var(--bull)">+1.2%</strong> · RRG quadrant: <strong>leading</strong></div>
-        <div class="row"><strong>REGIME</strong> · Late-cycle expansion (72% confidence) · regime-fit for this name: <strong>favorable (0.7)</strong></div>
+        <div class="row"><strong>REGIME</strong> · <span data-np-regime>—</span></div>
         <div class="meaning">
           <strong>What this means for NVDA:</strong> late-cycle expansion historically favors quality growth + secular themes (high regime-affinity score). The sector is in the leading RRG quadrant (rising relative strength + rising momentum) — backdrop is supportive of the current 6.2% weight. If regime flipped to <em>recession</em>, the regime-affinity drops sharply and current weight would warrant trim.
         </div>
@@ -2375,7 +2350,7 @@
   <div class="ent-head">
     <div class="row1">
       <span class="tk">MACRO</span>
-      <span class="nm">Late-cycle expansion · 72% confidence</span>
+      <span class="nm" data-macro-header-regime>—</span>
       <span class="ai-fresh">AI fresh · 12m ago</span>
       <button class="closebtn" onclick="closeMacro()">✕</button>
     </div>
@@ -4150,22 +4125,35 @@
         console.error("[cross-asset]", err);
       });
 
-    // Regime banner — pull from /api/macro-thesis.
+    // Regime banner + Today header + Macro panel header + per-ticker CONTEXT.
+    // All hooks listen on a single /api/macro-thesis fetch; per-ticker openPanel
+    // re-reads from window.__MACRO_REGIME if the slide-out opens after this lands.
     fetch("/api/macro-thesis")
       .then((r) => r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)))
       .then((data) => {
         const t = data.thesis || {};
         const tripwires = Array.isArray(t.tripwires) ? t.tripwires : [];
         const fired = tripwires.filter((tw) => /fired|breach|above|exceeded/i.test(String(tw.currently || ""))).length;
-        const pill = document.getElementById("regime-pill");
-        const label = document.getElementById("regime-label-click");
-        const meta  = document.getElementById("regime-meta");
         const regimeName = data.regime || t.drift_verdict_at_write || "intact";
         const niceRegime = regimeName.replace(/_/g, " ");
+        const confPct = Number.isFinite(data.confidence) ? `${Math.round(data.confidence * 100)}%` : null;
+        const regimeText = confPct ? `${niceRegime} · ${confPct} confidence` : niceRegime;
+
+        // Cache for openPanel/openSector so per-name slide-outs render the same regime.
+        window.__MACRO_REGIME = { regimeName, niceRegime, confPct, fired, tripwires: tripwires.length, regimeText };
+
+        const pill  = document.getElementById("regime-pill");
+        const label = document.getElementById("regime-label-click");
+        const meta  = document.getElementById("regime-meta");
         if (label) label.textContent = niceRegime;
-        if (meta) meta.innerHTML =
+        if (meta)  meta.innerHTML =
           `tripwires <strong style="color:var(--bull)">${fired}/${tripwires.length}</strong> · ${tripwires.length} drivers tracked`;
-        if (pill) pill.textContent = niceRegime;
+        if (pill)  pill.textContent = confPct ? `${niceRegime} ${confPct}` : niceRegime;
+
+        document.querySelectorAll("[data-today-regime]").forEach(el => el.textContent = niceRegime);
+        document.querySelectorAll("[data-today-tripwires]").forEach(el => el.textContent = `${fired}/${tripwires.length} tripwires`);
+        document.querySelectorAll("[data-macro-header-regime]").forEach(el => el.textContent = regimeText);
+        document.querySelectorAll("[data-np-regime]").forEach(el => el.textContent = regimeText);
       })
       .catch((err) => {
         const label = document.getElementById("regime-label-click");

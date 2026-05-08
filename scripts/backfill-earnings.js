@@ -85,7 +85,13 @@ async function main() {
         log(`  [${idx + 1}/${TICKERS.length}] ${ticker}: 0 rows returned — skip`);
         failed++;
       } else {
-        const rows = data.map(e => ({
+        // report_date stores the fiscal-period-ending (which is what Finnhub
+        // /stock/earnings returns as `period`). It is NOT the actual release
+        // date — for that, query EARNINGS_CALENDAR_consensus.last_report_date
+        // / next_earnings_date (populated by earnings-fetcher /fetch-calendar).
+        // Reject rows where every numeric field is NULL — those are noise that
+        // would otherwise pollute the table and silently survive the UPSERT.
+        const allRows = data.map(e => ({
           ticker,
           period: e.period,
           estimate: e.estimate ?? null,
@@ -94,6 +100,18 @@ async function main() {
           surprise_pct: e.surprisePercent ?? null,
           report_date: e.period,
         }));
+        const rows = allRows.filter(r =>
+          r.estimate != null || r.actual != null || r.surprise != null || r.surprise_pct != null
+        );
+        const dropped = allRows.length - rows.length;
+        if (dropped > 0) {
+          log(`  [${idx + 1}/${TICKERS.length}] ${ticker}: dropping ${dropped} all-null rows`);
+        }
+        if (rows.length === 0) {
+          log(`  [${idx + 1}/${TICKERS.length}] ${ticker}: every row had no numeric data — skip`);
+          failed++;
+          continue;
+        }
         const res = await fetch(`${INGEST_BASE}/ingest/earnings`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

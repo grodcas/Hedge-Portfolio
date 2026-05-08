@@ -75,13 +75,24 @@ export default {
         );
         if (earnings) {
           for (const e of earnings) {
+            // Skip all-null rows. report_date here is the fiscal_period_ending
+            // (what Finnhub returns); the actual release-date lives in
+            // EARNINGS_CALENDAR_consensus.last_report_date / next_earnings_date,
+            // populated by /fetch-calendar.
+            const estimate = e.estimate ?? null;
+            const actual = e.actual ?? null;
+            const surprise = e.surprise ?? null;
+            const surprisePct = e.surprisePercent ?? null;
+            if (estimate == null && actual == null && surprise == null && surprisePct == null) {
+              continue;
+            }
             earningsResults.push({
               ticker,
               period: e.period,
-              estimate: e.estimate ?? null,
-              actual: e.actual ?? null,
-              surprise: e.surprise ?? null,
-              surprise_pct: e.surprisePercent ?? null,
+              estimate,
+              actual,
+              surprise,
+              surprise_pct: surprisePct,
               report_date: e.period,
             });
           }

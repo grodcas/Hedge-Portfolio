@@ -1950,10 +1950,17 @@ export default {
                                WHERE sector = ? AND date = (SELECT MAX(date) FROM STOCK_FACTORS_daily WHERE sector = ?)
                                ORDER BY ticker`).bind(sector, sector).all()
                 : Promise.resolve({ results: [] }),
-              db.prepare(`SELECT period, estimate, report_date
-                            FROM FUND_02_Earnings
-                           WHERE ticker = ? AND report_date IS NOT NULL AND report_date > ?
-                           ORDER BY report_date ASC LIMIT 4`).bind(ticker, todayIso).all(),
+              // Upcoming-earnings catalyst — must read EARNINGS_CALENDAR_consensus.
+              // FUND_02_Earnings.report_date stores fiscal_period_ending (always
+              // historical because Finnhub /stock/earnings only returns reported
+              // quarters), so filtering it `> today` always returned 0 rows.
+              db.prepare(`SELECT next_earnings_date AS report_date,
+                                 last_report_date,
+                                 source
+                            FROM EARNINGS_CALENDAR_consensus
+                           WHERE ticker = ? AND next_earnings_date IS NOT NULL
+                                              AND next_earnings_date > ?
+                           ORDER BY next_earnings_date ASC LIMIT 1`).bind(ticker, todayIso).all(),
               db.prepare(`SELECT date, title, summary, sentiment, magnitude, source, rank
                             FROM BETA_12_News_digest
                            WHERE ticker = ? AND type = 'ticker' AND date >= date('now','-7 days')
@@ -2037,15 +2044,19 @@ export default {
             : Promise.resolve({ results: [] });
 
           // Catalysts: upcoming earnings across constituents.
+          // Read EARNINGS_CALENDAR_consensus (Finnhub /calendar/earnings) for the
+          // actual release dates — FUND_02_Earnings.report_date is the fiscal
+          // period end, not the release date, so filtering it `> today` would
+          // always return 0 rows.
           const catalystsPromise = tickers.length > 0
             ? (async () => {
                 const placeholders = tickers.map(() => "?").join(",");
                 return db.prepare(`
-                  SELECT ticker, period, estimate, report_date
-                    FROM FUND_02_Earnings
+                  SELECT ticker, next_earnings_date AS report_date, last_report_date
+                    FROM EARNINGS_CALENDAR_consensus
                    WHERE ticker IN (${placeholders})
-                     AND report_date IS NOT NULL AND report_date > ?
-                   ORDER BY report_date ASC LIMIT 6
+                     AND next_earnings_date IS NOT NULL AND next_earnings_date > ?
+                   ORDER BY next_earnings_date ASC LIMIT 6
                 `).bind(...tickers, todayIso).all();
               })()
             : Promise.resolve({ results: [] });
@@ -2143,26 +2154,7 @@ export default {
     }
 
 
-    // -------- ALPHA_04_Trends --------
-    if (which === "trends") {
-      for (const x of body) {
-        const id = await shortHash(`${x.ticker}|${x.summary}`);
-
-        await db.prepare(
-          `INSERT INTO ALPHA_04_Trends
-           (id, ticker, summary, created_at)
-           VALUES (?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET
-             summary=excluded.summary,
-             created_at=excluded.created_at`
-        ).bind(
-          id,
-          x.ticker,
-          x.summary ?? null,
-          now
-        ).run();
-      }
-    }
+    // (ALPHA_04_Trends removed in migration 0050 — orphan table, no consumers.)
 
 
     /* =========================
@@ -2457,34 +2449,59 @@ export default {
              raw_json, created_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
-            pe_ratio = excluded.pe_ratio, forward_pe = excluded.forward_pe, eps = excluded.eps,
-            revenue_ttm = excluded.revenue_ttm, profit_margin = excluded.profit_margin,
-            operating_margin = excluded.operating_margin, market_cap = excluded.market_cap,
-            week_52_high = excluded.week_52_high, week_52_low = excluded.week_52_low,
-            dma_50 = excluded.dma_50, dma_200 = excluded.dma_200,
-            analyst_target = excluded.analyst_target, dividend_yield = excluded.dividend_yield,
-            beta = excluded.beta, sector = excluded.sector,
-            total_assets = excluded.total_assets, total_assets_prev = excluded.total_assets_prev,
-            total_debt = excluded.total_debt, total_debt_prev = excluded.total_debt_prev,
-            shares_outstanding = excluded.shares_outstanding, shares_outstanding_prev = excluded.shares_outstanding_prev,
-            net_income = excluded.net_income, net_income_prev = excluded.net_income_prev,
-            revenue_annual = excluded.revenue_annual, revenue_annual_prev = excluded.revenue_annual_prev,
-            gross_profit = excluded.gross_profit, gross_profit_prev = excluded.gross_profit_prev,
-            cfo = excluded.cfo, cfo_prev = excluded.cfo_prev,
-            roa = excluded.roa, roa_prev = excluded.roa_prev,
-            current_ratio = excluded.current_ratio, current_ratio_prev = excluded.current_ratio_prev,
-            gross_margin_annual = excluded.gross_margin_annual, gross_margin_annual_prev = excluded.gross_margin_annual_prev,
-            asset_turnover = excluded.asset_turnover, asset_turnover_prev = excluded.asset_turnover_prev,
-            fiscal_period_ending = COALESCE(excluded.fiscal_period_ending, fiscal_period_ending),
-            last_10q_filing_date = COALESCE(excluded.last_10q_filing_date, last_10q_filing_date),
-            peg_ratio = COALESCE(excluded.peg_ratio, peg_ratio),
-            ev_ebitda = COALESCE(excluded.ev_ebitda, ev_ebitda),
-            ev_sales  = COALESCE(excluded.ev_sales,  ev_sales),
-            pb_ratio  = COALESCE(excluded.pb_ratio,  pb_ratio),
-            ps_ratio  = COALESCE(excluded.ps_ratio,  ps_ratio),
-            roe_ttm   = COALESCE(excluded.roe_ttm,   roe_ttm),
-            roa_ttm   = COALESCE(excluded.roa_ttm,   roa_ttm),
-            raw_json = excluded.raw_json, created_at = excluded.created_at
+            -- Every field uses COALESCE so a partial AV / Polygon response can
+            -- never overwrite previously-good values with a transient NULL.
+            -- Prior bug: a single endpoint failure (network blip, AV throttle,
+            -- format change) would erase the prior day's row. Lesson learned
+            -- from the capex bug — apply uniformly here too.
+            pe_ratio              = COALESCE(excluded.pe_ratio, pe_ratio),
+            forward_pe            = COALESCE(excluded.forward_pe, forward_pe),
+            eps                   = COALESCE(excluded.eps, eps),
+            revenue_ttm           = COALESCE(excluded.revenue_ttm, revenue_ttm),
+            profit_margin         = COALESCE(excluded.profit_margin, profit_margin),
+            operating_margin      = COALESCE(excluded.operating_margin, operating_margin),
+            market_cap            = COALESCE(excluded.market_cap, market_cap),
+            week_52_high          = COALESCE(excluded.week_52_high, week_52_high),
+            week_52_low           = COALESCE(excluded.week_52_low, week_52_low),
+            dma_50                = COALESCE(excluded.dma_50, dma_50),
+            dma_200               = COALESCE(excluded.dma_200, dma_200),
+            analyst_target        = COALESCE(excluded.analyst_target, analyst_target),
+            dividend_yield        = COALESCE(excluded.dividend_yield, dividend_yield),
+            beta                  = COALESCE(excluded.beta, beta),
+            sector                = COALESCE(excluded.sector, sector),
+            total_assets          = COALESCE(excluded.total_assets, total_assets),
+            total_assets_prev     = COALESCE(excluded.total_assets_prev, total_assets_prev),
+            total_debt            = COALESCE(excluded.total_debt, total_debt),
+            total_debt_prev       = COALESCE(excluded.total_debt_prev, total_debt_prev),
+            shares_outstanding    = COALESCE(excluded.shares_outstanding, shares_outstanding),
+            shares_outstanding_prev = COALESCE(excluded.shares_outstanding_prev, shares_outstanding_prev),
+            net_income            = COALESCE(excluded.net_income, net_income),
+            net_income_prev       = COALESCE(excluded.net_income_prev, net_income_prev),
+            revenue_annual        = COALESCE(excluded.revenue_annual, revenue_annual),
+            revenue_annual_prev   = COALESCE(excluded.revenue_annual_prev, revenue_annual_prev),
+            gross_profit          = COALESCE(excluded.gross_profit, gross_profit),
+            gross_profit_prev     = COALESCE(excluded.gross_profit_prev, gross_profit_prev),
+            cfo                   = COALESCE(excluded.cfo, cfo),
+            cfo_prev              = COALESCE(excluded.cfo_prev, cfo_prev),
+            roa                   = COALESCE(excluded.roa, roa),
+            roa_prev              = COALESCE(excluded.roa_prev, roa_prev),
+            current_ratio         = COALESCE(excluded.current_ratio, current_ratio),
+            current_ratio_prev    = COALESCE(excluded.current_ratio_prev, current_ratio_prev),
+            gross_margin_annual   = COALESCE(excluded.gross_margin_annual, gross_margin_annual),
+            gross_margin_annual_prev = COALESCE(excluded.gross_margin_annual_prev, gross_margin_annual_prev),
+            asset_turnover        = COALESCE(excluded.asset_turnover, asset_turnover),
+            asset_turnover_prev   = COALESCE(excluded.asset_turnover_prev, asset_turnover_prev),
+            fiscal_period_ending  = COALESCE(excluded.fiscal_period_ending, fiscal_period_ending),
+            last_10q_filing_date  = COALESCE(excluded.last_10q_filing_date, last_10q_filing_date),
+            peg_ratio             = COALESCE(excluded.peg_ratio, peg_ratio),
+            ev_ebitda             = COALESCE(excluded.ev_ebitda, ev_ebitda),
+            ev_sales              = COALESCE(excluded.ev_sales,  ev_sales),
+            pb_ratio              = COALESCE(excluded.pb_ratio,  pb_ratio),
+            ps_ratio              = COALESCE(excluded.ps_ratio,  ps_ratio),
+            roe_ttm               = COALESCE(excluded.roe_ttm,   roe_ttm),
+            roa_ttm               = COALESCE(excluded.roa_ttm,   roa_ttm),
+            raw_json              = COALESCE(excluded.raw_json, raw_json),
+            created_at            = excluded.created_at
         `).bind(
           id, f.ticker, f.date, f.pe_ratio, f.forward_pe, f.eps, f.revenue_ttm,
           f.profit_margin, f.operating_margin, f.market_cap, f.week_52_high, f.week_52_low,
