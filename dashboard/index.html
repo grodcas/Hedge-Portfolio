@@ -1360,7 +1360,7 @@
 </header>
 
 <div class="data-banner">
-  <strong>Data status:</strong> All grids are LIVE — book grid, sector strip, cross-asset tiles, regime banner, recent macro prints, and the <strong>main TAPE view</strong> (news + moves) read POSITION_01_Daily / STOCK_FACTORS_daily / SECTOR_FACTORS_daily / MACRO_STATE_indicators / BETA_12_News_digest / MOVER_EXPLANATIONS_daily / TICKER_TREND_long. A few book columns (margin / FCF sparklines, attention score) still render — until the underlying time-series aggregation lands. Click any row to open its real slide-out.
+  <strong>Data status:</strong> All grids LIVE — book grid (incl. <strong>Quality 8q</strong> overlaid margin+FCF sparkline from FUND_01_Quarterly), sector strip, cross-asset tiles, regime banner, recent macro prints, and the main TAPE view all read directly from D1 (POSITION_01_Daily / STOCK_FACTORS_daily / SECTOR_FACTORS_daily / MACRO_STATE_indicators / BETA_12_News_digest / MOVER_EXPLANATIONS_daily / TICKER_TREND_long / FUND_01_Quarterly). Attention score still pending — needs a composite-signal definition. Click any row for its real slide-out.
 </div>
 
 <!-- ===================== TODAY ===================== -->
@@ -1462,9 +1462,10 @@
     </div>
     <div style="overflow-x:auto">
       <!-- LIVE: filled from /api/book-grid (POSITION_01_Daily +
-           STOCK_FACTORS_daily + FUND_01 + TICKER_TREND_long). The old
-           hardcoded ROWS array survives below as a fallback for fields we
-           haven't wired yet (margin/fcf sparklines, attention score). -->
+           STOCK_FACTORS_daily + FUND_01 + TICKER_TREND_long).
+           Quality 8q sparkline hydrated from /api/fundamental-trends
+           (FUND_01_Quarterly · operating_income/total_revenue + cfo-capex).
+           Attention score remains pending. ROWS_UNIQ below is fallback only. -->
       <table class="book" id="book-table">
         <thead>
           <tr>
@@ -1479,8 +1480,7 @@
             <th data-sort="fwdpe">Fwd P/E</th>
             <th data-sort="evebitda">EV/EBITDA</th>
             <th class="center">Price · 1y</th>
-            <th class="center">Margin 8q</th>
-            <th class="center">FCF 8q</th>
+            <th class="center" title="Operating margin (indigo) + Free cash flow (teal), 8 quarters, each normalized to its own range. Divergence between the two is the analytical signal.">Quality 8q</th>
             <th data-sort="drift">News 30d</th>
             <th data-sort="dtc">DTC</th>
           </tr>
@@ -2836,6 +2836,42 @@
     </svg>`;
   }
 
+  // Overlaid 8q "Quality" sparkline: margin (indigo) + FCF (teal) on the same
+  // canvas, each normalized to its own [min,max] window. The shape — and
+  // especially the divergence between the two lines — is the signal:
+  //   parallel up   → compounding (margin & cash both scaling)
+  //   parallel down → structural break
+  //   margin↑ FCF↓  → capex burden eating profit
+  //   margin↓ FCF↑  → working-capital release / cycle
+  // Absolute levels live in the slide-out; here we only care about shape.
+  function sparklineDual(margin, fcf) {
+    const w = 60, h = 18;
+    const safe = (a) => Array.isArray(a) && a.length >= 2 ? a : null;
+    const m = safe(margin), f = safe(fcf);
+    if (!m && !f) return '<span style="color:var(--muted);font-size:10px">—</span>';
+
+    function buildPoly(values, color) {
+      const min = Math.min(...values), max = Math.max(...values);
+      const range = max - min || 1;
+      const step = w / (values.length - 1);
+      const pts = values.map((v, i) => {
+        const x = i * step;
+        const y = h - ((v - min) / range) * (h - 2) - 1;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(" ");
+      const lastX = (values.length - 1) * step;
+      const lastY = h - ((values[values.length-1] - min) / range) * (h - 2) - 1;
+      return `<polyline fill="none" stroke="${color}" stroke-width="1.2" points="${pts}"/>` +
+             `<circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="1.4" fill="${color}"/>`;
+    }
+
+    const parts = [];
+    if (m) parts.push(buildPoly(m, "#4338CA"));   // indigo — margin (moat)
+    if (f) parts.push(buildPoly(f, "#0891B2"));   // teal — FCF (cash)
+    const title = `8q · margin (indigo) + FCF (teal), each normalized`;
+    return `<svg width="${w}" height="${h}" style="vertical-align:middle"><title>${title}</title>${parts.join("")}</svg>`;
+  }
+
   // ============ RENDER BOOK ============
   let SORT_KEY = "att";
   let SORT_DIR = -1; // descending
@@ -2843,13 +2879,14 @@
   let LIVE_BOOK_ROWS = null; // populated by /api/book-grid; null = use ROWS fallback
 
   // Fetch live book rows once on load. Maps the API row schema onto the
-  // shape renderBook() expects. Sparklines (marg, fcf) + attention score
-  // are not yet in the API, so we leave them as nulls and render "—".
+  // shape renderBook() expects. After book-grid lands, fires
+  // /api/fundamental-trends?tickers=... in parallel to populate the overlaid
+  // margin+FCF sparkline (the "Quality 8q" column). Attention score still
+  // pending — needs a composite signal definition.
   fetch("/api/book-grid")
     .then(r => r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)))
     .then(data => {
       const apiRows = (data.rows || []);
-      // Map API row → table row shape. Verdicts: thesis_score → INTACT/DRIFT/WEAK/BROKEN.
       const verdictFromScore = (s) => {
         if (s == null) return "INTACT";
         if (s >= 0.20) return "INTACT";
@@ -2859,12 +2896,12 @@
       };
       LIVE_BOOK_ROWS = apiRows.map(r => ({
         tk:     r.ticker,
-        nm:     r.ticker, // company name not in API yet — show ticker as fallback
+        nm:     r.ticker,
         sec:    r.sec_tag || "—",
         side:   r.side,
         wt:     r.wt_pct ?? 0,
         tgt:    r.tgt_pct ?? 0,
-        mtd:    r.day_pnl_pct ?? 0,  // day_pnl_pct (1d) used as proxy until MTD wired
+        mtd:    r.day_pnl_pct ?? 0,
         conv:   r.thesis_score == null ? 0 : Math.round(r.thesis_score * 100),
         thesis: verdictFromScore(r.thesis_score),
         att:    null,                 // attention score not yet computed
@@ -2872,8 +2909,8 @@
         fwdpez: r.rel_pe_sigma ?? 0,
         eveb:   r.ev_ebitda ?? 0,
         evebz:  0,
-        marg:   null,                 // 8q margin sparkline not yet in API
-        fcf:    null,                 // 8q fcf sparkline not yet in API
+        marg:   null,                 // hydrated by fundamental-trends fetch below
+        fcf:    null,                 // hydrated by fundamental-trends fetch below
         epsrev: r.eps_rev_4w == null ? "—" : `${r.eps_rev_4w >= 0 ? "+" : ""}${(r.eps_rev_4w * 100).toFixed(1)}%`,
         drift:  r.drift_score ?? 0,
         dtc:    r.days_to_catalyst ?? 0,
@@ -2881,10 +2918,24 @@
         market_price: r.market_price,
       }));
       renderBook();
+
+      // Hydrate margin/FCF sparklines (FUND_01_Quarterly).
+      const tickers = LIVE_BOOK_ROWS.map(r => r.tk).filter(Boolean);
+      if (tickers.length === 0) return;
+      return fetch("/api/fundamental-trends?tickers=" + encodeURIComponent(tickers.join(",")))
+        .then(r => r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)))
+        .then(td => {
+          const trends = td?.trends || {};
+          for (const row of LIVE_BOOK_ROWS) {
+            const t = trends[row.tk];
+            if (t) { row.marg = t.margin; row.fcf = t.fcf; }
+          }
+          renderBook();
+        })
+        .catch(err => console.warn("[fundamental-trends] failed:", err.message));
     })
     .catch(err => {
       console.warn("[book-grid] fetch failed, falling back to mockup ROWS:", err.message);
-      // Fall through — renderBook() will use ROWS_UNIQ when LIVE_BOOK_ROWS is null.
     });
 
   function renderBook() {
@@ -2932,8 +2983,7 @@
         <td class="z-cell num"><span class="z-num" style="background:${zBg(r.fwdpez)}">${_n(r.fwdpe, v => v.toFixed(1))}<span class="zsup">z ${fmtSign(r.fwdpez || 0)}</span></span></td>
         <td class="z-cell num"><span class="z-num" style="background:${zBg(r.evebz)}">${(r.eveb && r.eveb > 0) ? r.eveb.toFixed(1) : "—"}${(r.eveb && r.eveb > 0) ? `<span class="zsup">z ${fmtSign(r.evebz)}</span>` : ""}</span></td>
         <td class="spark" title="1y price · PRICE_01_Daily">${sparkline(px, "#0F172A")}<span class="num" style="display:block;font-size:10px;color:var(--text2);text-align:right;margin-top:1px">$${pxNow.toFixed(0)} <span class="${pxClass}">${fmtSign(pxYoy, 0)}%</span></span></td>
-        <td class="spark">${(r.marg && r.marg.length) ? sparkline(r.marg) : '<span style="color:var(--muted);font-size:10px">—</span>'}</td>
-        <td class="spark">${(r.fcf && r.fcf.length) ? sparkline(r.fcf) : '<span style="color:var(--muted);font-size:10px">—</span>'}</td>
+        <td class="spark" title="Margin (indigo) + FCF (teal), 8q normalized">${sparklineDual(r.marg, r.fcf)}</td>
         <td class="${driftClass} num">${fmtSign(r.drift || 0)}</td>
         <td class="${dtcClass} num">${r.dtc == null ? "—" : r.dtc + "d"}</td>
       </tr>`;

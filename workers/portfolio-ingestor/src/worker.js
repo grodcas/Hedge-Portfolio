@@ -363,6 +363,46 @@ export default {
           }, { headers: corsHeaders });
         }
 
+        // -------- GET /query/fundamental-trends?tickers=NVDA,XOM,... --------
+        // Returns last 8q of operating margin (operating_income / total_revenue) and
+        // FCF (cfo - capex) per ticker, ordered oldest → newest. Powers the overlaid
+        // "Quality 8q" sparkline in the book grid (margin = moat trajectory, FCF =
+        // cash trajectory; divergence between them is the analytical signal).
+        if (path === "/query/fundamental-trends") {
+          const raw = url.searchParams.get("tickers");
+          if (!raw) return Response.json({ error: "tickers required" }, { status: 400, headers: corsHeaders });
+          const tickers = raw.split(",").map(s => s.trim()).filter(Boolean);
+          if (tickers.length === 0) {
+            return Response.json({ tickers: [], trends: {} }, { headers: corsHeaders });
+          }
+          const placeholders = tickers.map(() => "?").join(",");
+          const rowsRes = await db.prepare(`
+            SELECT ticker, fiscal_period_ending,
+                   CASE WHEN total_revenue IS NOT NULL AND total_revenue > 0
+                        THEN (operating_income * 1.0) / total_revenue
+                        ELSE NULL END AS margin,
+                   CASE WHEN cfo IS NOT NULL AND capex IS NOT NULL
+                        THEN (cfo - capex)
+                        ELSE NULL END AS fcf
+              FROM FUND_01_Quarterly
+             WHERE ticker IN (${placeholders})
+             ORDER BY ticker ASC, fiscal_period_ending ASC
+          `).bind(...tickers).all();
+
+          const trends = {};
+          for (const r of (rowsRes.results || [])) {
+            if (!trends[r.ticker]) trends[r.ticker] = { margin: [], fcf: [] };
+            if (r.margin != null && Number.isFinite(r.margin)) trends[r.ticker].margin.push(r.margin);
+            if (r.fcf    != null && Number.isFinite(r.fcf))    trends[r.ticker].fcf.push(r.fcf);
+          }
+          // Take last 8 quarters per series so the sparkline window is bounded.
+          for (const t of Object.keys(trends)) {
+            trends[t].margin = trends[t].margin.slice(-8);
+            trends[t].fcf    = trends[t].fcf.slice(-8);
+          }
+          return Response.json({ tickers, trends }, { headers: corsHeaders });
+        }
+
         // -------- GET /query/macro-trend --------
         if (path === "/query/macro-trend") {
           const row = await db.prepare(`
@@ -1107,6 +1147,18 @@ export default {
             `).all();
           }
 
+          return Response.json(rows.results || [], { headers: corsHeaders });
+        }
+
+        // -------- GET /query/fundamentals-quarterly?ticker=X --------
+        // Quarterly history rows from FUND_01_Quarterly (full schema). Lets the
+        // backfill script check whether capex is populated before re-pulling.
+        if (path === "/query/fundamentals-quarterly") {
+          const ticker = url.searchParams.get("ticker");
+          if (!ticker) return Response.json({ error: "ticker required" }, { status: 400, headers: corsHeaders });
+          const rows = await db.prepare(
+            `SELECT * FROM FUND_01_Quarterly WHERE ticker = ? ORDER BY fiscal_period_ending DESC`
+          ).bind(ticker).all();
           return Response.json(rows.results || [], { headers: corsHeaders });
         }
 

@@ -92,11 +92,18 @@ function toRow(ticker, entry) {
     short_term_debt: null,
     long_term_debt:  v(bs, "long_term_debt"),
     shares_outstanding: null,
-    // Cash flow. Polygon's free-tier financials block doesn't split capex
-    // out from the investing-activities total — leave capex null and let
-    // capex-aware consumers fall back to AV's CASH_FLOW endpoint.
+    // Cash flow. Polygon DOES expose capex in the cash_flow_statement block
+    // under the GAAP-aligned `payments_for_property_plant_and_equipment` key
+    // (with a couple of historical alternates). The original backfill set
+    // capex=null and added a comment about an "AV fallback" that was never
+    // built — so FCF (cfo - capex) was unfillable for ~half the rows. Pull
+    // it here. Sign convention: Polygon emits payments as a positive number,
+    // so FCF math is `cfo - capex` (consumers don't need to flip signs).
     cfo:             v(cf, "net_cash_flow_from_operating_activities"),
-    capex:           null,
+    capex:           v(cf,
+                       "payments_for_property_plant_and_equipment",
+                       "payments_to_acquire_property_plant_and_equipment",
+                       "capital_expenditure"),
     cfi:             v(cf, "net_cash_flow_from_investing_activities"),
     cff:             v(cf, "net_cash_flow_from_financing_activities"),
     dividends_paid:  null,
@@ -112,6 +119,23 @@ async function existingRowCount(ticker) {
     const rows = Array.isArray(data) ? data : (data?.results || []);
     return rows.length;
   } catch { return 0; }
+}
+
+// Returns true if the ticker has ≥SKIP_THRESHOLD rows AND every row already
+// has a non-null capex. Lets the script skip tickers that are fully populated
+// while still re-pulling tickers whose capex is NULL from the original buggy
+// run (which hardcoded capex=null). The ingestor's COALESCE-based UPSERT
+// makes the re-pull safe — existing values are preserved when the new pull
+// returns NULL for any field.
+async function isFullyBackfilled(ticker) {
+  try {
+    const res = await fetch(`${INGEST_BASE}/query/fundamentals-quarterly?ticker=${encodeURIComponent(ticker)}`);
+    if (!res.ok) return false;
+    const data = await res.json();
+    const rows = Array.isArray(data) ? data : (data?.results || []);
+    if (rows.length < SKIP_THRESHOLD) return false;
+    return rows.every(r => r.capex != null);
+  } catch { return false; }
 }
 
 async function fetchPolygonFinancials(ticker) {
@@ -146,11 +170,11 @@ async function postRows(rows) {
   for (let i = 0; i < TICKERS.length; i++) {
     const ticker = TICKERS[i];
     try {
-      // Skip tickers that already have ≥QUARTERS rows. BRK.B and JPM are at 81;
-      // re-running is wasteful and burns Polygon budget.
-      const existing = await existingRowCount(ticker);
-      if (existing >= SKIP_THRESHOLD) {
-        log(`${ticker}: ${existing} rows already present — skip`);
+      // Skip tickers fully backfilled (≥QUARTERS rows AND every row has capex).
+      // The original buggy run wrote capex=null for every row; those tickers
+      // need a re-pull even though their row count is high.
+      if (await isFullyBackfilled(ticker)) {
+        log(`${ticker}: fully backfilled (rows + capex) — skip`);
         summary.skipped++;
         continue;
       }
