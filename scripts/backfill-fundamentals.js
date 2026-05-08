@@ -1,10 +1,22 @@
 // scripts/backfill-fundamentals.js
 //
+// LEGACY (kept for the original 8q bootstrap). For all ongoing fundamentals
+// refresh — including capex — run the canonical path instead:
+//
+//   node src/steps/fetch-fundamentals.js              (smart-fetch, EDGAR-gated)
+//   node src/steps/fetch-fundamentals.js --pass=CF --force-all  (one-shot backfill)
+//
+// fetch-fundamentals.js polls SEC EDGAR daily, gates AV pulls by new-10-Q
+// detection, snaps AV calendar dates to existing fiscal dates for non-calendar
+// fiscals, and writes the full 20-quarter array per ticker. It supersedes this
+// script for everything except the very first 8q seed.
+//
 // One-shot quarterly fundamentals backfill via Polygon /vX/reference/financials.
 // Per portfolio ticker, fetches the last 8 quarterly statements (IS+BS+CF) and
-// POSTs them to portfolio-ingestor /ingest/fundamentals-quarterly. Fills the
-// FUND_01_Quarterly history that fetch-fundamentals.js can only build a quarter
-// at a time. Required for Piotroski-F (needs ≥4 quarters of YoY context).
+// POSTs them to portfolio-ingestor /ingest/fundamentals-quarterly. Polygon's
+// free-tier financials block does NOT expose capex (only the aggregate
+// net_cash_flow_from_investing_activities), so capex is left null here and
+// filled by fetch-fundamentals.js via Alpha Vantage's CASH_FLOW endpoint.
 //
 // Polygon free tier: 5 req/min. 25 tickers × 12s spacing ≈ 5 min wall-clock.
 // Idempotent — UNIQUE INDEX on (ticker, fiscal_period_ending) on the table.

@@ -410,14 +410,21 @@ function deriveFeedstock(row) {
 }
 
 export async function fetchFundamentals(config, logger, results, opts = {}) {
-  // opts.pass: "OVERVIEW" | "IS" | "BS" | "CF" | "ALL" (default "ALL")
+  // opts.pass:     "OVERVIEW" | "IS" | "BS" | "CF" | "ALL" (default "ALL")
+  // opts.forceAll: bypass the smart-fetch gates (SEC EDGAR check + OVERVIEW
+  //                cooldown) and refresh every ticker. Used for one-shot
+  //                historical backfills (e.g. patching capex on legacy rows
+  //                that the Polygon backfill wrote with capex=NULL). Burns
+  //                the daily AV budget — only run manually after a fresh
+  //                AV reset (~midnight UTC).
   const pass = (opts.pass || "ALL").toUpperCase();
+  const forceAll = !!opts.forceAll;
   const validPasses = ["OVERVIEW", "IS", "BS", "CF", "ALL"];
   if (!validPasses.includes(pass)) {
     throw new Error(`Invalid pass "${pass}". Expected one of ${validPasses.join(", ")}`);
   }
 
-  logger.log("FUNDAMENTALS", `Starting Alpha Vantage fetch (pass=${pass})...`);
+  logger.log("FUNDAMENTALS", `Starting Alpha Vantage fetch (pass=${pass}${forceAll ? ", FORCE-ALL" : ""})...`);
 
   const apiKey = process.env.ALPHAVANTAGE_KEY;
   if (!apiKey) {
@@ -443,39 +450,52 @@ export async function fetchFundamentals(config, logger, results, opts = {}) {
   // change with price but the slow-moving fundamentals (margins, market cap)
   // tolerate a 3-day cadence; this halves the daily AV burn so the consensus
   // path can co-exist within the 25/day cap.
-  try {
-    const res = await fetch(`${INGEST_BASE}/query/fundamentals`);
-    if (res.ok) {
-      const existing = await res.json();
-      existingRows = Array.isArray(existing) ? existing : (existing?.results || []);
-      const cutoffMs = Date.now() - OVERVIEW_COOLDOWN_DAYS * 86400000;
-      const tooFresh = new Set();
-      for (const r of existingRows) {
-        if (!r.ticker || !r.date || r.pe_ratio == null) continue;
-        const ts = Date.parse(r.date);
-        if (Number.isFinite(ts) && ts >= cutoffMs) tooFresh.add(r.ticker);
+  if (forceAll) {
+    logger.log("FUNDAMENTALS", `--force-all: bypassing OVERVIEW cooldown for all ${TICKERS.length} tickers`);
+  } else {
+    try {
+      const res = await fetch(`${INGEST_BASE}/query/fundamentals`);
+      if (res.ok) {
+        const existing = await res.json();
+        existingRows = Array.isArray(existing) ? existing : (existing?.results || []);
+        const cutoffMs = Date.now() - OVERVIEW_COOLDOWN_DAYS * 86400000;
+        const tooFresh = new Set();
+        for (const r of existingRows) {
+          if (!r.ticker || !r.date || r.pe_ratio == null) continue;
+          const ts = Date.parse(r.date);
+          if (Number.isFinite(ts) && ts >= cutoffMs) tooFresh.add(r.ticker);
+        }
+        tickersForOverview = TICKERS.filter(t => !tooFresh.has(t));
+        const skipped = TICKERS.length - tickersForOverview.length;
+        if (skipped > 0) {
+          logger.log("FUNDAMENTALS", `skipping OVERVIEW for ${skipped} tickers (≤${OVERVIEW_COOLDOWN_DAYS}d old)`);
+        }
       }
-      tickersForOverview = TICKERS.filter(t => !tooFresh.has(t));
-      const skipped = TICKERS.length - tickersForOverview.length;
-      if (skipped > 0) {
-        logger.log("FUNDAMENTALS", `skipping OVERVIEW for ${skipped} tickers (≤${OVERVIEW_COOLDOWN_DAYS}d old)`);
-      }
+    } catch (err) {
+      logger.log("FUNDAMENTALS", `Cooldown check failed, proceeding: ${err.message}`, "warn");
     }
-  } catch (err) {
-    logger.log("FUNDAMENTALS", `Cooldown check failed, proceeding: ${err.message}`, "warn");
   }
 
   if (pass === "ALL" || pass === "IS" || pass === "BS" || pass === "CF") {
-    const sel = await selectStatementTickers(today, logger);
-    statementTickers = sel.tickers;
-    secByTicker = sel.secByTicker;
-    if (statementTickers.length === 0) {
-      logger.log("FUNDAMENTALS", "no statement refresh needed today (no new 10-Qs past AV index lag)", "ok");
+    if (forceAll) {
+      // Bypass the SEC-EDGAR-driven smart-fetch gate. Used for one-shot
+      // historical backfills — e.g. patching capex on rows the Polygon
+      // backfill wrote with capex=NULL.
+      statementTickers = [...TICKERS];
+      secByTicker = {};
+      logger.log("FUNDAMENTALS", `--force-all: refreshing statements for all ${statementTickers.length} tickers (bypassing EDGAR gate)`);
     } else {
-      logger.log(
-        "FUNDAMENTALS",
-        `${statementTickers.length} tickers need statement refresh: ${statementTickers.join(", ")}`
-      );
+      const sel = await selectStatementTickers(today, logger);
+      statementTickers = sel.tickers;
+      secByTicker = sel.secByTicker;
+      if (statementTickers.length === 0) {
+        logger.log("FUNDAMENTALS", "no statement refresh needed today (no new 10-Qs past AV index lag)", "ok");
+      } else {
+        logger.log(
+          "FUNDAMENTALS",
+          `${statementTickers.length} tickers need statement refresh: ${statementTickers.join(", ")}`
+        );
+      }
     }
   }
 
@@ -547,10 +567,13 @@ export async function fetchFundamentals(config, logger, results, opts = {}) {
   // 10-Q's periodOfReport for each statement-refresh ticker. If AV is still
   // serving the old quarter, drop it from the ingest payload — we'll retry
   // tomorrow when AV catches up. Without this, we'd silently overwrite our
-  // existing-but-correct data with stale AV data.
+  // existing-but-correct data with stale AV data. Skipped under --force-all
+  // (no SEC info collected; the user's explicit override implies trust the
+  // AV data we just pulled).
   for (const t of statementTickers) {
     const row = accum[t];
     const sec = secByTicker[t];
+    if (forceAll) continue;
     if (!row || !sec) continue;
     const avPeriod = row.fiscal_period_ending;
     if (!avPeriod) {
@@ -678,27 +701,70 @@ export async function fetchFundamentals(config, logger, results, opts = {}) {
   // Only emit rows for the tickers whose statement endpoints succeeded this run; on
   // OVERVIEW-only days (or daily runs where IS/BS/CF were skipped per the smart-fetch
   // gate), there are no `_quarters` arrays and nothing to write — no-op is correct.
+  //
+  // Date alignment: AV reports fiscalDateEnding on calendar quarter-ends (e.g.
+  // 2026-03-31), but the original Polygon backfill (scripts/backfill-fundamentals.js)
+  // wrote on each ticker's true fiscal-quarter end (AAPL 2026-03-28, NVDA 2026-01-25,
+  // etc.). Without snapping, AV creates orphan rows for non-calendar fiscals and FCF
+  // (cfo - capex) stays unfillable. Pre-fetch existing dates per ticker, then snap
+  // each AV row to the closest match within ±15 days — wide enough to span 4-4-5
+  // retail calendars and ±3-day month-end offsets without bleeding into adjacent
+  // quarters.
+  const tickersWithQuarters = [];
+  for (const t of Object.keys(accum)) {
+    const r = accum[t];
+    if ((r?._is_quarters?.length || 0) > 0 || (r?._bs_quarters?.length || 0) > 0 || (r?._cf_quarters?.length || 0) > 0) {
+      tickersWithQuarters.push(t);
+    }
+  }
+  const existingDatesByTicker = {};
+  await Promise.all(tickersWithQuarters.map(async t => {
+    try {
+      const res = await fetch(`${INGEST_BASE}/query/fundamentals-quarterly?ticker=${encodeURIComponent(t)}`);
+      if (!res.ok) { existingDatesByTicker[t] = []; return; }
+      const data = await res.json();
+      const rows = Array.isArray(data) ? data : (data?.results || []);
+      existingDatesByTicker[t] = rows.map(r => r.fiscal_period_ending).filter(Boolean);
+    } catch { existingDatesByTicker[t] = []; }
+  }));
+  function snapDate(avDate, existingDates) {
+    const target = Date.parse(avDate);
+    if (!Number.isFinite(target) || !existingDates || existingDates.length === 0) return avDate;
+    let best = null, bestDiff = Infinity;
+    for (const d of existingDates) {
+      const diff = Math.abs(Date.parse(d) - target);
+      if (diff < bestDiff) { bestDiff = diff; best = d; }
+    }
+    return (best && bestDiff <= 15 * 24 * 3600 * 1000) ? best : avDate;
+  }
+
   const quarterlyRows = [];
-  for (const ticker of Object.keys(accum)) {
+  let snapsApplied = 0;
+  for (const ticker of tickersWithQuarters) {
     const row = accum[ticker];
     const isQ = row?._is_quarters || [];
     const bsQ = row?._bs_quarters || [];
     const cfQ = row?._cf_quarters || [];
-    if (isQ.length === 0 && bsQ.length === 0 && cfQ.length === 0) continue;
+    const existingDates = existingDatesByTicker[ticker] || [];
 
     const byPeriod = new Map();
     const merge = (q) => {
       if (!q.fiscal_period_ending) return;
-      const existing = byPeriod.get(q.fiscal_period_ending) || {};
-      byPeriod.set(q.fiscal_period_ending, { ...existing, ...q });
+      const snapped = snapDate(q.fiscal_period_ending, existingDates);
+      if (snapped !== q.fiscal_period_ending) snapsApplied++;
+      const existing = byPeriod.get(snapped) || {};
+      byPeriod.set(snapped, { ...existing, ...q, fiscal_period_ending: snapped });
     };
     isQ.forEach(merge);
     bsQ.forEach(merge);
     cfQ.forEach(merge);
 
     for (const [period, q] of byPeriod) {
-      quarterlyRows.push({ ticker, fiscal_period_ending: period, ...q });
+      quarterlyRows.push({ ticker, ...q, fiscal_period_ending: period });
     }
+  }
+  if (snapsApplied > 0) {
+    logger.log("FUNDAMENTALS", `snapped ${snapsApplied} AV calendar dates to existing fiscal_period_ending values (non-calendar fiscals)`);
   }
 
   if (quarterlyRows.length > 0) {
@@ -748,6 +814,7 @@ if (isDirectRun) {
   (async () => {
     const passArg = process.argv.find(a => a.startsWith("--pass="));
     const pass = passArg ? passArg.split("=")[1] : "ALL";
+    const forceAll = process.argv.includes("--force-all");
 
     // Load .env from repo root
     try {
@@ -764,7 +831,7 @@ if (isDirectRun) {
 
     const start = Date.now();
     try {
-      const out = await fetchFundamentals({}, stubLogger, {}, { pass });
+      const out = await fetchFundamentals({}, stubLogger, {}, { pass, forceAll });
       const elapsed = ((Date.now() - start) / 1000).toFixed(1);
       console.log(`\n✅ Done in ${elapsed}s — fetched=${out.fetched ?? 0} errors=${out.errors ?? 0} skipped=${out.skipped ?? 0}`);
       process.exit(0);
