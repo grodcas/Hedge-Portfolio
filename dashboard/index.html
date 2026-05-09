@@ -1316,14 +1316,13 @@
   /* ============ STANDALONE VIEWS — Hedges + Validator ============
      Default: hedges + validator hidden, the rest of <main> behaves as the
      scrolling overview. When body carries .view-hedges (or .view-validator),
-     only that section is visible — feels like a dedicated tab. */
+     #today stays at the top as the always-visible dashboard header, and
+     only the target section appears below it. */
   #hedges, #validator { display: none; }
-  body.view-hedges    > main > section:not(#hedges)    { display: none; }
+  body.view-hedges    > main > section:not(#today):not(#hedges)    { display: none; }
   body.view-hedges    #hedges    { display: block; }
-  body.view-validator > main > section:not(#validator) { display: none; }
+  body.view-validator > main > section:not(#today):not(#validator) { display: none; }
   body.view-validator #validator { display: block; }
-  body.view-hedges    .data-banner,
-  body.view-validator .data-banner { display: none; }
 </style>
 </head>
 <body>
