@@ -84,7 +84,7 @@ export default {
     if (!date) return Response.json({ ok: false, error: "date query param required (YYYY-MM-DD)" }, { status: 400 });
 
     try {
-      const out = await build(env.DB, apiKey, date, ticker, force);
+      const out = await build(env, env.DB, apiKey, date, ticker, force);
       return Response.json({ ok: true, ...out });
     } catch (err) {
       return Response.json({ ok: false, error: err.message }, { status: 500 });
@@ -92,7 +92,7 @@ export default {
   },
 };
 
-async function build(db, apiKey, date, ticker, force) {
+async function build(env, db, apiKey, date, ticker, force) {
   // Pull the moves to annotate. If ?ticker= is set, that single row;
   // otherwise every mover for the date.
   const movesRes = ticker
@@ -172,7 +172,7 @@ async function annotateMove(db, apiKey, move) {
   }
 
   const prompt = buildPrompt({ move, candidates });
-  const blob = await callLLM(apiKey, prompt, { model: MODEL });
+  const blob = await callLLM(apiKey, prompt, { model: MODEL, env, caller: "tape-annotation" });
   validate(blob, candidates);
 
   const now = new Date().toISOString();

@@ -14,5 +14,12 @@
       "binding": "DB",
       "database_id": "e306b0a8-7d5e-4032-b46e-9b50fc6c4f99"
     }
-  ]
+  ],
+  // Tue-Sat 07:00 UTC — fires the morning after each US trading day, ~45 min
+  // after price-fetcher's 06:15 ingest of yesterday's Yahoo data lands.
+  // scheduled() auto-picks max(PRICE_01_Daily.date) so holidays / data lag
+  // don't require manual date arithmetic.
+  "triggers": {
+    "crons": ["0 7 * * 2-6"]
+  }
 }

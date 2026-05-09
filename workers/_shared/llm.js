@@ -20,7 +20,14 @@
  * Single retry on transient (HTTP 5xx / network / timeout). Any 4xx (auth,
  * quota, content policy) throws on the first attempt — retrying makes those
  * worse, not better.
+ *
+ * API-usage logging: pass `opts.env` and `opts.caller` to record each call
+ * (success or failure) into PROC_04_API_usage via the shared recordApiCall
+ * helper. Without these, the call is silent — kept opt-in so the snowflake
+ * paths above don't double-log.
  */
+
+import { recordApiCall } from "./api-usage.js";
 
 const ENDPOINT = "https://api.openai.com/v1/chat/completions";
 const DEFAULT_MODEL = "gpt-5";
@@ -38,6 +45,28 @@ const DEFAULT_MODEL = "gpt-5";
  * @returns {Promise<any>}                 Parsed JSON from the assistant.
  */
 export async function callLLM(apiKey, prompt, opts = {}) {
+  let success = false;
+  try {
+    const result = await callLLMRaw(apiKey, prompt, opts);
+    success = true;
+    return result;
+  } finally {
+    if (opts.env && opts.caller) {
+      try {
+        await recordApiCall({
+          env:      opts.env,
+          caller:   opts.caller,
+          api:      "openai",
+          endpoint: opts.model || DEFAULT_MODEL,
+          calls:    1,
+          ok:       success,
+        });
+      } catch { /* swallow — logging must not break the agent */ }
+    }
+  }
+}
+
+async function callLLMRaw(apiKey, prompt, opts = {}) {
   if (!apiKey) throw new Error("callLLM: apiKey is required");
   if (!prompt) throw new Error("callLLM: prompt is required");
 

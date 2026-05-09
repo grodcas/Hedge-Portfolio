@@ -46,7 +46,7 @@ export default {
     const force = url.searchParams.get("force") === "1" || url.searchParams.get("force") === "true";
 
     try {
-      const out = await build(env.DB, apiKey, ticker, force);
+      const out = await build(env, env.DB, apiKey, ticker, force);
       return Response.json({ ok: true, ...out });
     } catch (err) {
       return Response.json({ ok: false, error: err.message }, { status: 500 });
@@ -54,7 +54,7 @@ export default {
   },
 };
 
-async function build(db, apiKey, ticker, force) {
+async function build(env, db, apiKey, ticker, force) {
   const [trendRow, factorsRow, posRow] = await Promise.all([
     db.prepare(
       `SELECT thesis_json, news_drift_json,
@@ -111,7 +111,7 @@ async function build(db, apiKey, ticker, force) {
     ticker, thesis, drift, drivers, tripwires, drift_signs, fired,
     factorsRow, posRow, prevRec,
   });
-  const blob = await callLLM(apiKey, prompt, { model: MODEL });
+  const blob = await callLLM(apiKey, prompt, { model: MODEL, env, caller: "ticker-recommendation" });
   validate(blob);
 
   const now = new Date().toISOString();

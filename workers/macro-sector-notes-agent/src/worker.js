@@ -60,7 +60,7 @@ export default {
     const force = url.searchParams.get("force") === "1" || url.searchParams.get("force") === "true";
 
     try {
-      const out = await build(env.DB, apiKey, sector, force);
+      const out = await build(env, env.DB, apiKey, sector, force);
       return Response.json({ ok: true, ...out });
     } catch (err) {
       return Response.json({ ok: false, error: err.message }, { status: 500 });
@@ -68,7 +68,7 @@ export default {
   },
 };
 
-async function build(db, apiKey, sector, force) {
+async function build(env, db, apiKey, sector, force) {
   const sectorRow = await db.prepare(
     `SELECT sector, thesis_json, news_drift_json, notes_json, notes_updated_at
        FROM SECTOR_TREND_long WHERE sector = ?`,
@@ -131,7 +131,7 @@ async function build(db, apiKey, sector, force) {
   }
 
   const prompt = buildPrompt({ sector, drivers, tripwires, drift, topics, prevNotes });
-  const blob = await callLLM(apiKey, prompt, { model: MODEL });
+  const blob = await callLLM(apiKey, prompt, { model: MODEL, env, caller: "macro-sector-notes" });
   validateNotes(blob, drivers, tripwires, topics);
 
   const topicById = new Map(topics.map(t => [t.id, t]));

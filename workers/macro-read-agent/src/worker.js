@@ -32,7 +32,7 @@ export default {
 
     const force = url.searchParams.get("force") === "1" || url.searchParams.get("force") === "true";
     try {
-      const out = await build(env.DB, apiKey, force);
+      const out = await build(env, env.DB, apiKey, force);
       return Response.json({ ok: true, ...out });
     } catch (err) {
       return Response.json({ ok: false, error: err.message }, { status: 500 });
@@ -40,7 +40,7 @@ export default {
   },
 };
 
-async function build(db, apiKey, force) {
+async function build(env, db, apiKey, force) {
   const macroRow = await db.prepare(
     `SELECT id, regime, thesis_json, positioning_json, signposts_json,
             read_json, read_updated_at, creation_date
@@ -92,7 +92,7 @@ async function build(db, apiKey, force) {
     thesis, positioning, topSignpost, driftVerdict, prevRead,
   });
 
-  const blob = await callLLM(apiKey, prompt, { model: MODEL });
+  const blob = await callLLM(apiKey, prompt, { model: MODEL, env, caller: "macro-read" });
   validateRead(blob);
 
   const now = new Date().toISOString();

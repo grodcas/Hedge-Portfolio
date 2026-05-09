@@ -271,8 +271,8 @@ async function fetchCalendar(req, env) {
           (ticker, next_earnings_date, last_report_date, source, updated_at)
         VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(ticker) DO UPDATE SET
-          next_earnings_date = excluded.next_earnings_date,
-          last_report_date   = excluded.last_report_date,
+          next_earnings_date = COALESCE(excluded.next_earnings_date, next_earnings_date),
+          last_report_date   = COALESCE(excluded.last_report_date,   last_report_date),
           source             = excluded.source,
           updated_at         = excluded.updated_at
       `).bind(

@@ -48,7 +48,7 @@ export default {
     const force = url.searchParams.get("force") === "1" || url.searchParams.get("force") === "true";
 
     try {
-      const out = await build(env.DB, apiKey, force);
+      const out = await build(env, env.DB, apiKey, force);
       return Response.json({ ok: true, ...out });
     } catch (err) {
       return Response.json({ ok: false, error: err.message }, { status: 500 });
@@ -56,7 +56,7 @@ export default {
   },
 };
 
-async function build(db, apiKey, force) {
+async function build(env, db, apiKey, force) {
   const macroRow = await db.prepare(
     `SELECT id, regime, thesis_json, news_drift_json,
             notes_json, notes_updated_at, creation_date
@@ -118,7 +118,7 @@ async function build(db, apiKey, force) {
   }
 
   const prompt = buildPrompt({ regime: macroRow.regime, drivers, tripwires, drift, topics, prevNotes });
-  const blob = await callLLM(apiKey, prompt, { model: MODEL });
+  const blob = await callLLM(apiKey, prompt, { model: MODEL, env, caller: "macro-notes" });
   validateNotes(blob, drivers, tripwires, topics);
 
   // Sort bullets by relevance: tagged + persistent + corroborated first.

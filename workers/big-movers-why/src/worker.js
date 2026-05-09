@@ -22,36 +22,61 @@ export default {
     const url = new URL(req.url);
     if (url.pathname !== "/build") return new Response("Not found", { status: 404 });
 
-    const apiKey = env.OPENAI_API_KEY;
-    if (!apiKey) return Response.json({ ok: false, error: "OPENAI_API_KEY not set" }, { status: 500 });
-
-    const db = env.DB;
     const date = url.searchParams.get("date") || new Date().toISOString().slice(0, 10);
     const n = Math.max(1, Math.min(10, parseInt(url.searchParams.get("n") || "5", 10)));
+    return Response.json(await build(env, date, n));
+  },
 
-    // Load prices for the date, filter to tracked tickers, compute intraday %.
-    const pricesRes = await db
-      .prepare(`SELECT ticker, open, close FROM PRICE_01_Daily WHERE date = ?`)
-      .bind(date)
-      .all();
-    const moves = [];
-    for (const r of pricesRes.results || []) {
-      if (!TRACKED_TICKERS.has(r.ticker)) continue;
-      if (!(r.open > 0)) continue;
-      const pct = ((r.close - r.open) / r.open) * 100;
-      moves.push({ ticker: r.ticker, pct });
-    }
+  // Cron `0 7 * * 2-6` (Tue-Sat 07:00 UTC) — fires the morning after each
+  // trading day, once price-fetcher's ~06:15 ingest of yesterday's Yahoo data
+  // has landed. Auto-picks the most recent date in PRICE_01_Daily so the
+  // worker survives holidays / data lag without manual date arithmetic.
+  async scheduled(_event, env, ctx) {
+    ctx.waitUntil((async () => {
+      try {
+        const row = await env.DB
+          .prepare(`SELECT MAX(date) AS d FROM PRICE_01_Daily`)
+          .first();
+        const date = row?.d;
+        if (!date) {
+          console.error("[big-movers-why] cron: no rows in PRICE_01_Daily");
+          return;
+        }
+        const result = await build(env, date, 5);
+        console.log(`[big-movers-why] cron: ${date} count=${result.count ?? 0}`);
+      } catch (e) {
+        console.error(`[big-movers-why] cron: ${e.message}`);
+      }
+    })());
+  },
+};
 
-    if (moves.length === 0) {
-      return Response.json(
-        { ok: false, error: `no PRICE_01 rows for ${date}` },
-        { status: 404 },
-      );
-    }
+async function build(env, date, n) {
+  const apiKey = env.OPENAI_API_KEY;
+  if (!apiKey) return { ok: false, error: "OPENAI_API_KEY not set" };
 
-    // Top N up and top N down
-    const ups = [...moves].sort((a, b) => b.pct - a.pct).slice(0, n);
-    const downs = [...moves].sort((a, b) => a.pct - b.pct).slice(0, n);
+  const db = env.DB;
+
+  // Load prices for the date, filter to tracked tickers, compute intraday %.
+  const pricesRes = await db
+    .prepare(`SELECT ticker, open, close FROM PRICE_01_Daily WHERE date = ?`)
+    .bind(date)
+    .all();
+  const moves = [];
+  for (const r of pricesRes.results || []) {
+    if (!TRACKED_TICKERS.has(r.ticker)) continue;
+    if (!(r.open > 0)) continue;
+    const pct = ((r.close - r.open) / r.open) * 100;
+    moves.push({ ticker: r.ticker, pct });
+  }
+
+  if (moves.length === 0) {
+    return { ok: false, error: `no PRICE_01 rows for ${date}` };
+  }
+
+  // Top N up and top N down
+  const ups = [...moves].sort((a, b) => b.pct - a.pct).slice(0, n);
+  const downs = [...moves].sort((a, b) => a.pct - b.pct).slice(0, n);
 
     const picked = [
       ...ups.map((m, i) => ({ ...m, direction: "up", rank: i + 1 })),
@@ -74,9 +99,8 @@ export default {
       }
     }
 
-    return Response.json({ ok: true, date, count: built.length, results: built });
-  },
-};
+  return { ok: true, date, count: built.length, results: built };
+}
 
 async function explainMover(db, apiKey, date, mover) {
   const { ticker, pct, direction, rank } = mover;

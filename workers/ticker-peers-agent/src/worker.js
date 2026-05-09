@@ -64,7 +64,7 @@ export default {
     const force = url.searchParams.get("force") === "1" || url.searchParams.get("force") === "true";
 
     try {
-      const out = await build(env.DB, apiKey, ticker, force);
+      const out = await build(env, env.DB, apiKey, ticker, force);
       return Response.json({ ok: true, ...out });
     } catch (err) {
       return Response.json({ ok: false, error: err.message }, { status: 500 });
@@ -72,7 +72,7 @@ export default {
   },
 };
 
-async function build(db, apiKey, ticker, force) {
+async function build(env, db, apiKey, ticker, force) {
   const sector = TICKER_TO_SECTOR[ticker] || null;
 
   const [trendRow, peerCfg, sectorRow] = await Promise.all([
@@ -195,7 +195,7 @@ async function build(db, apiKey, ticker, force) {
   }
 
   const prompt = buildPrompt({ ticker, sector, tickerComp, peerComps, sectorRow, prevPeers });
-  const blob = await callLLM(apiKey, prompt, { model: MODEL });
+  const blob = await callLLM(apiKey, prompt, { model: MODEL, env, caller: "ticker-peers" });
   validate(blob);
 
   const now = new Date().toISOString();

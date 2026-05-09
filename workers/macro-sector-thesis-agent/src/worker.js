@@ -71,7 +71,7 @@ export default {
     const force = url.searchParams.get("force") === "1" || url.searchParams.get("force") === "true";
 
     try {
-      const out = await build(env.DB, apiKey, sector, force);
+      const out = await build(env, env.DB, apiKey, sector, force);
       return Response.json({ ok: true, ...out });
     } catch (err) {
       return Response.json({ ok: false, error: err.message }, { status: 500 });
@@ -79,7 +79,7 @@ export default {
   },
 };
 
-async function build(db, apiKey, sector, force) {
+async function build(env, db, apiKey, sector, force) {
   // ---------- Sector trend row + macro context ----------
   const [sectorRow, macroRow, sectorFactors] = await Promise.all([
     db.prepare(
@@ -178,7 +178,7 @@ async function build(db, apiKey, sector, force) {
     prevThesis,
   });
 
-  const blob = await callLLM(apiKey, prompt, { model: MODEL });
+  const blob = await callLLM(apiKey, prompt, { model: MODEL, env, caller: "macro-sector-thesis" });
   validateThesis(blob);
 
   const now = new Date().toISOString();
