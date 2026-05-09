@@ -1,3 +1,4 @@
+import { openaiFetch } from "../../_shared/openai-call.js";
 /**
  * NEWS FUNNEL — ORCHESTRATOR
  *
@@ -10,6 +11,7 @@
 
 export default {
   async fetch(req, env) {
+    globalThis.__OAI_CTX = { env, caller: "news-funnel-orchestrator" };
     const url = new URL(req.url);
     if (url.pathname !== "/run-news-funnel")
       return new Response("Not found", { status: 404 });
@@ -313,7 +315,7 @@ OUTPUT (strict JSON, no markdown). Copy the ID strings VERBATIM from the candida
   "macro_ids":  ["m:central_banks:...", ...]  // up to ${MACRO_MAX}
 }`;
 
-  const res = await fetch("https://api.openai.com/v1/responses", {
+  const res = await openaiFetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({

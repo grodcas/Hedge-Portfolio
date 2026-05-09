@@ -1,5 +1,7 @@
+import { openaiFetch } from "../../_shared/openai-call.js";
 export default {
   async fetch(req, env) {
+    globalThis.__OAI_CTX = { env, caller: "qk-summarizer" };
     const url = new URL(req.url);
     if (url.pathname !== "/summarize-cluster")
       return new Response("Not found", { status: 404 });
@@ -114,7 +116,7 @@ export default {
     }
 
     // ---- Call OpenAI (GPT-5 mini) ----
-    const resp = await fetch("https://api.openai.com/v1/responses", {
+    const resp = await openaiFetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${env.OPENAI_API_KEY}`,

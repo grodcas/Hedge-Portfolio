@@ -1,3 +1,4 @@
+import { openaiFetch } from "../../_shared/openai-call.js";
 /**
  * TICKER-TREND-SHORT
  *
@@ -42,6 +43,7 @@ const STALE_DAYS = 7;               // max days since last short trend
 
 export default {
   async fetch(req, env) {
+    globalThis.__OAI_CTX = { env, caller: "ticker-trend-short" };
     const url = new URL(req.url);
     const apiKey = env.OPENAI_API_KEY;
     if (!apiKey) return Response.json({ ok: false, error: "OPENAI_API_KEY not set" }, { status: 500 });
@@ -348,7 +350,7 @@ function fmt(v) {
 }
 
 async function callGPT5(apiKey, prompt) {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const res = await openaiFetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({

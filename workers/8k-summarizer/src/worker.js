@@ -1,5 +1,7 @@
+import { openaiFetch } from "../../_shared/openai-call.js";
 export default {
   async fetch(request, env) {
+    globalThis.__OAI_CTX = { env, caller: "8k-summarizer" };
     if (request.method !== "POST")
       return new Response("POST only", { status: 405 });
 
@@ -29,7 +31,7 @@ ${content}
     }
 
     async function summarize(prompt) {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      const res = await openaiFetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${env.OPENAI_API_KEY}`,

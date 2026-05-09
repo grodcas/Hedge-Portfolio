@@ -1,5 +1,7 @@
+import { openaiFetch } from "../../_shared/openai-call.js";
 export default {
   async fetch(req, env) {
+    globalThis.__OAI_CTX = { env, caller: "qk-report-summarizer" };
     const url = new URL(req.url);
     if (url.pathname !== "/summarize-report")
       return new Response("Not found", { status: 404 });
@@ -84,7 +86,7 @@ export default {
       `Facts:\n${bullets}`;
 
 
-    const resp = await fetch("https://api.openai.com/v1/responses", {
+    const resp = await openaiFetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${env.OPENAI_API_KEY}`,

@@ -10,6 +10,7 @@
  */
 
 import { assertProseMatchesMoveSign } from "../../_shared/agent-validators.js";
+import { openaiFetch } from "../../_shared/openai-call.js";
 
 const TRACKED_TICKERS = new Set([
   "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK.B",
@@ -19,6 +20,7 @@ const TRACKED_TICKERS = new Set([
 
 export default {
   async fetch(req, env) {
+    globalThis.__OAI_CTX = { env, caller: "big-movers-why" };
     const url = new URL(req.url);
     if (url.pathname !== "/build") return new Response("Not found", { status: 404 });
 
@@ -32,6 +34,7 @@ export default {
   // has landed. Auto-picks the most recent date in PRICE_01_Daily so the
   // worker survives holidays / data lag without manual date arithmetic.
   async scheduled(_event, env, ctx) {
+    globalThis.__OAI_CTX = { env, caller: "big-movers-why" };
     ctx.waitUntil((async () => {
       try {
         const row = await env.DB
@@ -229,7 +232,7 @@ async function shortHash(input) {
 }
 
 async function callGPT5(apiKey, prompt) {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const res = await openaiFetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({

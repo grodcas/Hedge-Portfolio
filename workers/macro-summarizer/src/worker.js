@@ -1,5 +1,7 @@
+import { openaiFetch } from "../../_shared/openai-call.js";
 export default {
   async fetch(req, env) {
+    globalThis.__OAI_CTX = { env, caller: "macro-summarizer" };
     const url = new URL(req.url);
     if (url.pathname !== "/process-macro")
       return new Response("Not found", { status: 404 });
@@ -39,7 +41,7 @@ export default {
     // --------------------------------------------
     // AI
     // --------------------------------------------
-    const ai = await fetch("https://api.openai.com/v1/chat/completions", {
+    const ai = await openaiFetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${env.OPENAI_API_KEY}`,

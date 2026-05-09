@@ -1,3 +1,4 @@
+import { openaiFetch } from "../../_shared/openai-call.js";
 /**
  * NEWS FUNNEL — STAGE 2: RELEVANCE FILTER (v2 — 33 parallel focused calls)
  *
@@ -28,6 +29,7 @@ const MACRO_CATEGORIES = [
 
 export default {
   async fetch(req, env) {
+    globalThis.__OAI_CTX = { env, caller: "news-funnel-filter" };
     const url = new URL(req.url);
     if (url.pathname !== "/filter-headlines")
       return new Response("Not found", { status: 404 });
@@ -242,7 +244,7 @@ OUTPUT (strict JSON, no markdown):
 // Shared GPT-5-mini call
 // ================================================================
 async function callGpt5Mini(systemMsg, userMsg, apiKey) {
-  const res = await fetch("https://api.openai.com/v1/responses", {
+  const res = await openaiFetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiKey}`,

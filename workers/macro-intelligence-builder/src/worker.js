@@ -1,3 +1,4 @@
+import { openaiFetch } from "../../_shared/openai-call.js";
 /**
  * MACRO INTELLIGENCE BUILDER — v2
  *
@@ -22,6 +23,7 @@ const WINDOW_DAYS = 56; // 8 weeks
 
 export default {
   async fetch(req, env) {
+    globalThis.__OAI_CTX = { env, caller: "macro-intelligence-builder" };
     const url = new URL(req.url);
     if (url.pathname !== "/build-macro-intelligence")
       return new Response("Not found", { status: 404 });
@@ -429,7 +431,7 @@ Criteria
 HEADLINES
 ${listing}`;
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const res = await openaiFetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -573,7 +575,7 @@ function normalizeProbs(d) {
 }
 
 async function callGPT5(apiKey, prompt) {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const res = await openaiFetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,

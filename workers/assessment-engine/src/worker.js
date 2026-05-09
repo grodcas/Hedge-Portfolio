@@ -1,3 +1,4 @@
+import { openaiFetch } from "../../_shared/openai-call.js";
 /**
  * ASSESSMENT ENGINE — Core Scoring System (v2)
  *
@@ -45,6 +46,7 @@ const SECTOR_MAP = {
 
 export default {
   async fetch(req, env) {
+    globalThis.__OAI_CTX = { env, caller: "assessment-engine" };
     const url = new URL(req.url);
     if (url.pathname !== "/compute-assessments")
       return new Response("Not found", { status: 404 });
@@ -363,7 +365,7 @@ export default {
 
               const prompt = `Given these factor scores for ${a.ticker}:\n${factorLines || "All factors neutral."}\nComposite score: ${a.score.toFixed(3)}\n\nWrite exactly 2 sentences explaining what is driving this stock. Focus on the strongest factors. Do not invent any numbers not listed above. Do not add caveats or disclaimers.`;
 
-              const res = await fetch("https://api.openai.com/v1/chat/completions", {
+              const res = await openaiFetch("https://api.openai.com/v1/chat/completions", {
                 method: "POST",
                 headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
                 body: JSON.stringify({
