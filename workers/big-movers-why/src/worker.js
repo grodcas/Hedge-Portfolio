@@ -11,6 +11,7 @@
 
 import { assertProseMatchesMoveSign } from "../../_shared/agent-validators.js";
 import { openaiFetch } from "../../_shared/openai-call.js";
+import { logCronRun } from "../../_shared/cron-log.js";
 
 const TRACKED_TICKERS = new Set([
   "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK.B",
@@ -35,22 +36,18 @@ export default {
   // worker survives holidays / data lag without manual date arithmetic.
   async scheduled(_event, env, ctx) {
     globalThis.__OAI_CTX = { env, caller: "big-movers-why" };
-    ctx.waitUntil((async () => {
-      try {
+    ctx.waitUntil(
+      logCronRun(env, "big-movers-why", async () => {
         const row = await env.DB
           .prepare(`SELECT MAX(date) AS d FROM PRICE_01_Daily`)
           .first();
         const date = row?.d;
-        if (!date) {
-          console.error("[big-movers-why] cron: no rows in PRICE_01_Daily");
-          return;
-        }
+        if (!date) throw new Error("no rows in PRICE_01_Daily");
         const result = await build(env, date, 5);
         console.log(`[big-movers-why] cron: ${date} count=${result.count ?? 0}`);
-      } catch (e) {
-        console.error(`[big-movers-why] cron: ${e.message}`);
-      }
-    })());
+        return result;
+      }).catch((e) => console.error(`[big-movers-why] cron: ${e.message}`)),
+    );
   },
 };
 

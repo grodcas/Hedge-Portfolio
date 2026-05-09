@@ -1,3 +1,4 @@
+import { logCronRun } from "../../_shared/cron-log.js";
 /**
  * YFINANCE-CROSS-ASSET-FETCHER — daily writer for free-tier FX / commodity / vol series.
  *
@@ -52,7 +53,10 @@ export default {
     }
   },
   async scheduled(_event, env, ctx) {
-    ctx.waitUntil(build(env).catch((e) => console.error(`[yfinance-cross-asset] cron: ${e.message}`)));
+    ctx.waitUntil(
+      logCronRun(env, "yfinance-cross-asset-fetcher", () => build(env))
+        .catch((e) => console.error(`[yfinance-cross-asset] cron: ${e.message}`)),
+    );
   },
 };
 

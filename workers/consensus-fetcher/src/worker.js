@@ -36,6 +36,7 @@
  */
 
 import { recordApiCall } from "../../_shared/api-usage.js";
+import { logCronRun } from "../../_shared/cron-log.js";
 
 const AV_BASE = "https://www.alphavantage.co/query";
 
@@ -58,7 +59,10 @@ export default {
     }
   },
   async scheduled(_event, env, ctx) {
-    ctx.waitUntil(build(env, {}).catch((e) => console.error(`[consensus] cron: ${e.message}`)));
+    ctx.waitUntil(
+      logCronRun(env, "consensus-fetcher", () => build(env, {}))
+        .catch((e) => console.error(`[consensus] cron: ${e.message}`)),
+    );
   },
 };
 

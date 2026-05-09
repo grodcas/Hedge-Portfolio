@@ -1,3 +1,4 @@
+import { logCronRun } from "../../_shared/cron-log.js";
 /**
  * MACRO-STATE-FETCHER — daily writer for MACRO_STATE_indicators.
  *
@@ -94,7 +95,10 @@ export default {
     }
   },
   async scheduled(_event, env, ctx) {
-    ctx.waitUntil(build(env).catch((e) => console.error(`[macro-state] cron: ${e.message}`)));
+    ctx.waitUntil(
+      logCronRun(env, "macro-state-fetcher", () => build(env))
+        .catch((e) => console.error(`[macro-state] cron: ${e.message}`)),
+    );
   },
 };
 

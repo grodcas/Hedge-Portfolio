@@ -1,3 +1,4 @@
+import { logCronRun } from "../../_shared/cron-log.js";
 /**
  * AGENT-ORCHESTRATOR — per-agent epsilon gate + firing log.
  *
@@ -222,8 +223,9 @@ export default {
 
   async scheduled(_event, env, ctx) {
     ctx.waitUntil(
-      orchestrate(env, { force: false, onlyAgent: null })
-        .catch((e) => console.error(`[orchestrator] cron: ${e.message}`)),
+      logCronRun(env, "agent-orchestrator", () =>
+        orchestrate(env, { force: false, onlyAgent: null }),
+      ).catch((e) => console.error(`[orchestrator] cron: ${e.message}`)),
     );
   },
 };

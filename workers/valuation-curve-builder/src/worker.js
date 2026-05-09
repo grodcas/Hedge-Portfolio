@@ -1,4 +1,5 @@
 import { openaiFetch } from "../../_shared/openai-call.js";
+import { logCronRun } from "../../_shared/cron-log.js";
 /**
  * VALUATION-CURVE-BUILDER — Sprint 12
  *
@@ -91,11 +92,12 @@ export default {
     if (!apiKey) return;
     // 15 past the hour = short sweep. 30 past the hour = long auto-review.
     const minute = new Date(event.scheduledTime).getUTCMinutes();
-    if (minute === 15) {
-      ctx.waitUntil(buildAll({ env, apiKey, mode: "short" }).catch((e) => console.error(`[val] cron short: ${e.message}`)));
-    } else {
-      ctx.waitUntil(buildAll({ env, apiKey, mode: "long_auto" }).catch((e) => console.error(`[val] cron long: ${e.message}`)));
-    }
+    const mode   = minute === 15 ? "short" : "long_auto";
+    const label  = `valuation-curve-builder:${mode}`;
+    ctx.waitUntil(
+      logCronRun(env, label, () => buildAll({ env, apiKey, mode }))
+        .catch((e) => console.error(`[val] cron ${mode}: ${e.message}`)),
+    );
   },
 };
 

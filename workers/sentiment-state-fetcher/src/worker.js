@@ -1,3 +1,4 @@
+import { logCronRun } from "../../_shared/cron-log.js";
 /**
  * SENTIMENT-STATE-FETCHER — daily writer for SENTIMENT_STATE_indicators.
  *
@@ -40,7 +41,10 @@ export default {
     }
   },
   async scheduled(_event, env, ctx) {
-    ctx.waitUntil(build(env).catch((e) => console.error(`[sentiment-state] cron: ${e.message}`)));
+    ctx.waitUntil(
+      logCronRun(env, "sentiment-state-fetcher", () => build(env))
+        .catch((e) => console.error(`[sentiment-state] cron: ${e.message}`)),
+    );
   },
 };
 

@@ -1,0 +1,24 @@
+{
+  "name": "cron-watchdog",
+  "main": "src/worker.js",
+  "workers_dev": true,
+  "preview_urls": false,
+  "compatibility_date": "2026-01-07",
+  "observability": {
+    "enabled": true,
+    "logs": { "enabled": true, "head_sampling_rate": 1, "persist": true, "invocation_logs": true }
+  },
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_id": "e306b0a8-7d5e-4032-b46e-9b50fc6c4f99"
+    }
+  ],
+  // Hourly. Reads PROC_05_Cron_runs, compares each Tier-1 cron's most-recent
+  // fire to its expected schedule, writes a heartbeat row + flags stale ones.
+  // Cheap (one tiny query, no LLM).
+  "triggers": {
+    "crons": ["0 * * * *"]
+  }
+}

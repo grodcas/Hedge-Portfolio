@@ -18,6 +18,7 @@
  */
 
 import { recordApiCall } from "../../_shared/api-usage.js";
+import { logCronRun } from "../../_shared/cron-log.js";
 
 const DEFAULT_WINDOW_DAYS = 14;
 const MODEL = "gpt-5-mini";
@@ -38,9 +39,8 @@ export default {
   },
   async scheduled(_event, env, ctx) {
     ctx.waitUntil(
-      build(env, DEFAULT_WINDOW_DAYS).catch((e) =>
-        console.error(`[topic-feed] cron: ${e.message}`),
-      ),
+      logCronRun(env, "topic-feed-builder", () => build(env, DEFAULT_WINDOW_DAYS))
+        .catch((e) => console.error(`[topic-feed] cron: ${e.message}`)),
     );
   },
 };

@@ -1,3 +1,4 @@
+import { logCronRun } from "../../_shared/cron-log.js";
 /**
  * ECONOMIC-CALENDAR-FETCHER — writes to MACRO_STATE_calendar
  *
@@ -79,7 +80,10 @@ export default {
   },
 
   async scheduled(_event, env, ctx) {
-    ctx.waitUntil(build(env).catch((e) => console.error(`[cal-fetcher] cron: ${e.message}`)));
+    ctx.waitUntil(
+      logCronRun(env, "economic-calendar-fetcher", () => build(env))
+        .catch((e) => console.error(`[cal-fetcher] cron: ${e.message}`)),
+    );
   },
 };
 

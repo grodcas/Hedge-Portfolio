@@ -1,3 +1,4 @@
+import { logCronRun } from "../../_shared/cron-log.js";
 /**
  * FOMC-STATEMENT-FETCHER — writes to MACRO_STATE_fomc + FOMC_PROJECTIONS
  *
@@ -58,7 +59,10 @@ export default {
   },
 
   async scheduled(_event, env, ctx) {
-    ctx.waitUntil(build(env).catch((e) => console.error(`[fomc-fetcher] cron: ${e.message}`)));
+    ctx.waitUntil(
+      logCronRun(env, "fomc-statement-fetcher", () => build(env))
+        .catch((e) => console.error(`[fomc-fetcher] cron: ${e.message}`)),
+    );
   },
 };
 
