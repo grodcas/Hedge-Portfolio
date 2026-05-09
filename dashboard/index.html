@@ -1466,7 +1466,7 @@
             <th data-sort="evebitda">EV/EBITDA</th>
             <th class="center">Price · 1y</th>
             <th class="center" title="Operating margin (indigo) + Free cash flow (teal), 8 quarters, each normalized to its own range. Divergence between the two is the analytical signal.">Quality 8q</th>
-            <th data-sort="drift">News 30d</th>
+            <th data-sort="news_30d">News 30d</th>
             <th data-sort="dtc">DTC</th>
           </tr>
         </thead>
@@ -1532,10 +1532,10 @@
           <div class="cg-head">VOL · POSITIONING</div>
           <div class="tile" data-code="VIX"><span class="tl">VIX</span><span class="tv">—</span><span class="td">—</span></div>
           <div class="tile" data-code="VVIX"><span class="tl">VVIX</span><span class="tv">—</span><span class="td">—</span></div>
-          <div class="tile" data-pending="sentiment"><span class="tl">NAAIM</span><span class="tv">—</span><span class="td">sentiment feed pending</span></div>
-          <div class="tile" data-pending="sentiment"><span class="tl">P/C eq</span><span class="tv">—</span><span class="td">sentiment feed pending</span></div>
-          <div class="tile" data-pending="sentiment"><span class="tl">AAII</span><span class="tv">—</span><span class="td">sentiment feed pending</span></div>
-          <div class="tile" data-pending="sentiment"><span class="tl">COT ES</span><span class="tv">—</span><span class="td">sentiment feed pending</span></div>
+          <div class="tile" data-sent-code="AAII_BULL_BEAR"><span class="tl">AAII bull−bear</span><span class="tv">—</span><span class="td">—</span></div>
+          <div class="tile" data-sent-code="PUTCALL_EQUITY"><span class="tl">P/C eq</span><span class="tv">—</span><span class="td">—</span></div>
+          <div class="tile" data-sent-code="AAII_BULLISH"><span class="tl">AAII bull%</span><span class="tv">—</span><span class="td">—</span></div>
+          <div class="tile" data-sent-code="COT_ES_AM_NET"><span class="tl">COT ES AM</span><span class="tv">—</span><span class="td">—</span></div>
         </div>
       </div>
     </div>
@@ -2927,11 +2927,12 @@
         mtd:    r.day_pnl_pct ?? 0,
         conv:   r.thesis_score == null ? 0 : Math.round(r.thesis_score * 100),
         thesis: verdictFromScore(r.thesis_score),
-        att:    null,                 // attention score not yet computed
+        att:    r.attention ?? null,
         fwdpe:  r.fwd_pe ?? null,
         fwdpez: r.rel_pe_sigma ?? 0,
-        eveb:   r.ev_ebitda ?? 0,
+        eveb:   r.ev_ebitda ?? null,
         evebz:  0,
+        news_30d: r.news_30d ?? 0,
         marg:   null,                 // hydrated by fundamental-trends fetch below
         fcf:    null,                 // hydrated by fundamental-trends fetch below
         epsrev: r.eps_rev_4w == null ? "—" : `${r.eps_rev_4w >= 0 ? "+" : ""}${(r.eps_rev_4w * 100).toFixed(1)}%`,
@@ -3007,7 +3008,7 @@
         <td class="z-cell num"><span class="z-num" style="background:${zBg(r.evebz)}">${(r.eveb && r.eveb > 0) ? r.eveb.toFixed(1) : "—"}${(r.eveb && r.eveb > 0) ? `<span class="zsup">z ${fmtSign(r.evebz)}</span>` : ""}</span></td>
         <td class="spark" title="1y price · PRICE_01_Daily">${sparkline(px, "#0F172A")}<span class="num" style="display:block;font-size:10px;color:var(--text2);text-align:right;margin-top:1px">$${pxNow.toFixed(0)} <span class="${pxClass}">${fmtSign(pxYoy, 0)}%</span></span></td>
         <td class="spark" title="Margin (indigo) + FCF (teal), 8q normalized">${sparklineDual(r.marg, r.fcf)}</td>
-        <td class="${driftClass} num">${fmtSign(r.drift || 0)}</td>
+        <td class="num" title="Headlines in BETA_12_News_digest, last 30d">${r.news_30d == null ? "—" : r.news_30d}</td>
         <td class="${dtcClass} num">${r.dtc == null ? "—" : r.dtc + "d"}</td>
       </tr>`;
     }).join("");
@@ -4222,6 +4223,41 @@
           el.style.color = "var(--bad)";
         });
         console.error("[cross-asset]", err);
+      });
+
+    // Sentiment tiles — VOL · POSITIONING column.
+    // Each tile in #cross-grid carries data-sent-code matching an indicator
+    // in SENTIMENT_STATE_indicators. Latest value + release_date go on the tile.
+    fetch("/api/sentiment-latest")
+      .then(r => r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)))
+      .then(data => {
+        const byCode = {};
+        for (const it of (data.items || [])) byCode[it.indicator_code] = it;
+        document.querySelectorAll(".tile[data-sent-code]").forEach(tile => {
+          const code = tile.dataset.sentCode;
+          const row  = byCode[code];
+          const tv = tile.querySelector(".tv");
+          const td = tile.querySelector(".td");
+          if (!row || row.value == null) {
+            tv.textContent = "—";
+            td.textContent = "no data";
+            return;
+          }
+          const v = Number(row.value);
+          const fmt = code === "PUTCALL_EQUITY" || code === "PUTCALL_INDEX" || code === "PUTCALL_TOTAL"
+            ? `${v.toFixed(2)}`
+            : (code.startsWith("AAII")  ? `${(v * 100).toFixed(1)}%`
+            : (code.startsWith("COT")   ? (Math.abs(v) >= 1e3 ? `${(v / 1e3).toFixed(1)}k` : v.toFixed(0))
+            : v.toFixed(2)));
+          tv.textContent = fmt;
+          td.textContent = (row.release_date || "").slice(0, 10) || "—";
+        });
+      })
+      .catch((err) => {
+        document.querySelectorAll(".tile[data-sent-code]").forEach(tile => {
+          tile.querySelector(".td").textContent = "load failed";
+        });
+        console.error("[sentiment-latest]", err);
       });
 
     // Regime banner + Today header + Macro panel header + per-ticker CONTEXT.

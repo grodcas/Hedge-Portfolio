@@ -696,7 +696,7 @@ export default {
             "Communication Services": "COM", "Materials": "MAT",
             "Utilities": "UTL", "Real Estate": "RES",
           };
-          const [posRes, factorsRes, fundRes, trendRes] = await Promise.all([
+          const [posRes, factorsRes, fundRes, trendRes, newsRes] = await Promise.all([
             db.prepare(
               `SELECT p.* FROM POSITION_01_Daily p
                 INNER JOIN (SELECT ticker, MAX(date) AS d FROM POSITION_01_Daily GROUP BY ticker) g
@@ -717,6 +717,12 @@ export default {
               `SELECT ticker, regime, score, thesis_json, news_drift_json
                  FROM TICKER_TREND_long`
             ).all(),
+            db.prepare(
+              `SELECT ticker, COUNT(*) AS n
+                 FROM BETA_12_News_digest
+                WHERE date >= date('now','-30 days')
+                GROUP BY ticker`
+            ).all(),
           ]);
 
           const positions = (posRes.results || []);
@@ -731,8 +737,29 @@ export default {
           for (const r of (fundRes.results || [])) funds[r.ticker] = r;
           const trends = {};
           for (const r of (trendRes.results || [])) trends[r.ticker] = r;
+          const news30 = {};
+          for (const r of (newsRes.results || [])) news30[r.ticker] = r.n;
 
           const safeJson = (s) => { try { return JSON.parse(s); } catch { return null; } };
+
+          // ---- Attention score (0-100) — analyst-grade composite ----
+          //   30 · catalyst proximity     30/(1+days_to_catalyst), capped 30
+          //   25 · thesis pressure        DRIFT/WEAK = 25, neutral = 12, INTACT = 0
+          //   20 · recent move shock      min(20, |day_pnl_pct| * 5)
+          //   15 · news intensity         15 * min(1, news_30d/20)
+          //   10 · position drift         min(10, |wt-tgt| * 0.5)
+          const attention = (factors, regime, day_pnl_pct, news_30d, wt, tgt) => {
+            const dtc = factors?.days_to_catalyst;
+            const cat = (dtc != null && Number.isFinite(dtc) && dtc >= 0) ? Math.min(30, 30 / (1 + dtc)) : 0;
+            const reg = (regime || "").toUpperCase();
+            const thesis = (reg === "DRIFT" || reg === "WEAK" || reg === "BROKEN") ? 25
+                         : (reg === "INTACT" || reg === "STRONG") ? 0
+                         : 12;
+            const move = day_pnl_pct == null ? 0 : Math.min(20, Math.abs(day_pnl_pct) * 5);
+            const news = news_30d == null ? 0 : 15 * Math.min(1, news_30d / 20);
+            const drift_pts = (wt != null && tgt != null) ? Math.min(10, Math.abs(wt - tgt) * 0.5) : 0;
+            return Math.round(cat + thesis + move + news + drift_pts);
+          };
           const rows = positions.map((p) => {
             const f  = factors[p.ticker] || {};
             const fu = funds[p.ticker] || {};
@@ -768,6 +795,8 @@ export default {
               drift_score,
               eps_rev_4w: f.eps_rev_4w ?? null,
               sue: f.sue ?? null,
+              news_30d: news30[p.ticker] ?? 0,
+              attention: attention(f, tr.regime, p.day_pnl_pct, news30[p.ticker] ?? 0, wt, tgt),
             };
           });
           return Response.json({ date: positions[0]?.date || null, rows }, { headers: corsHeaders });
@@ -1013,6 +1042,32 @@ export default {
             { ok: true, from: start, to: today, items: rows.results || [] },
             { headers: corsHeaders },
           );
+        }
+
+        // -------- GET /query/sentiment-latest --------
+        // Latest value per indicator_code in SENTIMENT_STATE_indicators —
+        // mirrors /query/macro-state-latest. Powers the dashboard's
+        // VOL · POSITIONING tiles (AAII, P/C, COT). Optional ?codes= filter.
+        if (path === "/query/sentiment-latest") {
+          const codesParam = url.searchParams.get("codes");
+          const codes = codesParam ? codesParam.split(",").map(s => s.trim()).filter(Boolean) : null;
+          const where = codes && codes.length
+            ? `WHERE i.indicator_code IN (${codes.map(() => "?").join(",")})`
+            : "";
+          const sql = `
+            SELECT i.indicator_code, i.indicator_name, i.value, i.prior, i.unit,
+                   i.release_date, i.source
+              FROM SENTIMENT_STATE_indicators i
+              INNER JOIN (
+                SELECT indicator_code, MAX(release_date) AS d
+                  FROM SENTIMENT_STATE_indicators
+                 GROUP BY indicator_code
+              ) g ON g.indicator_code = i.indicator_code AND g.d = i.release_date
+              ${where}
+             ORDER BY i.indicator_code`;
+          const stmt = codes && codes.length ? db.prepare(sql).bind(...codes) : db.prepare(sql);
+          const { results } = await stmt.all();
+          return Response.json({ items: results || [] }, { headers: corsHeaders });
         }
 
         // -------- GET /query/cron-health --------
