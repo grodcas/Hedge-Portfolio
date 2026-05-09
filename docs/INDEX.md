@@ -1,58 +1,38 @@
 # Documentation Index · what's where
 
-**Last updated**: 2026-05-04
+**Last updated**: 2026-05-09
 
-This is the worktree. It tells you what is being worked on right now, what the canonical reference is, and what is archived for history.
+This index tells you what's being worked on right now, what the canonical reference is, and what's archived for history.
 
 If a doc is not listed here, it does not exist (or it should be added here).
 
 ---
 
-## Canonical reference (kept consistent)
+## Canonical reference
 
-These two are the project's "readme" pair. Update them when system architecture changes.
+The two docs to update when system architecture changes.
 
 | Doc | Purpose |
 |---|---|
-| [STRUCTURE.md](STRUCTURE.md) | Single-page system map: data sources, pipeline, workers, surfaces. The entry point. |
-| [SYSTEM_REFERENCE.md](SYSTEM_REFERENCE.md) | Long-form reference for every cluster (12 clusters, full schemas, full data flow). |
-
-PDFs of SYSTEM_REFERENCE: [color](SYSTEM_REFERENCE.pdf) · [b&w print](SYSTEM_REFERENCE-bw.pdf).
+| [architecture.md](architecture.md) | The mental model: two horizontal layers (data parsing + AI processing), four workflows (Macro / Sector / Ticker / Tape), bug patterns to avoid. **Read this first.** |
+| [SYSTEM_REFERENCE.md](SYSTEM_REFERENCE.md) | Long-form reference for every cluster (full schemas, full data flow). PDF: [SYSTEM_REFERENCE.pdf](SYSTEM_REFERENCE.pdf). Use as a lookup, not a tutorial. |
 
 ---
 
 ## Active work · `active/`
 
-In-flight brainstorming and feature drafts. Each new feature gets a doc here. When the feature ships and the design is folded into the canonical reference, the doc moves to `archive/`.
+In-flight design docs. Each new feature gets a doc here. When the design is folded into the canonical refs, the doc moves to `archive/`.
 
 | Doc | What it captures | Status |
 |---|---|---|
-| [active/TICKER_PIPELINE.md](active/TICKER_PIPELINE.md) | Per-agent pipeline for three surfaces: Name slide-out (10 agents), Today (composition only, 0 agents), Tape (1 annotation agent). Includes the upstream topic-feed contract with persistence counter. | Active · 2026-05-03 |
-| [active/MAP_PIPELINE.md](active/MAP_PIPELINE.md) | Per-agent pipeline for the Macro slide-out (7 agents incl. FOMC summary) and Sector slide-out (6 agents). Map surface itself is fully numerical — no AI. Cross-pipeline lineage (Macro → Sector → Ticker) defined. | Active · 2026-05-03 |
-| [active/SPRINT_2026-05-04_dashboard_balance.md](active/SPRINT_2026-05-04_dashboard_balance.md) | Sprint plan — audit mockup vs DB/pipeline, decide free-API or drop per gap, build a balanced new mockup. Audit + new mockup + rationale doc only — no DB / pipeline / current-mockup mods. | **Shipped 2026-05-04** |
-| [active/sprint-output/AUDIT_INVENTORY.md](active/sprint-output/AUDIT_INVENTORY.md) | Sprint output A — three-way reconciliation (mockup × pipeline × DB). Tags every parameter AVAILABLE / GAP / UNUSED / PARSED-BUT-LOST. | Shipped 2026-05-04 |
-| [active/sprint-output/PARAMETER_DECISIONS.md](active/sprint-output/PARAMETER_DECISIONS.md) | Sprint output B — KEEP / CALCULATE / DROP per gap row, with free-source method. **§0 (Feasibility-revised) is the live decision set.** | Shipped 2026-05-04 |
-| [active/sprint-output/PIPELINE_AUDIT.md](active/sprint-output/PIPELINE_AUDIT.md) | Pipeline implementation sprint output D — three-way audit (cron × parsers × DB). Tags every PARAMETER_DECISIONS row as EXTEND / NEW / DEPRECATE / NO-OP. | Shipped 2026-05-04 |
-| [active/sprint-output/VALIDATION_REPORT.md](active/sprint-output/VALIDATION_REPORT.md) | Pipeline implementation sprint output G — per-parser sample-check (45 entries). User fills in values column after live deploy + cron tick. Locks ship/no-ship per parser. | Scaffold shipped 2026-05-04 · pending live values |
-| [active/v2_BALANCED_MOCKUP.md](active/v2_BALANCED_MOCKUP.md) | Sprint output C — rationale for the new balanced mockup: REMOVED / CHANGED / ADDED, per-section before/after, full source map. New mockup at `dashboard/mockup/v2-balanced/index.html`. | Shipped 2026-05-04 |
-| [active/SPRINT_pipeline_implementation.md](active/SPRINT_pipeline_implementation.md) | Sprint plan — runs **after** the audit sprint and after user signs off on `PARAMETER_DECISIONS.md`. Implements the parameter swap in the pipeline + DB: new free-source parsers, soft-delete cleanup of unused parsers and columns, cron wiring, mandatory per-parser validation against source. Soft delete only (no DROP COLUMN), no backfill, no UI / AI changes. | Planned · sequential to audit |
-| [active/SPRINT_pipeline_leftovers.md](active/SPRINT_pipeline_leftovers.md) | Sprint plan — closes 5 known follow-ups from the pipeline implementation sprint: per-parser commits, FOMC SEP parser fix, NAAIM/ISM keep-or-drop decision, validation report auto-fill. Sonnet · ~1.5h. | **Shipped 2026-05-04** |
-| [active/PRE_SPRINT_AUDIT_2026-05-04.md](active/PRE_SPRINT_AUDIT_2026-05-04.md) | Pre-sprint audit — surveys existing AI workers / dashboard wiring / agent contracts. Identifies four risks that the original three-sprint chain didn't cover. Source for the SPRINT_CHAIN runbook. | **Shipped 2026-05-04** |
-| **[active/SPRINT_CHAIN_2026-05-05.md](active/SPRINT_CHAIN_2026-05-05.md)** | **PRIMARY RUNBOOK for the dashboard go-live.** 26 micro-sprints across 6 phases: hedge-server deploy → data-layer prep → agent foundation → agent rollout → initialization → validation+cleanup. Each MS is 15–60 min, single output, lights-on test, then commit. 6 explicit `/clear` checkpoints. Tomorrow's autonomous run reads this top-to-bottom. | **Shipped through MS-4b 2026-05-05** |
-| **[active/SPRINT_2026-05-06_pre_init_api_audit.md](active/SPRINT_2026-05-06_pre_init_api_audit.md)** | **Tomorrow's first sprint.** Coordinates the AV 25/day budget shared between fetch-fundamentals + consensus-fetcher; makes consensus-fetcher event-driven via the earnings calendar; adds AV usage logging. ~45 min. **Runs BEFORE the historical-init sprint.** | **Active · runs 2026-05-06 (first)** |
-| **[active/SPRINT_2026-05-06_historical_init.md](active/SPRINT_2026-05-06_historical_init.md)** | **Tomorrow's main sprint.** Picks up the historical-init fan-out deferred from MS-4b: 22 remaining tickers + 11 sectors + STOCK_FACTORS / FUND_01 / FUND_03 backfill. Pre-flight verified data sources (FRED ✅, Yahoo ✅, Polygon ✅, AV ✅ with 25/day cap, Finnhub ❌, FMP ❌). 8 micro-sprints, ~5h. | **Active · runs 2026-05-06 (after the API audit sprint)** |
-| **[active/SPRINT_2026-05-06_validator_tab.md](active/SPRINT_2026-05-06_validator_tab.md)** | Validator tab + cost tracking. New `PROC_03_Pipeline_runs` + `PROC_04_API_usage` tables; AV/OpenAI/Gemini/Polygon callers write usage on every call; v2-balanced gets a Validator tab showing per-step pipeline status + 7-day API spend with budget headroom. ~3.5h, 6 micro-sprints. **Runs after historical-init.** | **Active · runs 2026-05-06 (third)** |
-| [active/SPRINT_agent_foundation.md](active/SPRINT_agent_foundation.md) | Detail-level sprint plan for the agent foundation. **Superseded by SPRINT_CHAIN phase 2** for execution; kept as deeper reference on the canonical-agent pattern. | Reference only — execute via SPRINT_CHAIN |
-| [active/SPRINT_agent_rollout.md](active/SPRINT_agent_rollout.md) | Detail-level sprint plan for the 24-agent rollout. **Superseded by SPRINT_CHAIN phase 3** for execution; kept as deeper reference on per-agent micro-cycles, model assignment, and quality-pass discipline. | Reference only — execute via SPRINT_CHAIN |
-| [active/SPRINT_validation_cleanup.md](active/SPRINT_validation_cleanup.md) | Detail-level sprint plan for end-to-end validation + cleanup. **Superseded by SPRINT_CHAIN phase 5** for execution; kept as deeper reference on smoke-test + walkthrough patterns. | Reference only — execute via SPRINT_CHAIN |
-| [active/V2_PIPELINE_DRAFT.md](active/V2_PIPELINE_DRAFT.md) | Earlier broader v2 pipeline sketch (engines + clusters). Now superseded in scope by TICKER_PIPELINE for the Ticker tab — kept as reference for the macro / sector / tape pipelines that still need the same treatment. | Active but partially superseded |
-| [active/DASHBOARD_AI_INTEGRATION.md](active/DASHBOARD_AI_INTEGRATION.md) | Writing principles for AI-generated readings (§16: the prompt-design contract). Source of truth for how each agent must write. | Active · 2026-04-29 |
-| [active/MOCKUP_ANALYSIS.md](active/MOCKUP_ANALYSIS.md) | Critique notes from the v2 mockup rebuild (what to keep, what to cut). | Active reference for the rebuild |
+| [active/TICKER_PIPELINE.md](active/TICKER_PIPELINE.md) | Per-agent pipeline for the three Ticker surfaces (Name slide-out 10 agents, Today, Tape). Includes the topic-feed contract. | Active |
+| [active/MAP_PIPELINE.md](active/MAP_PIPELINE.md) | Per-agent pipeline for the Macro slide-out (7 agents) and Sector slide-out (6 agents). Cross-pipeline lineage Macro → Sector → Ticker defined. | Active |
+| [active/DASHBOARD_AI_INTEGRATION.md](active/DASHBOARD_AI_INTEGRATION.md) | Writing principles for AI-generated readings (§16 prompt-design contract). Source of truth for how each agent must write. | Active |
+| [active/HEDGE_FUND_DATA_REQUIREMENTS.md](active/HEDGE_FUND_DATA_REQUIREMENTS.md) | What hedge-fund-grade analysis actually needs from the data layer. Strategic reference. | Active |
+| [active/v2_BALANCED_MOCKUP.md](active/v2_BALANCED_MOCKUP.md) | Rationale for the balanced v2 mockup: REMOVED / CHANGED / ADDED, per-section before/after, full source map. | Active reference |
 | [active/PORTFOLIO_DASHBOARD_DESIGN.md](active/PORTFOLIO_DASHBOARD_DESIGN.md) | v2 dashboard design doc (layout, sections, surfaces). PDF alongside. | Active design ref |
-| [active/HEDGE_FUND_DATA_REQUIREMENTS.md](active/HEDGE_FUND_DATA_REQUIREMENTS.md) | What hedge-fund-grade analysis actually needs from the data layer. | Active strategic ref |
-| [active/FEATURE_gemini_grounded_summary.md](active/FEATURE_gemini_grounded_summary.md) | Optional Stage 3 summary path (Gemini 2.5 Flash + Google Search grounding). Disabled on master to save ~$15/mo; live code on branch `feature/gemini-grounded-summary`. | Optional · disabled 2026-05-05 |
-
-The current mockup lives at [`dashboard/mockup/index.html`](../dashboard/mockup/index.html) (visually-locked v2). The free-source-honest variant from the 2026-05-04 audit is at [`dashboard/mockup/v2-balanced/index.html`](../dashboard/mockup/v2-balanced/index.html). Both serve on `localhost:8000` during design iteration.
+| [active/MOCKUP_ANALYSIS.md](active/MOCKUP_ANALYSIS.md) | Critique notes from the v2 mockup rebuild — what to keep, what to cut. | Active reference |
+| [active/FEATURE_gemini_grounded_summary.md](active/FEATURE_gemini_grounded_summary.md) | Optional Stage 3 summary path (Gemini 2.5 Flash + Google Search grounding). Disabled on master to save ~$15/mo. Live code on `feature/gemini-grounded-summary` branch. | Optional · disabled |
 
 ---
 
@@ -66,13 +46,13 @@ Don't churn. Update only when the underlying subsystem changes.
 | [`features/`](features/) | One file per stable subsystem: [dashboard](features/dashboard.md) · [pipeline](features/pipeline.md) · [data-sources](features/data-sources.md) · [validation](features/validation.md) · [worker-d1](features/worker-d1.md) |
 | [`reference/`](reference/) | [DATABASE_SCHEMA](reference/DATABASE_SCHEMA.md) · [KEY_COMMANDS](reference/KEY_COMMANDS.md) · [WORKER_TAXONOMY](reference/WORKER_TAXONOMY.md) |
 | [`guidelines/`](guidelines/) | [DOC_GUIDELINES](guidelines/DOC_GUIDELINES.md) — the rules this index follows |
-| [`narrative/`](narrative/) | Narrative-phase audits ([entities](narrative/audit-entities.md), [surfaces](narrative/audit-surfaces.md), [data inventory](narrative/data-inventory.md), [sector decision](narrative/sector-decision.md)). Phase work appears complete — leave for now, archive when next-gen narrative ships. |
+| [`narrative/`](narrative/) | Narrative-phase audits ([entities](narrative/audit-entities.md), [surfaces](narrative/audit-surfaces.md), [data inventory](narrative/data-inventory.md), [sector decision](narrative/sector-decision.md)). |
 
 ---
 
 ## Archive · `archive/`
 
-Completed plans, finished sprints, point-in-time test reports, and superseded references. Kept for history and traceability — never delete.
+Completed plans, finished sprints, point-in-time test reports, superseded references. Kept for traceability — never delete.
 
 ### `archive/plans/` · completed multi-week build plans
 
@@ -85,12 +65,21 @@ Completed plans, finished sprints, point-in-time test reports, and superseded re
 | [NARRATIVE_PHASE_2_PLAN.md](archive/plans/NARRATIVE_PHASE_2_PLAN.md) | Narrative phase 2 plan |
 | [REFACTORING_PLAN.md](archive/plans/REFACTORING_PLAN.md) | Earlier refactoring plan |
 
-### `archive/sprints/` · completed sprint docs
+### `archive/sprints/` · completed sprint docs + outputs
 
 | Doc | What it was |
 |---|---|
 | [SPRINT_14_DETAILING_REPORT.md](archive/sprints/SPRINT_14_DETAILING_REPORT.md) | Sprint 14 — detailing report |
 | [SPRINT_15_PLAN_local_to_cron_migration.md](archive/sprints/SPRINT_15_PLAN_local_to_cron_migration.md) | Sprint 15 — local→cron migration plan |
+| [PRE_SPRINT_AUDIT_2026-05-04.md](archive/sprints/PRE_SPRINT_AUDIT_2026-05-04.md) | Pre-sprint audit — surveys existing AI workers, identifies four risks the original sprint chain didn't cover |
+| [SPRINT_2026-05-04_dashboard_balance.md](archive/sprints/SPRINT_2026-05-04_dashboard_balance.md) | Mockup-vs-DB-vs-pipeline audit; built the balanced new mockup |
+| [SPRINT_CHAIN_2026-05-05.md](archive/sprints/SPRINT_CHAIN_2026-05-05.md) | The dashboard go-live runbook — 26 micro-sprints across 6 phases |
+| [SPRINT_pipeline_implementation.md](archive/sprints/SPRINT_pipeline_implementation.md) | Parameter swap in pipeline + DB; new free-source parsers |
+| [SPRINT_pipeline_leftovers.md](archive/sprints/SPRINT_pipeline_leftovers.md) | Closed 5 known follow-ups from pipeline-implementation sprint |
+| [SPRINT_2026-05-06_pre_init_api_audit.md](archive/sprints/SPRINT_2026-05-06_pre_init_api_audit.md) | AV 25/day budget coordination; consensus-fetcher event-driven via earnings calendar |
+| [SPRINT_2026-05-06_historical_init.md](archive/sprints/SPRINT_2026-05-06_historical_init.md) | Historical-init fan-out (22 tickers + 11 sectors + STOCK_FACTORS / FUND_01 / FUND_03 backfill) |
+| [SPRINT_2026-05-06_validator_tab.md](archive/sprints/SPRINT_2026-05-06_validator_tab.md) | Validator tab + cost tracking — added PROC_03_Pipeline_runs + PROC_04_API_usage tables |
+| [sprint-output/](archive/sprints/sprint-output/) | Sprint outputs from May-04 audit + May-06 init: AUDIT_INVENTORY, PARAMETER_DECISIONS, PIPELINE_AUDIT, VALIDATION_REPORT, BUGS_FOUND, INIT_NOTES, HISTORICAL_INIT_FANOUT |
 
 ### `archive/tests/` · point-in-time test results and timings
 
@@ -106,17 +95,21 @@ Completed plans, finished sprints, point-in-time test reports, and superseded re
 | Doc | Replaced by |
 |---|---|
 | [FULL_PIPELINE.md](archive/superseded/FULL_PIPELINE.md) | [SYSTEM_REFERENCE.md](SYSTEM_REFERENCE.md) |
-| [ARCHITECTURE.md](archive/superseded/ARCHITECTURE.md) | [SYSTEM_REFERENCE.md](SYSTEM_REFERENCE.md) + [STRUCTURE.md](STRUCTURE.md) |
+| [ARCHITECTURE.md](archive/superseded/ARCHITECTURE.md) | [architecture.md](architecture.md) |
 | [PIPELINE.md](archive/superseded/PIPELINE.md) | [SYSTEM_REFERENCE.md](SYSTEM_REFERENCE.md) |
 | [VALIDATION_SYSTEM_SPEC.md](archive/superseded/VALIDATION_SYSTEM_SPEC.md) | [features/validation.md](features/validation.md) |
+| [SPRINT_agent_foundation.md](archive/superseded/SPRINT_agent_foundation.md) | SPRINT_CHAIN phase 2 (executed) |
+| [SPRINT_agent_rollout.md](archive/superseded/SPRINT_agent_rollout.md) | SPRINT_CHAIN phase 3 (executed) |
+| [SPRINT_validation_cleanup.md](archive/superseded/SPRINT_validation_cleanup.md) | SPRINT_CHAIN phase 5 (executed) |
+| [V2_PIPELINE_DRAFT.md](archive/superseded/V2_PIPELINE_DRAFT.md) | [active/TICKER_PIPELINE.md](active/TICKER_PIPELINE.md) + [active/MAP_PIPELINE.md](active/MAP_PIPELINE.md) |
 
 ---
 
 ## Workflow
 
-1. **Starting a new feature?** Create `active/{FEATURE_NAME}.md`. Add a row to the "Active work" table above with one sentence on what it is.
+1. **Starting a new feature?** Create `active/{FEATURE_NAME}.md`. Add a row to the "Active work" table above.
 2. **Iterating on an active doc?** Edit in place. Bump its `Last updated` date.
-3. **Feature shipped?** Either (a) fold the design into the canonical refs (STRUCTURE / SYSTEM_REFERENCE / features) and move the active doc to `archive/plans/` or `archive/superseded/`, or (b) leave it in `active/` if it is still being iterated.
+3. **Feature shipped?** Either (a) fold the design into the canonical refs (architecture / SYSTEM_REFERENCE / features) and move the active doc to `archive/plans/` or `archive/superseded/`, or (b) leave it in `active/` if it's still being iterated.
 4. **Doc proven wrong or replaced?** Move to `archive/superseded/` and update the table above with what replaced it.
 5. **Sprint or test session done?** Drop the report in `archive/sprints/` or `archive/tests/`.
 
