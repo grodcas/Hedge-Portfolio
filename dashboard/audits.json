@@ -252,6 +252,34 @@
         "workers/macro-positioning-agent/src/worker.js (DXY rule)",
         "dashboard/index.html (__mFmtTsAgo + 18 call-sites + data-sector fix)"
       ]
+    },
+    {
+      "id": "2026-05-09-cron-recovery",
+      "date": "2026-05-09",
+      "scope": "operations",
+      "title": "Silent-cron recovery — 4 missed crons re-fired, NVDA/XLE/Macro re-perfected",
+      "verdict": "fixed",
+      "summary": "Cloudflare delivery dropped 4 of the 9 daily crons between May-8 22 UTC and May-9 17 UTC. Re-deployed the affected workers (refreshes registration), force-fired the missed runs, and walked NVDA + XLE + Macro through the orchestrator end-to-end. All 11 NVDA panels, all 6 XLE panels, all 7 Macro panels now show today's timestamp. Total cost: $0.40 across 33 LLM calls.",
+      "findings": [
+        { "cron": "agent-orchestrator (0 22 * * 1-5)",     "missed": "2026-05-08 22:00 UTC", "remediation": "re-deployed; ran scoped force-fires for NVDA + Energy + macro-positioning/signposts/read/fomc-summary; the May-9 16:17 + 16:41 macro-thesis probes confirmed the worker itself is healthy" },
+        { "cron": "macro-state-fetcher (10 0 * * *)",      "missed": "2026-05-09 00:10 UTC", "remediation": "re-deployed; /build returned ok with 1066 inserts (FRED + BLS)" },
+        { "cron": "yfinance-cross-asset-fetcher (20 0 * * *)", "missed": "2026-05-09 00:20 UTC", "remediation": "re-deployed; /build returned ok with 236 inserts across SPX/VIX/WTI/DXY/etc." },
+        { "cron": "big-movers-why (0 7 * * 2-6)",          "missed": "2026-05-08 + 2026-05-09 07:00 UTC (2 days)", "remediation": "re-deployed; /build?date=2026-05-08 produced 10 mover explanations" }
+      ],
+      "verifications": [
+        { "check": "NVDA all 11 panels fresh",            "result": "thesis 17:51, valuation 17:49, fundamentals 17:49, estimates 17:50, peers 17:50, context 17:50, news_drift 17:51, notes 17:52, recommendation 17:52, read 17:52, earnings_summary 17:53 — all 2026-05-09 UTC" },
+        { "check": "XLE all 6 panels fresh",              "result": "news_drift 17:49, thesis 17:49, notes 17:49, implementation 17:49, hedges 17:50, read 17:50 — all 2026-05-09 UTC" },
+        { "check": "Macro all 7 panels fresh",            "result": "news_drift 17:46, thesis 17:46, notes 17:47, positioning 17:54, signposts 17:55, read 17:55, fomc_summary 17:56 — all 2026-05-09 UTC" },
+        { "check": "Sector strip — 8 sectors, 0 nulls",   "result": "OK; Tech/ConsDisc/Communication/Finance/Energy/Healthcare/Staples/Industrial all carry breadth + stance" },
+        { "check": "SPX in cross-asset feed",             "result": "OK; SPX = 7,398.93 (May-8 close)" },
+        { "check": "Macro regime classified",             "result": "soft-landing (deterministic rule from INITIAL_CLAIMS=200k, OAS_HY=2.79%, VIX=17.08, INDPRO Z=+1.18σ)" },
+        { "check": "Movers populated for May-8",          "result": "10 movers (5 up, 5 down) with thesis prose" },
+        { "check": "DXY label rule — no DXY mislabel",    "result": "macro-thesis prose mentions SPX, VIX, OAS but did not reference the dollar in this print; positioning prose also clean" }
+      ],
+      "operational_notes": [
+        "Pattern is intermittent Cloudflare cron delivery, not a code bug — the same workers fired correctly on May-7. Re-deploying refreshes the cron registration and is the standard remediation.",
+        "If silent misses become weekly, escalate to: dedicated /heartbeat endpoint that pings each cron worker, or move daily fetchers to a single supervisor with a watchdog cron. For now, Monday 22 UTC walk will catch up the broader 5-ticker × 3-sector scope automatically."
+      ]
     }
   ]
 }
