@@ -424,7 +424,13 @@ export async function fetchFundamentals(config, logger, results, opts = {}) {
     throw new Error(`Invalid pass "${pass}". Expected one of ${validPasses.join(", ")}`);
   }
 
-  logger.log("FUNDAMENTALS", `Starting Alpha Vantage fetch (pass=${pass}${forceAll ? ", FORCE-ALL" : ""})...`);
+  // Optional --tickers=AAPL,HD,... scope — for surgical backfills (e.g. patch
+  // capex on 6 tickers) without burning the full 25/day budget.
+  const TICKERS_SCOPED = (opts.tickers && opts.tickers.length > 0)
+    ? TICKERS.filter(t => opts.tickers.includes(t))
+    : TICKERS;
+
+  logger.log("FUNDAMENTALS", `Starting Alpha Vantage fetch (pass=${pass}${forceAll ? ", FORCE-ALL" : ""}${opts.tickers ? `, scoped=${TICKERS_SCOPED.join(",")}` : ""})...`);
 
   const apiKey = process.env.ALPHAVANTAGE_KEY;
   if (!apiKey) {
@@ -451,7 +457,8 @@ export async function fetchFundamentals(config, logger, results, opts = {}) {
   // tolerate a 3-day cadence; this halves the daily AV burn so the consensus
   // path can co-exist within the 25/day cap.
   if (forceAll) {
-    logger.log("FUNDAMENTALS", `--force-all: bypassing OVERVIEW cooldown for all ${TICKERS.length} tickers`);
+    tickersForOverview = [...TICKERS_SCOPED];
+    logger.log("FUNDAMENTALS", `--force-all: bypassing OVERVIEW cooldown for ${TICKERS_SCOPED.length} tickers`);
   } else {
     try {
       const res = await fetch(`${INGEST_BASE}/query/fundamentals`);
@@ -481,9 +488,9 @@ export async function fetchFundamentals(config, logger, results, opts = {}) {
       // Bypass the SEC-EDGAR-driven smart-fetch gate. Used for one-shot
       // historical backfills — e.g. patching capex on rows the Polygon
       // backfill wrote with capex=NULL.
-      statementTickers = [...TICKERS];
+      statementTickers = [...TICKERS_SCOPED];
       secByTicker = {};
-      logger.log("FUNDAMENTALS", `--force-all: refreshing statements for all ${statementTickers.length} tickers (bypassing EDGAR gate)`);
+      logger.log("FUNDAMENTALS", `--force-all: refreshing statements for ${statementTickers.length} tickers (bypassing EDGAR gate)`);
     } else {
       const sel = await selectStatementTickers(today, logger);
       statementTickers = sel.tickers;
@@ -815,6 +822,8 @@ if (isDirectRun) {
     const passArg = process.argv.find(a => a.startsWith("--pass="));
     const pass = passArg ? passArg.split("=")[1] : "ALL";
     const forceAll = process.argv.includes("--force-all");
+    const tickersArg = process.argv.find(a => a.startsWith("--tickers="));
+    const tickers = tickersArg ? tickersArg.split("=")[1].split(",").map(s => s.trim().toUpperCase()).filter(Boolean) : null;
 
     // Load .env from repo root
     try {
@@ -831,7 +840,7 @@ if (isDirectRun) {
 
     const start = Date.now();
     try {
-      const out = await fetchFundamentals({}, stubLogger, {}, { pass, forceAll });
+      const out = await fetchFundamentals({}, stubLogger, {}, { pass, forceAll, tickers });
       const elapsed = ((Date.now() - start) / 1000).toFixed(1);
       console.log(`\n✅ Done in ${elapsed}s — fetched=${out.fetched ?? 0} errors=${out.errors ?? 0} skipped=${out.skipped ?? 0}`);
       process.exit(0);
