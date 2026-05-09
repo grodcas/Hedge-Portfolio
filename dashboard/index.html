@@ -1314,11 +1314,14 @@
   .data-banner strong { color: #92400E; }
 
   /* ============ STANDALONE VIEWS — Hedges + Validator ============
-     Default: hedges + validator hidden, the rest of <main> behaves as the
-     scrolling overview. When body carries .view-hedges (or .view-validator),
-     ONLY the target section is visible — Today and the other overview
-     sections are hidden. */
+     Default: hedges + validator hidden, the rest of the page is the
+     scrolling overview (Today + main with Book/Map/Convergence). When body
+     carries .view-hedges (or .view-validator), ONLY the target section is
+     visible — Today (which lives outside <main>) and the other overview
+     sections are hidden. The top brand/nav header always stays. */
   #hedges, #validator { display: none; }
+  body.view-hedges    #today,
+  body.view-validator #today { display: none; }
   body.view-hedges    > main > section:not(#hedges)    { display: none; }
   body.view-hedges    #hedges    { display: block; }
   body.view-validator > main > section:not(#validator) { display: none; }
