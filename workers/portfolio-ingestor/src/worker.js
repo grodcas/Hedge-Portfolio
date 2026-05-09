@@ -1015,6 +1015,59 @@ export default {
           );
         }
 
+        // -------- GET /query/cron-health --------
+        // Validator tab — most-recent fire per Tier-1 cron worker, with the
+        // expected_within_h budget so the dashboard can flag stale ones.
+        // Mirrors the cron-watchdog worker's /status logic in one D1 query.
+        if (path === "/query/cron-health") {
+          const TRACKED = [
+            { worker: "agent-orchestrator",                 expected_within_h: 80 },
+            { worker: "consensus-fetcher",                  expected_within_h: 80 },
+            { worker: "economic-calendar-fetcher",          expected_within_h: 26 },
+            { worker: "fomc-statement-fetcher",             expected_within_h: 26 },
+            { worker: "macro-state-fetcher",                expected_within_h: 26 },
+            { worker: "sentiment-state-fetcher",            expected_within_h: 26 },
+            { worker: "yfinance-cross-asset-fetcher",       expected_within_h: 26 },
+            { worker: "topic-feed-builder",                 expected_within_h: 26 },
+            { worker: "valuation-curve-builder:short",      expected_within_h: 26 },
+            { worker: "valuation-curve-builder:long_auto",  expected_within_h: 26 },
+            { worker: "big-movers-why",                     expected_within_h: 80 },
+            { worker: "cron-watchdog",                      expected_within_h: 2  },
+          ];
+          const rows = await db.prepare(
+            `SELECT worker, fired_at, ok, duration_ms, rows_written, error
+               FROM PROC_05_Cron_runs
+              WHERE id IN (
+                SELECT MAX(id) FROM PROC_05_Cron_runs GROUP BY worker
+              )`,
+          ).all();
+          const byWorker = new Map((rows.results || []).map(r => [r.worker, r]));
+          const now = Date.now();
+          const checked = TRACKED.map(t => {
+            const row = byWorker.get(t.worker);
+            if (!row) {
+              return { worker: t.worker, expected_within_h: t.expected_within_h, last_fire: null, gap_h: null, stale: true, last_ok: null, note: "no fire logged yet" };
+            }
+            const gap_h = Math.round((now - Date.parse(row.fired_at)) / 3_600_000 * 10) / 10;
+            return {
+              worker: t.worker,
+              expected_within_h: t.expected_within_h,
+              last_fire: row.fired_at,
+              gap_h,
+              stale: gap_h > t.expected_within_h,
+              last_ok: row.ok === 1,
+              duration_ms: row.duration_ms,
+              rows_written: row.rows_written,
+              error: row.error,
+            };
+          });
+          const stale_count = checked.filter(c => c.stale).length;
+          return Response.json(
+            { ok: stale_count === 0, checked_at: new Date().toISOString(), stale_count, ok_count: checked.length - stale_count, checked },
+            { headers: corsHeaders },
+          );
+        }
+
         // -------- GET /query/workflow-status --------
         if (path === "/query/workflow-status") {
           const row = await db.prepare(`

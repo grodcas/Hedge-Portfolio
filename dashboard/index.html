@@ -1760,6 +1760,26 @@
       </div>
     </div>
 
+    <!-- ============ CRON HEALTH ============
+         Cron-watchdog (workers/cron-watchdog) writes one row per fire to
+         PROC_05_Cron_runs. /api/cron-health returns each Tier-1 cron's last
+         fire + the expected_within_h budget. Stale ones are flagged red. -->
+    <div style="padding: 0 12px 12px 12px;">
+      <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:var(--text2); margin-bottom:6px; display:flex; justify-content:space-between;">
+        <span>Cron health</span>
+        <span id="vld-cron-meta" style="font-weight:400; color:var(--muted); text-transform:none; letter-spacing:0;">loading…</span>
+      </div>
+      <table class="sectors" id="vld-cron">
+        <thead>
+          <tr>
+            <th class="left">Worker</th><th class="left">Last fire</th>
+            <th>Gap</th><th>Limit</th><th class="left">Status</th>
+          </tr>
+        </thead>
+        <tbody><tr><td colspan="5" style="color:var(--muted); padding:12px;">loading…</td></tr></tbody>
+      </table>
+    </div>
+
     <!-- ============ ANALYST AUDIT LOG ============
          Persistent record of every analyst-grade validation we run, with cross-checks
          against primary sources and the bug fixes that came out of each. Fetched from
@@ -3636,6 +3656,37 @@
       .catch(err => {
         const tbody = document.querySelector("#vld-usage tbody");
         tbody.innerHTML = `<tr><td colspan="5" style="color:var(--bad); padding:12px;">Failed to load API usage: ${esc(err.message)}</td></tr>`;
+      });
+
+    // Section C — cron health (PROC_05_Cron_runs via /api/cron-health).
+    fetch("/api/cron-health")
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(new Error(j.error || ("HTTP " + r.status)))))
+      .then(data => {
+        const tbody = document.querySelector("#vld-cron tbody");
+        const rows = Array.isArray(data.checked) ? data.checked : [];
+        document.getElementById("vld-cron-meta").textContent =
+          `${data.ok_count}/${rows.length} green · checked ${data.checked_at?.slice(11,16) || "?"} UTC`;
+        if (rows.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="color:var(--muted); padding:12px;">No cron runs logged yet — populates after the next scheduled fire.</td></tr>`;
+          return;
+        }
+        const fmtFire = (iso) => iso ? `${iso.slice(0,10)} ${iso.slice(11,16)}` : "—";
+        tbody.innerHTML = rows.map(r => {
+          const style = r.stale ? STATUS_STYLE.fail : (r.last_ok ? STATUS_STYLE.ok : STATUS_STYLE.warn);
+          const label = r.stale ? "STALE" : (r.last_ok ? "OK" : "ERROR");
+          const gap = r.gap_h == null ? "—" : `${r.gap_h}h`;
+          return `<tr>
+            <td class="left"><strong>${esc(r.worker)}</strong></td>
+            <td class="left" style="color:var(--text2); font-size:11px;">${esc(fmtFire(r.last_fire))}</td>
+            <td>${esc(gap)}</td>
+            <td style="color:var(--muted); font-size:11px;">${r.expected_within_h}h</td>
+            <td class="left"><span style="display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; ${style}">${label}</span></td>
+          </tr>`;
+        }).join("");
+      })
+      .catch(err => {
+        const tbody = document.querySelector("#vld-cron tbody");
+        tbody.innerHTML = `<tr><td colspan="5" style="color:var(--bad); padding:12px;">Failed to load cron health: ${esc(err.message)}</td></tr>`;
       });
 
     // Section C — analyst audit log (persistent record of validations).
