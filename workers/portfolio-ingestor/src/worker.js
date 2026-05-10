@@ -708,7 +708,7 @@ export default {
                 ON s.ticker = g.ticker AND s.date = g.d`
             ).all(),
             db.prepare(
-              `SELECT f.ticker, f.sector, f.ev_ebitda, f.profit_margin, f.operating_margin
+              `SELECT f.ticker, f.sector, f.ev_ebitda, f.pb_ratio, f.profit_margin, f.operating_margin
                  FROM FUND_01_Fundamentals f
                 INNER JOIN (SELECT ticker, MAX(date) AS d FROM FUND_01_Fundamentals GROUP BY ticker) g
                 ON f.ticker = g.ticker AND f.date = g.d`
@@ -787,6 +787,7 @@ export default {
               fwd_pe: f.fwd_pe ?? null,
               rel_pe_sigma: f.rel_pe_sigma ?? null,
               ev_ebitda: fu.ev_ebitda ?? null,
+              pb_ratio:  fu.pb_ratio ?? null,
               mom_12_1: f.mom_12_1 ?? null,
               days_to_catalyst: f.days_to_catalyst ?? null,
               thesis_regime: tr.regime || null,

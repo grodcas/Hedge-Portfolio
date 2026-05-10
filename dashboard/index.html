@@ -2932,6 +2932,7 @@
         fwdpez: r.rel_pe_sigma ?? 0,
         eveb:   r.ev_ebitda ?? null,
         evebz:  0,
+        pb:     r.pb_ratio ?? null,
         news_30d: r.news_30d ?? 0,
         marg:   null,                 // hydrated by fundamental-trends fetch below
         fcf:    null,                 // hydrated by fundamental-trends fetch below
@@ -3005,7 +3006,13 @@
         <td class="thesis-cell"><span class="thesis-tag ${r.thesis}">${r.thesis}</span>${lockMark}</td>
         <td class="attn num" style="${r.att == null ? "" : attBg(r.att)};border-radius:3px">${r.att == null ? "—" : r.att}</td>
         <td class="z-cell num"><span class="z-num" style="background:${zBg(r.fwdpez)}">${_n(r.fwdpe, v => v.toFixed(1))}<span class="zsup">z ${fmtSign(r.fwdpez || 0)}</span></span></td>
-        <td class="z-cell num"><span class="z-num" style="background:${zBg(r.evebz)}">${(r.eveb && r.eveb > 0) ? r.eveb.toFixed(1) : "—"}${(r.eveb && r.eveb > 0) ? `<span class="zsup">z ${fmtSign(r.evebz)}</span>` : ""}</span></td>
+        <td class="z-cell num">${
+          (r.eveb && r.eveb > 0)
+            ? `<span class="z-num" style="background:${zBg(r.evebz)}">${r.eveb.toFixed(1)}<span class="zsup">z ${fmtSign(r.evebz)}</span></span>`
+            : (r.pb && r.pb > 0)
+              ? `<span class="z-num" title="EV/EBITDA not meaningful for financials/conglomerates — showing Price-to-Book">${r.pb.toFixed(2)}<span class="zsup">P/B</span></span>`
+              : "—"
+        }</td>
         <td class="spark" title="1y price · PRICE_01_Daily">${sparkline(px, "#0F172A")}<span class="num" style="display:block;font-size:10px;color:var(--text2);text-align:right;margin-top:1px">$${pxNow.toFixed(0)} <span class="${pxClass}">${fmtSign(pxYoy, 0)}%</span></span></td>
         <td class="spark" title="Margin (indigo) + FCF (teal), 8q normalized">${sparklineDual(r.marg, r.fcf)}</td>
         <td class="num" title="Headlines in BETA_12_News_digest, last 30d">${r.news_30d == null ? "—" : r.news_30d}</td>
