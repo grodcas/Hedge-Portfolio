@@ -245,7 +245,7 @@ function extractQuartersBS(quarterlyReports) {
     current_liabilities:   parseNum(q.totalCurrentLiabilities),
     inventory:             parseNum(q.inventory),
     receivables:           parseNum(q.currentNetReceivables),
-    cash_and_equivalents:  parseNum(q.cashAndCashEquivalentsAtCarrying),
+    cash_and_equivalents:  parseNum(q.cashAndCashEquivalentsAtCarryingValue),
     short_term_debt:       parseNum(q.shortTermDebt),
     long_term_debt:        parseNum(q.longTermDebt),
     shares_outstanding:    parseNum(q.commonStockSharesOutstanding),
